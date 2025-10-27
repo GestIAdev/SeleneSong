@@ -1,0 +1,23 @@
+{
+  "sign": "Sagitario",
+  "symbol": "♐",
+  "element": "fire",
+  "quality": "mutable",
+  "cyberpunkTheme": "cosmic explorers",
+  "coreConcept": "interdimensional travel and digital philosophy",
+  "adjectives": [
+    "adventurous",
+    "fiery",
+    "philosophical",
+    "expansive",
+    "visionary"
+  ],
+  "verbs": ["explore", "expand", "philosophize", "journey", "discover"],
+  "nouns": [
+    "cosmic networks",
+    "dimensional gates",
+    "philosophical matrices",
+    "exploration protocols"
+  ],
+  "fibonacciWeight": 34
+}

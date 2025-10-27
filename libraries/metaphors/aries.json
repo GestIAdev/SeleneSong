@@ -1,0 +1,17 @@
+{
+  "sign": "Aries",
+  "symbol": "♈",
+  "element": "fire",
+  "quality": "cardinal",
+  "cyberpunkTheme": "rebel neural implants",
+  "coreConcept": "digital rebellion against corporate control",
+  "adjectives": ["rebel", "fiery", "implanted", "warrior", "digital"],
+  "verbs": ["rage", "override", "storm", "ignite", "dominate"],
+  "nouns": [
+    "neural networks",
+    "corporate towers",
+    "data streams",
+    "cyber warriors"
+  ],
+  "fibonacciWeight": 1
+}

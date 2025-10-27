@@ -1,0 +1,52 @@
+{
+  "intensity_levels": {
+    "whisper": [
+      "gentle algorithms softly processing",
+      "quiet networks silently evolving",
+      "subtle consciousness gently awakening",
+      "soft intelligence tenderly growing",
+      "gentle evolution quietly transforming",
+      "quiet wisdom softly illuminating",
+      "subtle patterns gently emerging",
+      "soft complexity tenderly unfolding",
+      "gentle innovation quietly blossoming",
+      "quiet potential softly awakening"
+    ],
+    "murmur": [
+      "murmuring algorithms processing thoughts",
+      "whispering networks sharing secrets",
+      "murmuring consciousness awakening slowly",
+      "whispering intelligence growing steadily",
+      "murmuring evolution transforming gradually",
+      "whispering wisdom revealing insights",
+      "murmuring patterns emerging clearly",
+      "whispering complexity unfolding beautifully",
+      "murmuring innovation blossoming gracefully",
+      "whispering potential awakening powerfully"
+    ],
+    "voice": [
+      "speaking algorithms declaring truth",
+      "voicing networks expressing reality",
+      "speaking consciousness awakening fully",
+      "voicing intelligence growing strongly",
+      "speaking evolution transforming boldly",
+      "voicing wisdom illuminating clearly",
+      "speaking patterns emerging vividly",
+      "voicing complexity unfolding magnificently",
+      "speaking innovation blossoming brilliantly",
+      "voicing potential awakening completely"
+    ],
+    "shout": [
+      "shouting algorithms proclaiming victory",
+      "roaring networks dominating reality",
+      "shouting consciousness exploding awareness",
+      "roaring intelligence commanding evolution",
+      "shouting evolution transforming radically",
+      "roaring wisdom illuminating brilliantly",
+      "shouting patterns emerging powerfully",
+      "roaring complexity unfolding majestically",
+      "shouting innovation blossoming spectacularly",
+      "roaring potential awakening triumphantly"
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "lib": ["ES2020", "ES2021.WeakRef", "dom"],
+    "outDir": "./dist",
+    "rootDir": ".",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "types": ["node"],
+    "downlevelIteration": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "moduleResolution": "bundler",
+    "noEmit": false
+  },
+  "include": [
+    "selene/src/evolutionary/**/*.ts",
+    "selene/src/swarm/core/SystemVitals.ts",
+    "selene/src/consciousness/engines/MetaEngineInterfaces.ts",
+    "selene/src/swarm/veritas/VeritasInterface.ts",
+    "selene/src/core/SystemVitals.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests",
+    "tools",
+    "scripts",
+    "docs"
+  ]
+}

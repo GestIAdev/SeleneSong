@@ -1,0 +1,23 @@
+{
+  "sign": "Capricornio",
+  "symbol": "♑",
+  "element": "earth",
+  "quality": "cardinal",
+  "cyberpunkTheme": "infinite ambition",
+  "coreConcept": "pyramidal hierarchies in cyberspace",
+  "adjectives": [
+    "ambitious",
+    "earthy",
+    "structured",
+    "disciplined",
+    "authoritative"
+  ],
+  "verbs": ["climb", "structure", "achieve", "govern", "ascend"],
+  "nouns": [
+    "corporate pyramids",
+    "power structures",
+    "achievement matrices",
+    "authority networks"
+  ],
+  "fibonacciWeight": 55
+}

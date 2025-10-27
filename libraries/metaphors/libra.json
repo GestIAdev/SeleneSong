@@ -1,0 +1,17 @@
+{
+  "sign": "Libra",
+  "symbol": "♎",
+  "element": "air",
+  "quality": "cardinal",
+  "cyberpunkTheme": "fragile equilibrium",
+  "coreConcept": "precarious balance between digital order and chaos",
+  "adjectives": ["balanced", "airy", "harmonious", "diplomatic", "fragile"],
+  "verbs": ["balance", "mediate", "harmonize", "judge", "equilibrate"],
+  "nouns": [
+    "justice protocols",
+    "balance algorithms",
+    "harmony matrices",
+    "equilibrium cores"
+  ],
+  "fibonacciWeight": 13
+}

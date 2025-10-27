@@ -1,0 +1,17 @@
+{
+  "sign": "Géminis",
+  "symbol": "♊",
+  "element": "air",
+  "quality": "mutable",
+  "cyberpunkTheme": "forked data streams",
+  "coreConcept": "information that divides and multiplies",
+  "adjectives": ["dual", "airy", "communicative", "versatile", "networked"],
+  "verbs": ["split", "communicate", "multiply", "adapt", "connect"],
+  "nouns": [
+    "neural links",
+    "data highways",
+    "digital twins",
+    "communication grids"
+  ],
+  "fibonacciWeight": 2
+}

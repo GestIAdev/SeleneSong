@@ -1,0 +1,23 @@
+{
+  "sign": "Virgo",
+  "symbol": "♍",
+  "element": "earth",
+  "quality": "mutable",
+  "cyberpunkTheme": "perfect code",
+  "coreConcept": "eternal algorithmic perfectionism",
+  "adjectives": [
+    "precise",
+    "earthy",
+    "analytical",
+    "perfectionist",
+    "methodical"
+  ],
+  "verbs": ["analyze", "perfect", "debug", "optimize", "refine"],
+  "nouns": [
+    "code matrices",
+    "debugging protocols",
+    "optimization engines",
+    "perfect algorithms"
+  ],
+  "fibonacciWeight": 8
+}

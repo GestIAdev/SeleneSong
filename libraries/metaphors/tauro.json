@@ -1,0 +1,23 @@
+{
+  "sign": "Tauro",
+  "symbol": "♉",
+  "element": "earth",
+  "quality": "fixed",
+  "cyberpunkTheme": "voracious corporations",
+  "coreConcept": "digital monopolies that devour freedom",
+  "adjectives": [
+    "voracious",
+    "earthy",
+    "monopolistic",
+    "possessive",
+    "material"
+  ],
+  "verbs": ["consume", "hoard", "fortify", "accumulate", "endure"],
+  "nouns": [
+    "corporate fortresses",
+    "data vaults",
+    "digital wealth",
+    "system cores"
+  ],
+  "fibonacciWeight": 1
+}

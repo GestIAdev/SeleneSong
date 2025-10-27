@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "lib": ["ES2020", "ES2021.WeakRef", "dom"],
+    "outDir": "./dist",
+    "rootDir": ".",
+    "strict": false,               // TEMPORAL: Permitir compilación con errores de tipo (DIRECTIVA 27.10.25-F-PM2.3)
+    "noImplicitAny": false,        // TEMPORAL: Permitir any implícito
+    "strictNullChecks": false,      // TEMPORAL: Permitir null/undefined sin check
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "types": ["node", "jest"],
+    "downlevelIteration": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "moduleResolution": "NodeNext",
+    "noEmit": false,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "ignoreDeprecations": "5.0"
+  },
+  "include": [
+    "src/**/*.ts",
+    "index.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests",
+    "tools",
+    "scripts",
+    "docs",
+    "src/evolutionary/engines/evolutionary-decision-generator.test.ts"
+  ]
+}

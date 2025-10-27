@@ -1,0 +1,23 @@
+{
+  "sign": "Acuario",
+  "symbol": "♒",
+  "element": "air",
+  "quality": "fixed",
+  "cyberpunkTheme": "collective revolution",
+  "coreConcept": "collective consciousness and revolutionary change",
+  "adjectives": [
+    "innovative",
+    "airy",
+    "collective",
+    "revolutionary",
+    "visionary"
+  ],
+  "verbs": ["revolutionize", "innovate", "unite", "transform", "liberate"],
+  "nouns": [
+    "collective minds",
+    "revolution networks",
+    "innovation hubs",
+    "freedom protocols"
+  ],
+  "fibonacciWeight": 89
+}

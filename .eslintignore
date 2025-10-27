@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-esm/
+
+# Profiling files
+profiling/
+
+# Logs
+logs/
+
+# Test results
+test-results/
+
+# Config files
+*.config.js
+*.config.ts
+
+# Generated files
+*.generated.ts
+*.generated.js

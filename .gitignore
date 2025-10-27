@@ -1,0 +1,17 @@
+# Ignorar dependencias
+node_modules/
+
+# Ignorar builds
+dist/
+build/
+
+# Ignorar logs y archivos locales
+*.log
+.env
+.DS_Store
+
+# Ignorar backups y snapshots (tu sistema)
+backup/
+snapshots/
+test/
+docs/

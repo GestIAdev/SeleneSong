@@ -1,0 +1,23 @@
+{
+  "sign": "Escorpio",
+  "symbol": "♏",
+  "element": "water",
+  "quality": "fixed",
+  "cyberpunkTheme": "dark secrets",
+  "coreConcept": "deep encryption and hidden transformation",
+  "adjectives": [
+    "intense",
+    "fluid",
+    "mysterious",
+    "transformative",
+    "powerful"
+  ],
+  "verbs": ["transform", "encrypt", "penetrate", "regenerate", "conceal"],
+  "nouns": [
+    "encryption vaults",
+    "dark networks",
+    "transformation chambers",
+    "secret protocols"
+  ],
+  "fibonacciWeight": 21
+}

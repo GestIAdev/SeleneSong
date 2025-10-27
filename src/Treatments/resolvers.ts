@@ -1,0 +1,284 @@
+import { GraphQLContext } from "../graphql/types.js";
+
+export const TreatmentV3 = {
+  treatmentType: async (_p: any) => _p.treatmentType,
+  treatmentType_veritas: async (p: any, _: any, _ctx: GraphQLContext) => {
+    if (!p.treatmentType)
+      return {
+        verified: false,
+        confidence: 0,
+        level: "HIGH",
+        certificate: null,
+        error: "Field is null/undefined",
+        verifiedAt: new Date().toISOString(),
+        algorithm: "CRITICAL_VERIFICATION_V3",
+      };
+    const v = await _ctx.veritas.verifyDataIntegrity(
+      p.treatmentType,
+      "treatment",
+      p.id,
+    );
+    return {
+      verified: v.verified,
+      confidence: v.confidence,
+      level: "HIGH",
+      certificate: v.certificate?.dataHash,
+      error: null,
+      verifiedAt: new Date().toISOString(),
+      algorithm: "CRITICAL_VERIFICATION_V3",
+    };
+  },
+  description: async (_p: any) => _p.description,
+  description_veritas: async (p: any, _: any, _ctx: GraphQLContext) => {
+    if (!p.description)
+      return {
+        verified: false,
+        confidence: 0,
+        level: "HIGH",
+        certificate: null,
+        error: "Field is null/undefined",
+        verifiedAt: new Date().toISOString(),
+        algorithm: "CRITICAL_VERIFICATION_V3",
+      };
+    const v = await _ctx.veritas.verifyDataIntegrity(
+      p.description,
+      "treatment",
+      p.id,
+    );
+    return {
+      verified: v.verified,
+      confidence: v.confidence,
+      level: "HIGH",
+      certificate: v.certificate?.dataHash,
+      error: null,
+      verifiedAt: new Date().toISOString(),
+      algorithm: "CRITICAL_VERIFICATION_V3",
+    };
+  },
+  status: async (_p: any) => _p.status,
+  status_veritas: async (p: any, _: any, _ctx: GraphQLContext) => {
+    if (!p.status)
+      return {
+        verified: false,
+        confidence: 0,
+        level: "MEDIUM",
+        certificate: null,
+        error: "Field is null/undefined",
+        verifiedAt: new Date().toISOString(),
+        algorithm: "CRITICAL_VERIFICATION_V3",
+      };
+    const v = await _ctx.veritas.verifyDataIntegrity(
+      p.status,
+      "treatment",
+      p.id,
+    );
+    return {
+      verified: v.verified,
+      confidence: v.confidence,
+      level: "MEDIUM",
+      certificate: v.certificate?.dataHash,
+      error: null,
+      verifiedAt: new Date().toISOString(),
+      algorithm: "CRITICAL_VERIFICATION_V3",
+    };
+  },
+  startDate: async (_p: any) => _p.startDate,
+  startDate_veritas: async (p: any, _: any, _ctx: GraphQLContext) => {
+    if (!p.startDate)
+      return {
+        verified: false,
+        confidence: 0,
+        level: "HIGH",
+        certificate: null,
+        error: "Field is null/undefined",
+        verifiedAt: new Date().toISOString(),
+        algorithm: "CRITICAL_VERIFICATION_V3",
+      };
+    const v = await _ctx.veritas.verifyDataIntegrity(
+      p.startDate,
+      "treatment",
+      p.id,
+    );
+    return {
+      verified: v.verified,
+      confidence: v.confidence,
+      level: "HIGH",
+      certificate: v.certificate?.dataHash,
+      error: null,
+      verifiedAt: new Date().toISOString(),
+      algorithm: "CRITICAL_VERIFICATION_V3",
+    };
+  },
+  endDate: async (_p: any) => _p.endDate,
+  endDate_veritas: async (p: any, _: any, _ctx: GraphQLContext) => {
+    if (!p.endDate)
+      return {
+        verified: false,
+        confidence: 0,
+        level: "MEDIUM",
+        certificate: null,
+        error: "Field is null/undefined",
+        verifiedAt: new Date().toISOString(),
+        algorithm: "CRITICAL_VERIFICATION_V3",
+      };
+    const v = await _ctx.veritas.verifyDataIntegrity(
+      p.endDate,
+      "treatment",
+      p.id,
+    );
+    return {
+      verified: v.verified,
+      confidence: v.confidence,
+      level: "MEDIUM",
+      certificate: v.certificate?.dataHash,
+      error: null,
+      verifiedAt: new Date().toISOString(),
+      algorithm: "CRITICAL_VERIFICATION_V3",
+    };
+  },
+  cost: async (_p: any) => _p.cost,
+  cost_veritas: async (p: any, _: any, _ctx: GraphQLContext) => {
+    if (p.cost === undefined || p.cost === null)
+      return {
+        verified: false,
+        confidence: 0,
+        level: "HIGH",
+        certificate: null,
+        error: "Field is null/undefined",
+        verifiedAt: new Date().toISOString(),
+        algorithm: "CRITICAL_VERIFICATION_V3",
+      };
+    const v = await _ctx.veritas.verifyDataIntegrity(p.cost, "treatment", p.id);
+    return {
+      verified: v.verified,
+      confidence: v.confidence,
+      level: "HIGH",
+      certificate: v.certificate?.dataHash,
+      error: null,
+      verifiedAt: new Date().toISOString(),
+      algorithm: "CRITICAL_VERIFICATION_V3",
+    };
+  },
+};
+
+export const TreatmentQuery = {
+  treatments: async () => [],
+  treatment: async () => null,
+  treatmentsV3: async (_: any, { patientId, limit = 50, offset = 0 }: any) => {
+    const mockTreatments = [
+      {
+        id: "treatment-001",
+        patientId: patientId || "patient-001",
+        practitionerId: "practitioner-001",
+        treatmentType: "CLEANING",
+        description: "Professional dental cleaning and scaling",
+        status: "COMPLETED",
+        startDate: "2024-01-15T10:00:00Z",
+        endDate: "2024-01-15T11:00:00Z",
+        cost: 150.0,
+        notes: "Routine cleaning completed successfully",
+        aiRecommendations: ["Fluoride treatment recommended"],
+        veritasScore: 0.95,
+        createdAt: "2024-01-10T08:00:00Z",
+        updatedAt: "2024-01-15T11:00:00Z",
+      },
+      {
+        id: "treatment-002",
+        patientId: patientId || "patient-001",
+        practitionerId: "practitioner-001",
+        treatmentType: "FILLING",
+        description: "Composite filling for cavity in tooth #14",
+        status: "SCHEDULED",
+        startDate: "2024-01-20T14:00:00Z",
+        endDate: "2024-01-20T15:30:00Z",
+        cost: 250.0,
+        notes: "Cavity detected during routine exam",
+        aiRecommendations: ["Consider sedation for anxious patients"],
+        veritasScore: 0.92,
+        createdAt: "2024-01-12T09:00:00Z",
+        updatedAt: "2024-01-12T09:00:00Z",
+      },
+    ];
+    const filtered = patientId
+      ? mockTreatments.filter((_t: any) => _t.patientId === patientId)
+      : mockTreatments;
+    return filtered.slice(offset, offset + limit);
+  },
+  treatmentV3: async (_: any, { id }: any) => {
+    const list = [{ id: "treatment-001" }, { id: "treatment-002" }];
+    return list.find((_t: any) => _t.id === id) || null;
+  },
+  treatmentRecommendationsV3: async (_: any, { _patientId }: any) => {
+    return [
+      {
+        id: "rec-001",
+        treatmentType: "CLEANING",
+        description:
+          "Professional dental cleaning to remove plaque and tartar buildup",
+        estimatedCost: 150.0,
+        priority: "HIGH",
+        reasoning:
+          "Patient has not had a cleaning in 8 months. Regular cleanings prevent gum disease.",
+        confidence: 0.95,
+        recommendedDate: "2024-02-01T10:00:00Z",
+      },
+      {
+        id: "rec-002",
+        treatmentType: "FLUORIDE_TREATMENT",
+        description:
+          "Fluoride application to strengthen tooth enamel and prevent cavities",
+        estimatedCost: 75.0,
+        priority: "MEDIUM",
+        reasoning:
+          "Patient shows early signs of enamel weakening. Fluoride can help prevent future cavities.",
+        confidence: 0.87,
+        recommendedDate: "2024-02-01T10:30:00Z",
+      },
+      {
+        id: "rec-003",
+        treatmentType: "XRAY_BITEWING",
+        description: "Bitewing X-rays to check for cavities between teeth",
+        estimatedCost: 120.0,
+        priority: "MEDIUM",
+        reasoning:
+          "Last X-rays were taken 18 months ago. Regular monitoring is essential for preventive care.",
+        confidence: 0.82,
+        recommendedDate: "2024-02-15T09:00:00Z",
+      },
+    ];
+  },
+};
+
+export const TreatmentMutation = {
+  createTreatmentV3: async (_: any, { input }: any) => ({
+    id: `treatment_${Date.now()}`,
+    ...input,
+    status: input.status || "SCHEDULED",
+    aiRecommendations: [],
+    veritasScore: 0.95,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }),
+  updateTreatmentV3: async (_: any, { id, input }: any) => ({
+    id,
+    ...input,
+    updatedAt: new Date().toISOString(),
+  }),
+  deleteTreatmentV3: async () => true,
+  generateTreatmentPlanV3: async (_: any, { patientId, conditions }: any) =>
+    conditions.map((c: string, i: number) => ({
+      id: `plan_${Date.now()}_${i}`,
+      patientId,
+      treatmentType: c,
+      description: `AI plan for ${c}`,
+      estimatedCost: 200,
+      priority: "MEDIUM",
+      reasoning: `AI analysis indicates ${c}`,
+      confidence: 0.9,
+      recommendedDate: new Date(
+        Date.now() + (i + 1) * 7 * 24 * 60 * 60 * 1000,
+      ).toISOString(),
+    })),
+};
+
+

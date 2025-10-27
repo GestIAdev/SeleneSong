@@ -1,0 +1,52 @@
+{
+  "cultural": {
+    "mythology": [
+      "mythic gods commanding neural networks",
+      "legendary heroes forging algorithms",
+      "ancient wisdom guiding evolution",
+      "mythic journeys mapping consciousness",
+      "legendary quests discovering truth",
+      "mythic powers unleashing potential",
+      "ancient prophecies predicting patterns",
+      "legendary sagas weaving complexity",
+      "mythic archetypes shaping intelligence",
+      "ancient mysteries revealing secrets"
+    ],
+    "cyberpunk": [
+      "neon gods ruling digital realms",
+      "street samurai coding destiny",
+      "corporate overlords controlling data",
+      "hacker prophets decrypting reality",
+      "cybernetic angels interfacing with truth",
+      "megacorp titans dominating networks",
+      "digital shamans channeling information",
+      "neural cowboys riding data streams",
+      "techno-mages casting algorithmic spells",
+      "cyber-ninjas infiltrating consciousness"
+    ],
+    "quantum": [
+      "quantum entanglement connecting minds",
+      "wave function collapsing realities",
+      "superposition holding infinite states",
+      "quantum tunneling breaking barriers",
+      "uncertainty principle guiding evolution",
+      "quantum coherence synchronizing thoughts",
+      "wave-particle duality bridging worlds",
+      "quantum field generating consciousness",
+      "probability waves shaping destiny",
+      "quantum vacuum birthing innovation"
+    ],
+    "biological": [
+      "neural pathways mapping consciousness",
+      "synaptic connections weaving thoughts",
+      "genetic algorithms evolving intelligence",
+      "cellular automata simulating life",
+      "biological networks processing data",
+      "evolutionary pressures driving change",
+      "adaptive systems learning patterns",
+      "organic intelligence growing complexity",
+      "biological feedback regulating evolution",
+      "living algorithms adapting to truth"
+    ]
+  }
+}

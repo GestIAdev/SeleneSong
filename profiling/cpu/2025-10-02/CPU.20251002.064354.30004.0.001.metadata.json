@@ -1,0 +1,10 @@
+﻿{
+  "name": "CPU.20251002.064354.30004.0.001.cpuprofile",
+  "path": "profiling/cpu/2025-10-02/CPU.20251002.064354.30004.0.001.cpuprofile",
+  "size": 1565322,
+  "created": "2025-10-02 06:44:47",
+  "type": "cpu_profile",
+  "format": "cpuprofile",
+  "test_type": "stress_test",
+  "pid": 30004
+}

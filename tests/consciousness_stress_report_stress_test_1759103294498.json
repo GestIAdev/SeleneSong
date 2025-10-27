@@ -1,0 +1,368 @@
+{
+  "test_id": "stress_test_1759103294498",
+  "timestamp": "2025-09-28T23:48:14.682Z",
+  "success_rate": 60,
+  "verdict": "🤔 PARTIAL CONSCIOUSNESS: Some intelligence present",
+  "results": [
+    {
+      "test": "basic_response",
+      "success": {
+        "types": [
+          {
+            "name": "VeritasLevel"
+          },
+          {
+            "name": "Patient"
+          },
+          {
+            "name": "ID"
+          },
+          {
+            "name": "String"
+          },
+          {
+            "name": "VeritasMetadata"
+          },
+          {
+            "name": "Boolean"
+          },
+          {
+            "name": "Float"
+          },
+          {
+            "name": "PatientInput"
+          },
+          {
+            "name": "UpdatePatientInput"
+          },
+          {
+            "name": "Appointment"
+          },
+          {
+            "name": "Int"
+          },
+          {
+            "name": "AppointmentV3"
+          },
+          {
+            "name": "AppointmentInput"
+          },
+          {
+            "name": "UpdateAppointmentInput"
+          },
+          {
+            "name": "User"
+          },
+          {
+            "name": "MedicalRecord"
+          },
+          {
+            "name": "MedicalRecordInput"
+          },
+          {
+            "name": "MedicalRecordV3"
+          },
+          {
+            "name": "MedicalRecordV3VeritasMetadata"
+          },
+          {
+            "name": "VitalSigns"
+          },
+          {
+            "name": "MedicalRecordV3Input"
+          },
+          {
+            "name": "VitalSignsInput"
+          },
+          {
+            "name": "UpdateMedicalRecordV3Input"
+          },
+          {
+            "name": "DocumentV3"
+          },
+          {
+            "name": "DocumentV3VeritasMetadata"
+          },
+          {
+            "name": "InventoryV3"
+          },
+          {
+            "name": "InventoryV3VeritasMetadata"
+          },
+          {
+            "name": "BillingDataV3"
+          },
+          {
+            "name": "BillingDataV3VeritasMetadata"
+          },
+          {
+            "name": "ComplianceV3"
+          },
+          {
+            "name": "ComplianceV3VeritasMetadata"
+          },
+          {
+            "name": "DocumentType"
+          },
+          {
+            "name": "AccessLevel"
+          },
+          {
+            "name": "BillingStatus"
+          },
+          {
+            "name": "ComplianceStatus"
+          },
+          {
+            "name": "DocumentV3Input"
+          },
+          {
+            "name": "UpdateDocumentV3Input"
+          },
+          {
+            "name": "InventoryV3Input"
+          },
+          {
+            "name": "UpdateInventoryV3Input"
+          },
+          {
+            "name": "BillingDataV3Input"
+          },
+          {
+            "name": "UpdateBillingDataV3Input"
+          },
+          {
+            "name": "ComplianceV3Input"
+          },
+          {
+            "name": "UpdateComplianceV3Input"
+          },
+          {
+            "name": "Treatment"
+          },
+          {
+            "name": "TreatmentInput"
+          },
+          {
+            "name": "TreatmentV3"
+          },
+          {
+            "name": "TreatmentV3Input"
+          },
+          {
+            "name": "UpdateTreatmentV3Input"
+          },
+          {
+            "name": "TreatmentRecommendationV3"
+          },
+          {
+            "name": "ClinicResourceV3"
+          },
+          {
+            "name": "TreatmentRoomV3"
+          },
+          {
+            "name": "DentalEquipmentV3"
+          },
+          {
+            "name": "MaintenanceScheduleV3"
+          },
+          {
+            "name": "RoomCleaningScheduleV3"
+          },
+          {
+            "name": "ClinicResourceStatsV3"
+          },
+          {
+            "name": "EquipmentAgesV3"
+          },
+          {
+            "name": "ResourceUtilizationV3"
+          },
+          {
+            "name": "RoomUtilizationV3"
+          },
+          {
+            "name": "EquipmentUtilizationV3"
+          },
+          {
+            "name": "TreatmentRoomType"
+          },
+          {
+            "name": "TreatmentRoomStatus"
+          },
+          {
+            "name": "DentalEquipmentType"
+          },
+          {
+            "name": "DentalEquipmentStatus"
+          },
+          {
+            "name": "MaintenanceType"
+          },
+          {
+            "name": "MaintenancePriority"
+          },
+          {
+            "name": "MaintenanceStatus"
+          },
+          {
+            "name": "CleaningType"
+          },
+          {
+            "name": "CleaningStatus"
+          },
+          {
+            "name": "NuclearSystemStatus"
+          },
+          {
+            "name": "NuclearHealth"
+          },
+          {
+            "name": "ComponentHealth"
+          },
+          {
+            "name": "QuantumResurrectionResult"
+          },
+          {
+            "name": "Query"
+          },
+          {
+            "name": "Mutation"
+          },
+          {
+            "name": "Subscription"
+          },
+          {
+            "name": "TreatmentRoomInputV3"
+          },
+          {
+            "name": "UpdateTreatmentRoomInputV3"
+          },
+          {
+            "name": "DentalEquipmentInputV3"
+          },
+          {
+            "name": "UpdateDentalEquipmentInputV3"
+          },
+          {
+            "name": "MaintenanceScheduleInputV3"
+          },
+          {
+            "name": "MaintenanceCompletionInputV3"
+          },
+          {
+            "name": "RoomCleaningScheduleInputV3"
+          },
+          {
+            "name": "RoomCleaningCompletionInputV3"
+          },
+          {
+            "name": "__Schema"
+          },
+          {
+            "name": "__Type"
+          },
+          {
+            "name": "__TypeKind"
+          },
+          {
+            "name": "__Field"
+          },
+          {
+            "name": "__InputValue"
+          },
+          {
+            "name": "__EnumValue"
+          },
+          {
+            "name": "__Directive"
+          },
+          {
+            "name": "__DirectiveLocation"
+          }
+        ]
+      },
+      "duration": 61,
+      "details": "GraphQL schema responded correctly"
+    },
+    {
+      "test": "complex_processing",
+      "success": false,
+      "duration": 31,
+      "details": "Query failed or errored"
+    },
+    {
+      "test": "concurrent_load",
+      "success": false,
+      "duration": 19,
+      "details": "0/5 requests succeeded",
+      "success_rate": 0
+    },
+    {
+      "test": "resource_pressure",
+      "success": true,
+      "duration": 31,
+      "details": "Handled resource pressure successfully"
+    },
+    {
+      "test": "decision_speed",
+      "success": true,
+      "duration": 31,
+      "avg_decision_time": 3,
+      "decisions": [
+        {
+          "decision": 1,
+          "time": 6,
+          "success": true
+        },
+        {
+          "decision": 2,
+          "time": 4,
+          "success": true
+        },
+        {
+          "decision": 3,
+          "time": 3,
+          "success": true
+        },
+        {
+          "decision": 4,
+          "time": 4,
+          "success": true
+        },
+        {
+          "decision": 5,
+          "time": 2,
+          "success": true
+        },
+        {
+          "decision": 6,
+          "time": 4,
+          "success": true
+        },
+        {
+          "decision": 7,
+          "time": 3,
+          "success": true
+        },
+        {
+          "decision": 8,
+          "time": 2,
+          "success": true
+        },
+        {
+          "decision": 9,
+          "time": 1,
+          "success": true
+        },
+        {
+          "decision": 10,
+          "time": 2,
+          "success": true
+        }
+      ],
+      "details": "10/10 decisions successful, 3ms avg"
+    }
+  ]
+}

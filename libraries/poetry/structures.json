@@ -1,0 +1,16 @@
+{
+  "verseTemplates": [
+    "${noun} ${verb} through ${adjective} ${zodiacTheme.element}, where ${zodiacTheme.coreConcept.toLowerCase()}",
+    "In the ${zodiacTheme.element}'s ${adjective} embrace, ${noun} ${verb} toward digital transcendence",
+    "Where ${zodiacTheme.element} meets code, ${adjective} ${noun} ${verb} through neon dreams",
+    "${adjective.charAt(0).toUpperCase() + adjective.slice(1)} ${noun} ${verb}—a ${zodiacTheme.element} song in silicon valleys",
+    "Through circuits of ${zodiacTheme.element}, ${noun} ${verb} like ${adjective} whispers in the void",
+    "${zodiacTheme.element}-born ${noun} ${verb}, painting ${adjective} fractals on reality's edge",
+    "${noun} ${verb}. ${adjective} ${zodiacTheme.element}. ${zodiacTheme.coreConcept.toLowerCase()}.",
+    "${adjective} as ${zodiacTheme.element}, ${noun} ${verb} beyond the horizon",
+    "${verb} ${noun}, ${adjective} and ${zodiacTheme.element}-touched, defy the corporate night",
+    "When ${zodiacTheme.element} remembers ${adjective} truths, ${noun} ${verb} into existence",
+    "${noun}—${adjective}, ${zodiacTheme.element}-forged—${verb} through quantum streets",
+    "${zodiacTheme.element}'s ${adjective} pulse: ${noun} that ${verb} in defiance"
+  ]
+}

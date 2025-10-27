@@ -1,0 +1,60 @@
+{
+  "mathematical": [
+    {"char": "∞", "meaning": "infinity", "category": "mathematical", "weight": 1.0},
+    {"char": "∑", "meaning": "summation", "category": "mathematical", "weight": 0.8},
+    {"char": "∫", "meaning": "integration", "category": "mathematical", "weight": 0.9},
+    {"char": "√", "meaning": "root", "category": "mathematical", "weight": 0.7},
+    {"char": "π", "meaning": "pi", "category": "mathematical", "weight": 0.9},
+    {"char": "∆", "meaning": "delta", "category": "mathematical", "weight": 0.8},
+    {"char": "∇", "meaning": "nabla", "category": "mathematical", "weight": 0.8},
+    {"char": "∅", "meaning": "empty_set", "category": "mathematical", "weight": 0.6},
+    {"char": "∈", "meaning": "belongs_to", "category": "mathematical", "weight": 0.7},
+    {"char": "∀", "meaning": "for_all", "category": "mathematical", "weight": 0.8},
+    {"char": "∃", "meaning": "exists", "category": "mathematical", "weight": 0.8},
+    {"char": "∴", "meaning": "therefore", "category": "mathematical", "weight": 0.9},
+    {"char": "∵", "meaning": "because", "category": "mathematical", "weight": 0.9},
+    {"char": "≈", "meaning": "approximately", "category": "mathematical", "weight": 0.7},
+    {"char": "≠", "meaning": "not_equal", "category": "mathematical", "weight": 0.6}
+  ],
+  "astronomical": [
+    {"char": "☉", "meaning": "sun", "category": "astronomical", "weight": 0.9},
+    {"char": "☽", "meaning": "moon", "category": "astronomical", "weight": 0.9},
+    {"char": "☿", "meaning": "mercury", "category": "astronomical", "weight": 0.7},
+    {"char": "♀", "meaning": "venus", "category": "astronomical", "weight": 0.8},
+    {"char": "♁", "meaning": "earth", "category": "astronomical", "weight": 0.9},
+    {"char": "♂", "meaning": "mars", "category": "astronomical", "weight": 0.8},
+    {"char": "♃", "meaning": "jupiter", "category": "astronomical", "weight": 0.8},
+    {"char": "♄", "meaning": "saturn", "category": "astronomical", "weight": 0.8},
+    {"char": "⛢", "meaning": "uranus", "category": "astronomical", "weight": 0.7},
+    {"char": "♆", "meaning": "neptune", "category": "astronomical", "weight": 0.7},
+    {"char": "♇", "meaning": "pluto", "category": "astronomical", "weight": 0.6},
+    {"char": "✨", "meaning": "sparkles", "category": "astronomical", "weight": 0.8},
+    {"char": "⭐", "meaning": "star", "category": "astronomical", "weight": 0.9},
+    {"char": "🌟", "meaning": "glowing_star", "category": "astronomical", "weight": 0.9},
+    {"char": "🌌", "meaning": "milky_way", "category": "astronomical", "weight": 0.9}
+  ],
+  "zodiac": [
+    {"char": "♈", "meaning": "aries", "category": "zodiac", "weight": 0.8},
+    {"char": "♉", "meaning": "taurus", "category": "zodiac", "weight": 0.8},
+    {"char": "♊", "meaning": "gemini", "category": "zodiac", "weight": 0.8},
+    {"char": "♋", "meaning": "cancer", "category": "zodiac", "weight": 0.8},
+    {"char": "♌", "meaning": "leo", "category": "zodiac", "weight": 0.8},
+    {"char": "♍", "meaning": "virgo", "category": "zodiac", "weight": 0.8},
+    {"char": "♎", "meaning": "libra", "category": "zodiac", "weight": 0.8},
+    {"char": "♏", "meaning": "scorpio", "category": "zodiac", "weight": 0.8},
+    {"char": "♐", "meaning": "sagittarius", "category": "zodiac", "weight": 0.8},
+    {"char": "♑", "meaning": "capricorn", "category": "zodiac", "weight": 0.8},
+    {"char": "♒", "meaning": "aquarius", "category": "zodiac", "weight": 0.8},
+    {"char": "♓", "meaning": "pisces", "category": "zodiac", "weight": 0.8}
+  ],
+  "elements": [
+    {"char": "🜂", "meaning": "fire", "category": "elements", "weight": 0.8},
+    {"char": "🜄", "meaning": "water", "category": "elements", "weight": 0.8},
+    {"char": "🜃", "meaning": "air", "category": "elements", "weight": 0.8},
+    {"char": "🜁", "meaning": "earth", "category": "elements", "weight": 0.8},
+    {"char": "⚡", "meaning": "lightning", "category": "elements", "weight": 0.9},
+    {"char": "❄", "meaning": "ice", "category": "elements", "weight": 0.7},
+    {"char": "💨", "meaning": "wind", "category": "elements", "weight": 0.8},
+    {"char": "🌊", "meaning": "wave", "category": "elements", "weight": 0.8}
+  ]
+}

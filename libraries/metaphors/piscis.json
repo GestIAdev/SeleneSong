@@ -1,0 +1,17 @@
+{
+  "sign": "Piscis",
+  "symbol": "♓",
+  "element": "water",
+  "quality": "mutable",
+  "cyberpunkTheme": "liquid dreams",
+  "coreConcept": "augmented reality and digital dreams",
+  "adjectives": ["dreamy", "fluid", "intuitive", "imaginative", "mystical"],
+  "verbs": ["dream", "flow", "imagine", "dissolve", "merge"],
+  "nouns": [
+    "dream matrices",
+    "fluid realities",
+    "imagination networks",
+    "dream protocols"
+  ],
+  "fibonacciWeight": 144
+}

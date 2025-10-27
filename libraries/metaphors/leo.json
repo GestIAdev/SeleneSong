@@ -1,0 +1,17 @@
+{
+  "sign": "Leo",
+  "symbol": "♌",
+  "element": "fire",
+  "quality": "fixed",
+  "cyberpunkTheme": "fallen stars",
+  "coreConcept": "digital celebrities in decay",
+  "adjectives": ["regal", "fiery", "dramatic", "charismatic", "fallen"],
+  "verbs": ["shine", "command", "perform", "inspire", "fall"],
+  "nouns": [
+    "virtual stages",
+    "digital celebrities",
+    "fallen stars",
+    "performance arenas"
+  ],
+  "fibonacciWeight": 5
+}

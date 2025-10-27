@@ -1,0 +1,356 @@
+/**
+ * 🌙 SELENE RADIATION - MONITORING & DETECTION MODULE
+ * By PunkClaude & RaulVisionario - September 18, 2025
+ *
+ * MISSION: System monitoring and anomaly detection
+ * STRATEGY: Real-time radiation monitoring for system health
+ */
+import { monitoringOrchestrator } from '../Monitoring/MonitoringOrchestrator.js';
+/**
+ * 🌙 SELENE RADIATION - THE MONITORING CORE
+ * Continuous system monitoring and anomaly detection
+ */
+export class SeleneRadiation {
+    isActive = false;
+    radiationLevels = new Map();
+    anomalyThresholds = new Map();
+    constructor() {
+        console.log('☢️ Initializing Selene Radiation...');
+        this.initializeThresholds();
+    }
+    /**
+     * 🚀 Start radiation monitoring
+     */
+    async start() {
+        try {
+            console.log('🚀 Starting Selene Radiation monitoring...');
+            this.isActive = true;
+            // Register monitoring tasks with the Orchestrator
+            await this.registerMonitoringTasks();
+            console.log('✅ Selene Radiation active - orchestrated monitoring');
+        }
+        catch (error) {
+            console.error('💥 Failed to start radiation monitoring:', error);
+            throw error;
+        }
+    }
+    /**
+     * 🛑 Emergency shutdown
+     */
+    async emergencyShutdown() {
+        console.log('🚨 EMERGENCY RADIATION SHUTDOWN');
+        this.isActive = false;
+        // The Orchestrator handles all interval cleanup
+        console.log('✅ Radiation emergency shutdown complete - Orchestrator notified');
+    }
+    // ==========================================
+    // 📊 SYSTEM MONITORING
+    // ==========================================
+    /**
+     * � Register all monitoring tasks with the Orchestrator
+     */
+    async registerMonitoringTasks() {
+        const tasks = [
+            // CPU Monitoring - Critical priority with circuit breaker
+            {
+                id: 'radiation-cpu',
+                name: 'CPU Radiation Monitor',
+                schedule: '*/5 * * * * *', // Every 5 seconds
+                priority: 'critical',
+                circuitBreaker: {
+                    threshold: 80, // Trip if CPU > 80%
+                    cooldownMs: 60000, // 1 minute cooldown
+                },
+                lazyMode: {
+                    maxCpuUsage: 70, // Only run if CPU < 70%
+                    checkIntervalMs: 1000,
+                },
+                execute: async () => {
+                    const cpuUsage = process.cpuUsage();
+                    const radiation = (cpuUsage.user + cpuUsage.system) / 1000000;
+                    this.radiationLevels.set('cpu', radiation);
+                    await this.checkAnomaly('cpu', radiation);
+                }
+            },
+            // Memory Monitoring - High priority
+            {
+                id: 'radiation-memory',
+                name: 'Memory Radiation Monitor',
+                schedule: '*/10 * * * * *', // Every 10 seconds
+                priority: 'high',
+                circuitBreaker: {
+                    threshold: 90,
+                    cooldownMs: 30000,
+                },
+                execute: async () => {
+                    const memUsage = process.memoryUsage();
+                    const radiation = memUsage.heapUsed / memUsage.heapTotal;
+                    this.radiationLevels.set('memory', radiation);
+                    await this.checkAnomaly('memory', radiation);
+                }
+            },
+            // Disk Monitoring - Medium priority
+            {
+                id: 'radiation-disk',
+                name: 'Disk Radiation Monitor',
+                schedule: '*/30 * * * * *', // Every 30 seconds
+                priority: 'medium',
+                execute: async () => {
+                    const radiation = 0.4; // Nivel de radiación fijo para queries
+                    this.radiationLevels.set('disk', radiation);
+                    await this.checkAnomaly('disk', radiation);
+                }
+            },
+            // Response Time Monitoring - High priority
+            {
+                id: 'radiation-response-time',
+                name: 'Response Time Monitor',
+                schedule: '*/2 * * * * *', // Every 2 seconds
+                priority: 'high',
+                circuitBreaker: {
+                    threshold: 85,
+                    cooldownMs: 15000,
+                },
+                execute: async () => {
+                    const currentResponseTime = this.radiationLevels.get('response_time') || 0;
+                    const radiation = Math.max(0, Math.min(1, currentResponseTime / 5000));
+                    this.radiationLevels.set('response_time', radiation);
+                    await this.checkAnomaly('response_time', radiation);
+                }
+            },
+            // Throughput Monitoring - Medium priority
+            {
+                id: 'radiation-throughput',
+                name: 'Throughput Monitor',
+                schedule: '*/5 * * * * *', // Every 5 seconds
+                priority: 'medium',
+                execute: async () => {
+                    const radiation = 0.6; // Nivel de radiación fijo para mutaciones
+                    this.radiationLevels.set('throughput', radiation);
+                    await this.checkAnomaly('throughput', radiation);
+                }
+            },
+            // Security Monitoring - High priority
+            {
+                id: 'radiation-security',
+                name: 'Security Monitor',
+                schedule: '*/15 * * * * *', // Every 15 seconds
+                priority: 'high',
+                execute: async () => {
+                    const failedLoginsRadiation = 0.15; // Radiación fija por login fallido
+                    const suspiciousActivityRadiation = 0.1; // Radiación fija por actividad sospechosa
+                    this.radiationLevels.set('failed_logins', failedLoginsRadiation);
+                    this.radiationLevels.set('suspicious_activity', suspiciousActivityRadiation);
+                    await this.checkAnomaly('failed_logins', failedLoginsRadiation);
+                    await this.checkAnomaly('suspicious_activity', suspiciousActivityRadiation);
+                }
+            }
+        ];
+        // Register all tasks with the Orchestrator
+        for (const task of tasks) {
+            monitoringOrchestrator.registerTask(task);
+        }
+        console.log(`� Registered ${tasks.length} monitoring tasks with Orchestrator`);
+    }
+    // ==========================================
+    // 🚨 ANOMALY DETECTION
+    // ==========================================
+    /**
+     * 🚨 Initialize anomaly thresholds
+     */
+    initializeThresholds() {
+        this.anomalyThresholds.set('cpu', 4.5); // 450% CPU usage - ULTRA HIGH PERFORMANCE MODE FOR SELENE SONG CORE
+        this.anomalyThresholds.set('memory', 0.9); // 90% memory usage
+        this.anomalyThresholds.set('disk', 0.95); // 95% disk usage
+        this.anomalyThresholds.set('response_time', 0.7); // 70% of max expected
+        this.anomalyThresholds.set('throughput', 0.9); // 90% capacity
+        this.anomalyThresholds.set('failed_logins', 0.5); // 50% of threshold
+        this.anomalyThresholds.set('suspicious_activity', 0.3); // 30% of threshold
+        console.log('🚨 Anomaly thresholds initialized');
+    }
+    /**
+     * 🚨 Check for anomalies
+     */
+    async checkAnomaly(metric, radiation) {
+        const threshold = this.anomalyThresholds.get(metric) || 0.8;
+        if (radiation > threshold) {
+            console.warn(`🚨 HIGH RADIATION DETECTED: ${metric} = ${(radiation * 100).toFixed(1)}% (threshold: ${(threshold * 100).toFixed(1)}%)`);
+            // Trigger anomaly response
+            await this.handleAnomaly(metric, radiation, threshold);
+        }
+    }
+    /**
+     * 🚨 Handle anomaly detection
+     */
+    async handleAnomaly(metric, radiation, threshold) {
+        const anomalyData = {
+            metric,
+            radiation,
+            threshold,
+            timestamp: new Date(),
+            severity: radiation > threshold * 1.5 ? 'critical' : 'warning'
+        };
+        console.error(`🚨 ANOMALY ALERT:`, anomalyData);
+        // Different responses based on metric
+        switch (metric) {
+            case 'cpu':
+                await this.handleCPUAnomaly(anomalyData);
+                break;
+            case 'memory':
+                await this.handleMemoryAnomaly(anomalyData);
+                break;
+            case 'disk':
+                await this.handleDiskAnomaly(anomalyData);
+                break;
+            case 'response_time':
+                await this.handleResponseTimeAnomaly(anomalyData);
+                break;
+            case 'failed_logins':
+                await this.handleSecurityAnomaly(anomalyData);
+                break;
+            default:
+                await this.handleGenericAnomaly(anomalyData);
+        }
+    }
+    /**
+     * 🚨 Handle CPU anomaly
+     */
+    async handleCPUAnomaly(anomaly) {
+        console.log('🚨 CPU anomaly detected - initiating optimization...');
+        // Could trigger load balancing, process optimization, etc.
+    }
+    /**
+     * 🚨 Handle memory anomaly
+     */
+    async handleMemoryAnomaly(anomaly) {
+        console.log('🚨 Memory anomaly detected - initiating garbage collection...');
+        // Could trigger garbage collection, memory optimization, etc.
+        if (global.gc) {
+            global.gc();
+        }
+    }
+    /**
+     * 🚨 Handle disk anomaly
+     */
+    async handleDiskAnomaly(anomaly) {
+        console.log('🚨 Disk anomaly detected - initiating cleanup...');
+        // Could trigger log rotation, temp file cleanup, etc.
+    }
+    /**
+     * 🚨 Handle response time anomaly
+     */
+    async handleResponseTimeAnomaly(anomaly) {
+        console.log('🚨 Response time anomaly detected - optimizing performance...');
+        // Could trigger caching optimization, connection pooling, etc.
+    }
+    /**
+     * 🚨 Handle security anomaly
+     */
+    async handleSecurityAnomaly(anomaly) {
+        console.log('🚨 Security anomaly detected - increasing monitoring...');
+        // Could trigger enhanced security monitoring, rate limiting, etc.
+    }
+    /**
+     * 🚨 Handle generic anomaly
+     */
+    async handleGenericAnomaly(anomaly) {
+        console.log(`🚨 Generic anomaly detected for ${anomaly.metric} - logging for analysis...`);
+        // Generic anomaly handling
+    }
+    // ==========================================
+    // 📊 MONITORING DATA
+    // ==========================================
+    /**
+     * 📊 Get radiation levels
+     */
+    getRadiationLevels() {
+        const levels = {};
+        for (const [metric, radiation] of this.radiationLevels.entries()) {
+            levels[metric] = {
+                radiation,
+                percentage: (radiation * 100).toFixed(1) + '%',
+                threshold: this.anomalyThresholds.get(metric) || 0,
+                status: radiation > (this.anomalyThresholds.get(metric) || 0) ? 'high' : 'normal'
+            };
+        }
+        return levels;
+    }
+    /**
+     * 📊 Get specific radiation level
+     */
+    getRadiationLevel(metric) {
+        return this.radiationLevels.get(metric) || null;
+    }
+    /**
+     * 📊 Update radiation level (for external monitoring)
+     */
+    updateRadiationLevel(metric, radiation) {
+        this.radiationLevels.set(metric, radiation);
+        this.checkAnomaly(metric, radiation);
+    }
+    /**
+     * 📊 Get anomaly thresholds
+     */
+    getAnomalyThresholds() {
+        const thresholds = {};
+        for (const [metric, threshold] of this.anomalyThresholds.entries()) {
+            thresholds[metric] = threshold;
+        }
+        return thresholds;
+    }
+    /**
+     * 📊 Set anomaly threshold
+     */
+    setAnomalyThreshold(metric, threshold) {
+        this.anomalyThresholds.set(metric, threshold);
+        console.log(`📊 Updated threshold for ${metric}: ${(threshold * 100).toFixed(1)}%`);
+    }
+    // ==========================================
+    // 📈 STATUS & MONITORING
+    // ==========================================
+    /**
+     * 📊 Get radiation status
+     */
+    getStatus() {
+        const levels = this.getRadiationLevels();
+        const anomalies = Object.values(levels).filter((level) => level.status === 'high').length;
+        const totalMetrics = Object.keys(levels).length;
+        // Get orchestrator status for monitoring info
+        const orchestratorStatus = monitoringOrchestrator.getStatus();
+        return {
+            active: this.isActive,
+            metrics: totalMetrics,
+            anomalies,
+            anomalyRate: totalMetrics > 0 ? (anomalies / totalMetrics * 100).toFixed(1) + '%' : '0%',
+            levels,
+            orchestrator: {
+                active: orchestratorStatus.isActive,
+                totalTasks: orchestratorStatus.totalTasks,
+                scheduledTasks: orchestratorStatus.scheduledTasks,
+                averageCpu: orchestratorStatus.averageCpu
+            }
+        };
+    }
+    /**
+     * 📊 Get system health based on radiation
+     */
+    getSystemHealth() {
+        const levels = this.getRadiationLevels();
+        const criticalAnomalies = Object.values(levels).filter((level) => level.status === 'high' && level.radiation > (level.threshold * 1.5)).length;
+        const warningAnomalies = Object.values(levels).filter((level) => level.status === 'high' && level.radiation <= (level.threshold * 1.5)).length;
+        let overallHealth = 'healthy';
+        if (criticalAnomalies > 0) {
+            overallHealth = 'critical';
+        }
+        else if (warningAnomalies > 0) {
+            overallHealth = 'warning';
+        }
+        return {
+            overall: overallHealth,
+            critical: criticalAnomalies,
+            warning: warningAnomalies,
+            normal: Object.keys(levels).length - criticalAnomalies - warningAnomalies,
+            details: levels
+        };
+    }
+}

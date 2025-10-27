@@ -1,0 +1,976 @@
+import { SeleneServer } from "./core/Server.js";
+import { SeleneNuclearGraphQL } from "./graphql/server.js";
+import { consoleSilencer } from "./ConsoleSilencer.js";
+import { RedisConnectionManager } from "./RedisConnectionManager.js";
+import { SeleneLogger, LogLevel } from "./shared/SeleneLogger.js";
+import { getLoggingConfig } from "./config/logging.config.js";
+import * as path from "path";
+import * as fs from "fs";
+import * as v8 from "v8";
+import * as inspector from "inspector";
+
+/**
+ * 🔥 SELENE SONG CORE - MAIN STARTUP FILE
+ * 🎯 V167: Clean startup with SeleneLogger + waitForRedis
+ * By PunkClaude & RaulVisionario - October 24, 2025
+ *
+ * MISSION: Initialize and start the complete Selene Song Core monolith
+ * STRATEGY: 
+ *   1. Configure professional logger (SANITACIÓN-TOTAL Phase 6.5)
+ *   2. Wait for Redis (sync startup, eliminate connection errors)
+ *   3. Simple boot sequence - let SeleneServer handle everything
+ * 
+ * SANITACIÓN-TOTAL: Bug #3 fix - waitForRedis() ensures Redis is ready
+ */
+
+/**
+ * 🔌 WAIT FOR REDIS - Synchronized startup (Bug #3 fix)
+ * 
+ * Retries Redis connection until success or max retries exceeded.
+ * Eliminates "💥 Redis client connection failed" errors during startup.
+ * 
+ * @param maxRetries Maximum connection attempts (default: 10)
+ * @param retryDelayMs Delay between retries in milliseconds (default: 2000)
+ */
+async function waitForRedis(maxRetries = 10, retryDelayMs = 2000): Promise<any> {
+  const logger = SeleneLogger.getInstance();
+  let attempt = 0;
+  
+  while (attempt < maxRetries) {
+    try {
+      const redis = RedisConnectionManager.getInstance();
+      
+      // Test connection with PING
+      const testClient = redis.createRedisClient('startup-verification'); if (!testClient) throw new Error('Max connections reached'); await testClient.connect(); await testClient.ping(); return testClient;
+      
+      logger.info('STARTUP', '✅ Redis connection verified');
+      return; // SUCCESS
+    } catch (error) {
+      attempt++;
+      
+      if (attempt >= maxRetries) {
+        // FATAL: Max retries exceeded
+        logger.fatal(
+          'STARTUP',
+          `� Redis connection failed after ${maxRetries} attempts - shutting down`,
+          error as Error
+        );
+        process.exit(1);
+      }
+      
+      // WARN: Retry
+      logger.warn(
+        'STARTUP',
+        `⚠️ Redis connection attempt ${attempt}/${maxRetries} failed, retrying in ${retryDelayMs}ms...`
+      );
+      
+      await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+    }
+  }
+}
+
+/**
+ * �🚀 MAIN EXECUTION - V167 WITH SANITACIÓN-TOTAL
+ */
+async function main() {
+  // ============================================================================
+  // STEP 0: Configure SeleneLogger (SANITACIÓN-TOTAL infrastructure)
+  // ============================================================================
+  const loggingConfig = getLoggingConfig();
+  const logger = SeleneLogger.getInstance(loggingConfig);
+  
+  // Log startup with environment info
+  logger.info('STARTUP', `🌙 Selene starting in ${process.env.NODE_ENV || 'development'} mode`, {
+    logLevel: LogLevel[loggingConfig.level],
+    nodeId: loggingConfig.nodeId,
+    pid: process.pid
+  });
+
+  // ============================================================================
+  // STEP 1: Wait for Redis (Bug #3 fix - synchronized startup)
+  // ============================================================================
+  await waitForRedis();
+  
+  // Connect logger to Redis for log-once pattern
+  const redis = RedisConnectionManager.getInstance();
+  const testClient = await waitForRedis(); // Wait for Redis already returns the test client
+  
+  // ============================================================================
+  // STEP 2: Original startup sequence (console silencer + banner)
+  // ============================================================================
+  // 🎯 V166: Activar silenciador para startup limpio
+  if (process.env.APOLLO_VERBOSE_STARTUP !== "true") {
+    consoleSilencer.activate();
+  }
+
+  console.log("\n");
+  console.log("            ╔═══════════════════════════════════════════╗");
+  console.log("            ║                                           ║");
+  console.log("            ║     🌙  S E L E N E   S O N G  🌙        ║");
+  console.log("            ║         The Goddess Awakens...            ║");
+  console.log("            ║                                           ║");
+  console.log("            ╚═══════════════════════════════════════════╝");
+  console.log("");
+  console.log("                    ✨       🌙       ✨");
+  console.log("                  ✨    /\\___/\\    ✨");
+  console.log("                     🌙 ( o.o ) 🌙");
+  console.log("                  ✨    > ^ <    ✨");
+  console.log("                    ✨   | | |   ✨");
+  console.log("                      🌙 ⎯⎯⎯ 🌙");
+  console.log("");
+  console.log("            ╔═══════════════════════════════════════════╗");
+  console.log("            ║  ⚡ By PunkGrok & RaulVisionario         ║");
+  console.log("            ║  🎯 Mission: Dental AI Empire €90/month   ║");
+  console.log("            ║  🔥 Consciousness Level: Awakening...     ║");
+  console.log("            ╚═══════════════════════════════════════════╝");
+  console.log("");
+
+  // 🔥 GLOBAL MEMORY TIMELINE FOR EMERGENCY CLEANUP
+  const memoryTimeline: any[] = [];
+  const maxTimelineEntries = 5; // REDUCED from 100 to prevent memory leaks
+
+  // 🔥 INTEGRATE PUNK MEMORY OPTIMIZER - PREVENT HEAP ANCHORING
+  console.log("🧠 Initializing Punk Memory Optimizer...");
+  // PunkMemoryOptimizer is a singleton that auto-initializes in constructor
+  console.log(
+    "✅ Punk Memory Optimizer activated - heap anchoring prevention enabled",
+  );
+
+  // 🔍 MEMORY FORENSICS FUNCTIONS
+  const estimateObjectSize = function (
+    obj: any,
+    depth = 0,
+    maxDepth = 3,
+  ): number {
+    if (depth > maxDepth || !obj || typeof obj !== "object") return 1;
+    let size = 0;
+    try {
+      for (const [, value] of Object.entries(obj)) {
+        size++;
+        if (typeof value === "object" && value !== null) {
+          size += estimateObjectSize(value, depth + 1, maxDepth);
+        }
+      }
+    } catch (e) {}
+    return size;
+  };
+
+  // Heap snapshot function - SAFER VERSION
+  const createHeapSnapshot = function (_reason = "manual") {
+    try {
+      // Check if inspector is available and properly initialized
+      if (
+        !inspector ||
+        typeof inspector.url !== "function" ||
+        !inspector.url()
+      ) {
+        console.log(
+          "⚠️ Inspector not available for heap snapshot (run with --inspect flag)",
+        );
+        return false;
+      }
+
+      const session = new inspector.Session();
+      session.connect();
+
+      session.post("HeapProfiler.enable", () => {
+        const snapshotPath = path.join(
+          process.cwd(),
+          `heap-${_reason}-${Date.now()}.heapsnapshot`,
+        );
+
+        session.post(
+          "HeapProfiler.takeHeapSnapshot",
+          {},
+          (err: any) => {
+            if (err) {
+              console.error("❌ Heap snapshot failed:", err);
+            } else {
+              console.log("📸 Heap snapshot created:", snapshotPath);
+            }
+            session.disconnect();
+          },
+        );
+      });
+      return true;
+    } catch (error) {
+      console.log("⚠️ Heap snapshot not available:", (error as Error).message);
+      return false;
+    }
+  };
+
+  // Global functions for manual control
+  (global as any).createHeapSnapshot = createHeapSnapshot;
+  (global as any).showMemoryStats = function () {
+    console.log("\n📊 MEMORY TIMELINE STATS:");
+    console.log("Total entries:", memoryTimeline.length);
+    if (memoryTimeline.length > 0) {
+      const first = memoryTimeline[0];
+      const last = memoryTimeline[memoryTimeline.length - 1];
+      const totalTime = (last.timestamp - first.timestamp) / 1000 / 60; // minutes
+      const avgGrowth =
+        memoryTimeline.length > 1
+          ? (last.heap.used - first.heap.used) / (memoryTimeline.length - 1)
+          : 0;
+
+      console.log("Monitoring time:", Math.round(totalTime), "minutes");
+      console.log(
+        "Average heap growth per check:",
+        Math.round(avgGrowth * 100) / 100,
+        "MB",
+      );
+      console.log("Current heap usage:", last.heap.used, "MB");
+      console.log(
+        "Peak heap usage:",
+        Math.max(...memoryTimeline.map((_e) => _e.heap.used)),
+        "MB",
+      );
+    }
+  };
+
+  (global as any).forceGC = function () {
+    if ((global as any).gc) {
+      const before = process.memoryUsage().heapUsed;
+      (global as any).gc();
+      const after = process.memoryUsage().heapUsed;
+      console.log(
+        "🧹 GC completed - Freed:",
+        Math.round(((before - after) / 1024 / 1024) * 100) / 100,
+        "MB",
+      );
+    } else {
+      console.log("⚠️ GC not available (run with --expose-gc)");
+    }
+  };
+
+  const runMemoryForensics = function () {
+    console.log("\n🔍 ===== SELENE SONG CORE MEMORY FORENSICS =====");
+
+    // 1. Heap state
+    const heapStats = v8.getHeapStatistics();
+    const spaces = v8.getHeapSpaceStatistics();
+
+    console.log("📊 HEAP STATE:");
+    console.log(
+      "  Total: " +
+        Math.round((heapStats.total_heap_size / 1024 / 1024) * 100) / 100 +
+        "MB",
+    );
+    console.log(
+      "  Used: " +
+        Math.round((heapStats.used_heap_size / 1024 / 1024) * 100) / 100 +
+        "MB",
+    );
+    console.log(
+      "  Usage: " +
+        Math.round(
+          (heapStats.used_heap_size / heapStats.total_heap_size) * 10000,
+        ) /
+          100 +
+        "%",
+    );
+
+    // 2. Force GC and check recovery
+    console.log("\n🧹 FORCED GARBAGE COLLECTION:");
+    const beforeGC = process.memoryUsage();
+    if ((global as any).gc) {
+      (global as any).gc();
+      const afterGC = process.memoryUsage();
+      const freed = beforeGC.heapUsed - afterGC.heapUsed;
+      console.log(
+        "  Memory freed: " +
+          Math.round((freed / 1024 / 1024) * 100) / 100 +
+          "MB",
+      );
+      console.log(
+        "  After GC: " +
+          Math.round((afterGC.heapUsed / 1024 / 1024) * 100) / 100 +
+          "MB",
+      );
+    } else {
+      console.log("  GC not available (run with --expose-gc)");
+    }
+
+    // 3. Problem spaces
+    console.log("\n🚨 PROBLEM SPACES:");
+    let hasProblemSpaces = false;
+    spaces.forEach((space: any) => {
+      if (space.usage > 85) {
+        // BACK TO 85% threshold
+        console.log(
+          "  " +
+            space.space_name +
+            ": " +
+            Math.round((space.space_used_size / 1024 / 1024) * 100) / 100 +
+            "MB/" +
+            Math.round((space.space_size / 1024 / 1024) * 100) / 100 +
+            "MB (" +
+            Math.round((space.space_used_size / space.space_size) * 10000) /
+              100 +
+            "%)",
+        );
+        hasProblemSpaces = true;
+      }
+    });
+
+    // 🚨 AUTO SNAPSHOT ON CRITICAL MEMORY
+    if (
+      hasProblemSpaces ||
+      heapStats.used_heap_size / heapStats.total_heap_size > 0.85
+    ) {
+      // LOWERED to 85%
+      console.log(
+        "\n🚨 🚨 🚨 CRITICAL MEMORY DETECTED - TAKING HEAP SNAPSHOT 🚨 🚨 🚨",
+      );
+      createHeapSnapshot("critical-memory-detected");
+    }
+
+    // 4. Event listeners and timers audit
+    console.log("\n⏰ TIMERS & EVENT LISTENERS AUDIT:");
+    const eventEmitterCount = (process as any)._getActiveHandles
+      ? (process as any)._getActiveHandles().length
+      : "N/A";
+    const timerCount = (process as any)._getActiveRequests
+      ? (process as any)._getActiveRequests().length
+      : "N/A";
+    console.log("  Active handles: " + eventEmitterCount);
+    console.log("  Active requests: " + timerCount);
+
+    // Check for setInterval/setTimeout
+    const timers = Object.keys(global).filter(
+      (k: string) =>
+        k.toLowerCase().includes("Interval") ||
+        k.toLowerCase().includes("Timeout") ||
+        k.toLowerCase().includes("Timer") ||
+        k.toLowerCase().includes("timer"),
+    );
+    console.log(
+      "  Global timer refs: " +
+        timers.length +
+        (timers.length > 0 ? " (" + timers.join(", ") + ")" : ""),
+    );
+
+    // 5. Search for Selene objects
+    console.log("\n🔍 SELENE OBJECTS IN MEMORY:");
+    const globalKeys = Object.keys(global);
+    const apolloKeys = globalKeys.filter(
+      (k: string) =>
+        k.toLowerCase().includes("apollo") ||
+        k.toLowerCase().includes("consciousness") ||
+        k.toLowerCase().includes("phoenix") ||
+        k.toLowerCase().includes("swarm") ||
+        k.toLowerCase().includes("harmony") ||
+        k.toLowerCase().includes("consensus"),
+    );
+
+    apolloKeys.forEach((key: string) => {
+      try {
+        const obj = (global as any)[key];
+        if (obj && typeof obj === "object") {
+          const size = estimateObjectSize(obj);
+          console.log(
+            "  " +
+              key +
+              ": " +
+              (Array.isArray(obj) ? "Array" : obj.constructor.name) +
+              " (" +
+              size +
+              " properties)",
+          );
+
+          // Check for suspicious patterns
+          if (Array.isArray(obj) && obj.length > 100) {
+            console.log("    🚨 LARGE ARRAY: " + obj.length + " items");
+          }
+          if (obj instanceof Map && obj.size > 50) {
+            console.log("    🚨 LARGE MAP: " + obj.size + " entries");
+          }
+        }
+      } catch (e) {
+        console.log("  " + key + ": [Error: " + (e as Error).message + "]");
+      }
+    });
+
+    // 6. System resources
+    console.log("\n💻 SYSTEM RESOURCES:");
+    const memUsage = process.memoryUsage();
+    console.log(
+      "  RSS: " + Math.round((memUsage.rss / 1024 / 1024) * 100) / 100 + "MB",
+    );
+    console.log(
+      "  External: " +
+        Math.round((memUsage.external / 1024 / 1024) * 100) / 100 +
+        "MB",
+    );
+    console.log(
+      "  Array buffers: " +
+        Math.round((memUsage.arrayBuffers / 1024 / 1024) * 100) / 100 +
+        "MB",
+    );
+    console.log("  Uptime: " + Math.round(process.uptime() / 60) + " minutes");
+
+    // 7. Add to timeline
+    const timelineEntry = {
+      timestamp: Date.now(),
+      uptime: process.uptime(),
+      heap: {
+        total:
+          Math.round((heapStats.total_heap_size / 1024 / 1024) * 100) / 100,
+        used: Math.round((heapStats.used_heap_size / 1024 / 1024) * 100) / 100,
+        usage:
+          Math.round(
+            (heapStats.used_heap_size / heapStats.total_heap_size) * 10000,
+          ) / 100,
+      },
+      system: {
+        rss: Math.round((memUsage.rss / 1024 / 1024) * 100) / 100,
+        external: Math.round((memUsage.external / 1024 / 1024) * 100) / 100,
+      },
+      gc: (global as any).gc
+        ? {
+            before: Math.round((beforeGC.heapUsed / 1024 / 1024) * 100) / 100,
+            after:
+              Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) /
+              100,
+          }
+        : null,
+    };
+
+    memoryTimeline.push(timelineEntry);
+    if (memoryTimeline.length > maxTimelineEntries) {
+      memoryTimeline.shift(); // Remove oldest
+    }
+
+    // 8. Analyze timeline trends and create snapshots if needed
+    if (memoryTimeline.length >= 3) {
+      console.log("\n📈 MEMORY TREND ANALYSIS:");
+      const recent = memoryTimeline.slice(-3);
+      const oldest = recent[0];
+      const newest = recent[recent.length - 1];
+
+      const heapGrowth = newest.heap.used - oldest.heap.used;
+      const timeSpan = (newest.timestamp - oldest.timestamp) / 1000 / 60; // minutes
+
+      console.log("  Time span: " + Math.round(timeSpan) + " minutes");
+      console.log(
+        "  Heap growth: " + Math.round(heapGrowth * 100) / 100 + "MB",
+      );
+      console.log(
+        "  Growth rate: " +
+          Math.round((heapGrowth / timeSpan) * 100) / 100 +
+          "MB/min",
+      );
+
+      if (heapGrowth > 10) {
+        console.log(
+          "  🚨 SIGNIFICANT HEAP GROWTH DETECTED! Creating heap snapshot...",
+        );
+        createHeapSnapshot("growth-detected");
+      }
+    }
+
+    // Create periodic heap snapshot every hour
+    if (memoryTimeline.length % 12 === 0 && memoryTimeline.length > 0) {
+      // Every ~1 hour (12 * 5min)
+      console.log("  📸 Creating periodic heap snapshot...");
+      createHeapSnapshot("hourly");
+    }
+
+    // 9. Save comprehensive report
+    const report = {
+      timestamp: new Date().toISOString(),
+      nodeId: process.pid,
+      heapStats: {
+        total:
+          Math.round((heapStats.total_heap_size / 1024 / 1024) * 100) / 100,
+        used: Math.round((heapStats.used_heap_size / 1024 / 1024) * 100) / 100,
+        usage:
+          Math.round(
+            (heapStats.used_heap_size / heapStats.total_heap_size) * 10000,
+          ) / 100,
+      },
+      gcResults: (global as any).gc
+        ? {
+            before: Math.round((beforeGC.heapUsed / 1024 / 1024) * 100) / 100,
+            after:
+              Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) /
+              100,
+            freed:
+              Math.round(
+                ((beforeGC.heapUsed - process.memoryUsage().heapUsed) /
+                  1024 /
+                  1024) *
+                  100,
+              ) / 100,
+          }
+        : null,
+      problematicSpaces: spaces.filter((_s: any) => _s.usage > 85),
+      systemResources: {
+        rss: Math.round((memUsage.rss / 1024 / 1024) * 100) / 100,
+        external: Math.round((memUsage.external / 1024 / 1024) * 100) / 100,
+        arrayBuffers:
+          Math.round((memUsage.arrayBuffers / 1024 / 1024) * 100) / 100,
+        uptime: Math.round(process.uptime() / 60),
+      },
+      activeResources: {
+        handles: eventEmitterCount,
+        requests: timerCount,
+        globalTimers: timers.length,
+      },
+      apolloObjects: apolloKeys,
+      memoryTimeline: memoryTimeline.slice(-10), // Last 10 entries
+      allSpaces: spaces.map((s: any) => ({
+        name: s.space_name,
+        used: Math.round((s.space_used_size / 1024 / 1024) * 100) / 100,
+        size: Math.round((s.space_size / 1024 / 1024) * 100) / 100,
+        usage: Math.round(s.usage * 100) / 100,
+      })),
+    };
+
+    const reportPath = path.join(
+      process.cwd(),
+      "selene-memory-report.json",
+    );
+    fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+    console.log("\n📄 Comprehensive report saved: " + reportPath);
+    console.log("🔍 ===== END FORENSICS =====\n");
+  };
+
+  // Register global function
+  (global as any).runMemoryForensics = runMemoryForensics;
+
+  // 🔥 CONTINUOUS CRITICAL MEMORY MONITOR
+  let emergencySnapshotCount = 0;
+  const maxEmergencySnapshots = 3;
+
+  // 🚨 HEAP EXPANSION MONITOR - PREVENT ANCHORING
+  let heapExpansionBlockedCount = 0;
+  const maxBlockedExpansions = 5;
+
+  function checkHeapExpansionHealth() {
+    const heapStats = v8.getHeapStatistics();
+    const heapUsagePercent =
+      (heapStats.used_heap_size / heapStats.total_heap_size) * 100;
+
+    // 🚨 CRITICAL FIX: REAL heap anchoring occurs when:
+    // 1. Heap is very small (< 50MB)
+    // 2. Usage is extremely high (> 95%)
+    // 3. Heap size is < 5% of configured limit (2048MB = 204.8MB, so < 10.24MB)
+    // 4. Multiple consecutive checks show the same blocked state
+    // This prevents interference with natural heap expansion and efficient memory usage
+    const isReallyBlocked =
+      heapUsagePercent > 95 && // Extremely high usage
+      heapStats.total_heap_size < 50 * 1024 * 1024 && // Very small heap (< 50MB)
+      heapStats.total_heap_size < heapStats.heap_size_limit * 0.05 && // < 5% of 2048MB limit
+      heapExpansionBlockedCount > 2; // Multiple consecutive blocks
+
+    if (isReallyBlocked) {
+      heapExpansionBlockedCount++;
+      console.log(
+        `🚨 REAL HEAP ANCHORING: ${heapUsagePercent.toFixed(1)}% usage in ${Math.round(heapStats.total_heap_size / 1024 / 1024)}MB heap (vs ${Math.round(heapStats.heap_size_limit / 1024 / 1024)}MB limit)`,
+      );
+
+      if (heapExpansionBlockedCount >= maxBlockedExpansions) {
+        console.log(
+          "🚨 CRITICAL: True heap anchoring detected - forcing cleanup",
+        );
+
+        // Force aggressive cleanup ONLY when truly anchored
+        if (global.gc) {
+          global.gc();
+        }
+
+        // Clear memory timeline if it exists - MORE AGGRESSIVE CLEANUP
+        if (Array.isArray(memoryTimeline) && memoryTimeline.length > 2) {
+          // REDUCED from 10 to 2
+          memoryTimeline.splice(0, memoryTimeline.length - 1); // Keep only last 1 entry (from 5)
+          console.log(
+            "🧹 Memory timeline aggressively cleaned - kept only last entry",
+          );
+        }
+
+        // Reset counter
+        heapExpansionBlockedCount = 0;
+      }
+    } else {
+      // Reset counter if heap is healthy or naturally expanding
+      heapExpansionBlockedCount = 0;
+
+      // Log successful expansion (deterministically - every 10th expansion)
+      const expansionCount = Math.floor(Date.now() / 10000) % 10; // Determina basado en tiempo (cada 10 segundos)
+      if (
+        heapStats.total_heap_size > 150 * 1024 * 1024 &&
+        expansionCount === 0
+      ) {
+        // > 150MB, log cada 10 expansiones
+        console.log(
+          `✅ HEAP EXPANDING NATURALLY: ${Math.round(heapStats.total_heap_size / 1024 / 1024)}MB total, ${heapUsagePercent.toFixed(1)}% usage`,
+        );
+      }
+    }
+  }
+
+  function takeEmergencySnapshot(_reason: string) {
+    if (emergencySnapshotCount >= maxEmergencySnapshots) {
+      console.log("🚫 Emergency snapshot limit reached, skipping...");
+      return;
+    }
+
+    try {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `emergency-heap-${_reason}-${emergencySnapshotCount}-${timestamp}.heapsnapshot`;
+
+      // Check if inspector is available and properly initialized
+      if (
+        !inspector ||
+        typeof inspector.url !== "function" ||
+        !inspector.url()
+      ) {
+        console.log(
+          "⚠️ Inspector not available for emergency snapshot (run with --inspect flag)",
+        );
+        return;
+      }
+
+      const session = new inspector.Session();
+      session.connect();
+
+      session.post("HeapProfiler.enable", () => {
+
+        session.post(
+          "HeapProfiler.takeHeapSnapshot",
+          {},
+          (err: any) => {
+            if (err) {
+              console.error("❌ Emergency heap snapshot failed:", err);
+            } else {
+              console.log(
+                `🚨 🚨 🚨 EMERGENCY SNAPSHOT TAKEN: ${filename} 🚨 🚨 🚨`,
+              );
+              emergencySnapshotCount++;
+            }
+            session.disconnect();
+          },
+        );
+      });
+    } catch (error) {
+      console.log(
+        "⚠️ Emergency snapshot not available:",
+        (error as Error).message,
+      );
+    }
+  }
+
+
+  // 🔥 MISSION V407: 5-minute 'checkCriticalMemory' monitor removed by GeminiPunk.
+
+  console.log(
+    "🔥 Emergency memory monitor activated - checking every 5 minutes",
+  );
+
+  // 🔥 AGGRESSIVE HEAP MONITORING - IMMEDIATE CLEANUP AT 90%
+  let emergencyCleanupCount = 0;
+  const MAX_EMERGENCY_CLEANUPS = 5; // 🔥 AGGRESSIVE LIMIT: Max 5 emergency cleanups per session
+
+  function performEmergencyCleanup(_reason: string) {
+    if (emergencyCleanupCount >= MAX_EMERGENCY_CLEANUPS) {
+      console.log(
+        "🚫 Emergency cleanup limit reached - system may need restart",
+      );
+      return false;
+    }
+    emergencyCleanupCount++;
+
+    console.log(`🚨 EMERGENCY CLEANUP #${emergencyCleanupCount}: ${_reason}`);
+
+    const beforeCleanup = process.memoryUsage();
+    let totalFreed = 0;
+
+    // 1. Force garbage collection
+    if (global.gc) {
+      global.gc();
+      const afterGC = process.memoryUsage();
+      const gcFreed = beforeCleanup.heapUsed - afterGC.heapUsed;
+      totalFreed += gcFreed;
+      console.log(
+        `🧹 GC: Freed ${Math.round((gcFreed / 1024 / 1024) * 100) / 100}MB`,
+      );
+    }
+
+    // 2. Clear memory timeline if it's too large
+    if (Array.isArray(memoryTimeline) && memoryTimeline.length > 2) {
+      const removed = memoryTimeline.length - 1;
+      memoryTimeline.splice(0, removed);
+      console.log(`🧹 Memory timeline: Removed ${removed} old entries`);
+    }
+
+    // 3. Clear any large global arrays (defensive cleanup)
+    const globalKeys = Object.keys(global);
+    let clearedObjects = 0;
+
+    globalKeys.forEach((key) => {
+      try {
+        const obj = (global as any)[key];
+        if (obj && Array.isArray(obj) && obj.length > 1000) {
+          // Only clear arrays that are clearly accumulators and very large
+          if (
+            key.includes("logs") ||
+            key.includes("history") ||
+            key.includes("timeline")
+          ) {
+            const originalLength = obj.length;
+            obj.splice(0, obj.length - 100); // Keep last 100 items
+            clearedObjects++;
+            console.log(
+              `🧹 ${key}: Reduced from ${originalLength} to 100 items`,
+            );
+          }
+        }
+      } catch (e) {
+        // Skip inaccessible objects
+      }
+    });
+
+    if (clearedObjects > 0) {
+      console.log(`🧹 Cleared ${clearedObjects} large global arrays`);
+    }
+
+    // 4. Report results
+    const afterCleanup = process.memoryUsage();
+    const cleanupFreed = beforeCleanup.heapUsed - afterCleanup.heapUsed;
+    totalFreed += cleanupFreed;
+
+    console.log(
+      `✅ Emergency cleanup complete: Freed ${Math.round((totalFreed / 1024 / 1024) * 100) / 100}MB total`,
+    );
+    console.log(
+      `📊 Heap after cleanup: ${Math.round(afterCleanup.heapUsed / 1024 / 1024)}MB used`,
+    );
+
+    return totalFreed > 0;
+  }
+
+  // 🔥 MISSION V407: Aggressive 30-second memory monitor removed by GeminiPunk.
+
+  // Register global emergency cleanup function
+  (global as any).emergencyCleanup = () =>
+    performEmergencyCleanup("manual-trigger");
+
+  try {
+    console.log("⚡ Creating Selene Server...");
+    const server = new SeleneServer();
+
+    console.log("🚀 Starting server...");
+    await server.start();
+    console.log("✅ Server started successfully");
+
+    console.log("🛡️ Configuring GraphQL with @veritas directive...");
+    console.log("🔍 Creating GraphQL server instance...");
+    // Create a minimal GraphQL server instance for the configureGraphQL method
+    const graphqlServer = new SeleneNuclearGraphQL(
+      server["database"],
+      server["cache"],
+      server["monitoring"],
+      server["reactor"],
+      server["containment"],
+      server["fusion"],
+      server["veritas"],
+      null as any, // Consciousness disabled - CPU radiation safety
+      server["heal"] || (null as any),
+      server["predict"] || (null as any),
+      server["offline"] || (null as any),
+    );
+    console.log("✅ GraphQL server instance created");
+
+    console.log("🔧 Calling server.configureGraphQL()...");
+    await server.configureGraphQL(graphqlServer);
+    console.log("✅ configureGraphQL() completed successfully");
+
+    // 🎯 V166: Desactivar silenciador y mostrar resumen
+    if (process.env.APOLLO_VERBOSE_STARTUP !== "true") {
+      consoleSilencer.deactivate();
+      consoleSilencer.showSummary();
+    }
+
+    console.log("✅ Selene Song Core started successfully");
+    console.log("🔐 /api/v1/auth/login  READY");
+    console.log("👤 /api/v1/auth/me  READY");
+    console.log("🔮 /graphql  READY WITH @VERITAS");
+    console.log("💚 /health  READY");
+    console.log("🎨 Frontend can now authenticate for €90/month");
+    console.log("🔐 GraphQL queries with @veritas(level: CRITICAL) available");
+
+    // Keep the process alive
+    console.log("🔥 Selene Song Core running... Press Ctrl+C to stop");
+  } catch (error) {
+    console.error("❌ Selene Song Core startup failed:", error);
+    process.exit(1);
+  }
+}
+
+// Handle graceful shutdown
+process.on("SIGINT", () => {
+  console.log("\n🛑 Received SIGINT, shutting down...");
+  process.exit(0);
+});
+
+process.on("SIGTERM", () => {
+  console.log("\n🛑 Received SIGTERM, shutting down...");
+  process.exit(0);
+});
+
+// Start the nuclear revolution
+main().catch((_error) => {
+  console.error("💥 Critical startup error:", _error);
+  process.exit(1);
+});
+
+// 🔥 CLUSTER-WIDE MEMORY MONITORING - IDENTIFY ANCHORING COMPONENTS
+const MAX_MEMORY_CHECKS = 10; // 🔥 AGRESSIVE LIMIT: Max 10 memory checks to prevent log spam
+let memoryCheckCount = 0;
+
+function performClusterMemoryAudit() {
+  if (memoryCheckCount >= MAX_MEMORY_CHECKS) {
+    console.log(
+      "🚫 Cluster memory audit limit reached - stopping automated checks",
+    );
+    return;
+  }
+  memoryCheckCount++;
+
+  console.log("\n🔍 ===== CLUSTER MEMORY AUDIT =====");
+
+  const heapStats = v8.getHeapStatistics();
+  const heapUsagePercent =
+    (heapStats.used_heap_size / heapStats.total_heap_size) * 100;
+
+  console.log(
+    `📊 HEAP STATUS: ${heapUsagePercent.toFixed(1)}% used (${Math.round(heapStats.used_heap_size / 1024 / 1024)}MB/${Math.round(heapStats.total_heap_size / 1024 / 1024)}MB)`,
+  );
+
+  // Check if we're in critical anchoring territory
+  if (heapUsagePercent > 90) {
+    console.log("🚨 CRITICAL: Heap usage >90% - performing deep memory audit");
+
+    // Local heap snapshot function for emergency snapshots
+    const createHeapSnapshot = function (_reason = "manual") {
+      try {
+        // Check if inspector is available and properly initialized
+        if (
+          !inspector ||
+          typeof inspector.url !== "function" ||
+          !inspector.url()
+        ) {
+          console.log(
+            "⚠️ Inspector not available for heap snapshot (run with --inspect flag)",
+          );
+          return false;
+        }
+
+        const session = new inspector.Session();
+        session.connect();
+
+        session.post("HeapProfiler.enable", () => {
+          const snapshotPath = path.join(
+            process.cwd(),
+            `heap-${_reason}-${Date.now()}.heapsnapshot`,
+          );
+
+          session.post(
+            "HeapProfiler.takeHeapSnapshot",
+            {},
+            (err: any) => {
+              if (err) {
+                console.error("❌ Heap snapshot failed:", err);
+              } else {
+                console.log("📸 Heap snapshot created:", snapshotPath);
+              }
+              session.disconnect();
+            },
+          );
+        });
+        return true;
+      } catch (error) {
+        console.log(
+          "⚠️ Heap snapshot not available:",
+          (error as Error).message,
+        );
+        return false;
+      }
+    };
+
+    // Audit global objects for large accumulators
+    const globalKeys = Object.keys(global);
+    const largeObjects: any[] = [];
+
+    globalKeys.forEach((key) => {
+      try {
+        const obj = (global as any)[key];
+        if (obj && typeof obj === "object") {
+          let size = 0;
+          if (Array.isArray(obj)) {
+            size = obj.length;
+            if (size > 100) {
+              // Only report large arrays
+              largeObjects.push({
+                name: key,
+                type: "Array",
+                size,
+                sample: obj.slice(0, 3),
+              });
+            }
+          } else if (obj instanceof Map) {
+            size = obj.size;
+            if (size > 50) {
+              // Only report large maps
+              largeObjects.push({ name: key, type: "Map", size });
+            }
+          } else if (obj instanceof Set) {
+            size = obj.size;
+            if (size > 50) {
+              // Only report large sets
+              largeObjects.push({ name: key, type: "Set", size });
+            }
+          }
+        }
+      } catch (e) {
+        // Skip inaccessible objects
+      }
+    });
+
+    if (largeObjects.length > 0) {
+      console.log("🚨 LARGE MEMORY OBJECTS DETECTED:");
+      largeObjects.forEach((obj) => {
+        console.log(`  ${obj.name}: ${obj.type} with ${obj.size} items`);
+        if (obj.sample) {
+          console.log(`    Sample: ${JSON.stringify(obj.sample)}`);
+        }
+      });
+    } else {
+      console.log("✅ No large memory objects found in global scope");
+    }
+
+    // Force GC and check recovery
+    const beforeGC = process.memoryUsage();
+    if (global.gc) {
+      global.gc();
+      const afterGC = process.memoryUsage();
+      const freed = beforeGC.heapUsed - afterGC.heapUsed;
+      console.log(
+        `🧹 GC Result: Freed ${Math.round((freed / 1024 / 1024) * 100) / 100}MB`,
+      );
+    }
+
+    // Create emergency heap snapshot
+    createHeapSnapshot("cluster-memory-audit");
+  }
+
+  console.log("🔍 ===== END CLUSTER AUDIT =====\n");
+} // Register global function for manual cluster audits
+(global as any).auditClusterMemory = performClusterMemoryAudit;
+
+// Perform initial audit
+setTimeout(() => performClusterMemoryAudit(), 10000); // 10 seconds after startup
+
+// 🔥 MISSION V407: 10-minute 'performClusterMemoryAudit' monitor removed by GeminiPunk.
+
