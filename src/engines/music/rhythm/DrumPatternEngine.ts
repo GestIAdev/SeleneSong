@@ -130,7 +130,33 @@ export class DrumPatternEngine {
                 ]
             },
 
-            // PATTERN 5: OUTRO (Fade)
+            // PATTERN 5: BUILDUP (Cyberpunk Glitchy - espaciado)
+            // ✅ BUG #24 FIX: Buildup cyberpunk (glitchy/espaciado), no metralleta
+            buildup: {
+                bars: 4,
+                notes: [
+                    // Bar 1: Kick + Hi-Hat espaciado
+                    { beat: 1, midi: 36, velocity: 105 },  // Kick
+                    { beat: 1, midi: 42, velocity: 75 },   // HH closed
+                    { beat: 2.5, midi: 38, velocity: 90 }, // Snare
+                    { beat: 3.5, midi: 36, velocity: 100 },// Kick
+                    { beat: 4, midi: 42, velocity: 70 },   // HH closed
+                    
+                    // Bar 2: Añadir crash y clap
+                    { beat: 5, midi: 49, velocity: 95 },   // Crash (glitch)
+                    { beat: 6.5, midi: 39, velocity: 85 }, // Clap
+                    { beat: 7.5, midi: 36, velocity: 105 },// Kick
+                    
+                    // Bar 3-4: Repetir con variación
+                    { beat: 9, midi: 36, velocity: 110 },  // Kick
+                    { beat: 10.5, midi: 38, velocity: 95 },// Snare
+                    { beat: 11.5, midi: 49, velocity: 100 },// Crash
+                    { beat: 13, midi: 36, velocity: 115 }, // Kick final
+                    { beat: 14.5, midi: 38, velocity: 100 }// Snare final
+                ]
+            },
+
+            // PATTERN 6: OUTRO (Fade)
             outro: {
                 bars: 4,
                 notes: [
@@ -221,7 +247,7 @@ export class DrumPatternEngine {
             'chorus': 'chorus',
             'interlude': 'bridge',
             'bridge': 'bridge',
-            'buildup': 'chorus',       // Usar chorus pattern (energético)
+            'buildup': 'buildup',      // ✅ BUG #24 FIX: Patrón específico glitchy (no chorus)
             'outro': 'outro'
         }
         
@@ -232,10 +258,10 @@ export class DrumPatternEngine {
      * Determinar si agregar fill de transición
      */
     private shouldAddFill(section: Section): boolean {
-        // Agregar fill antes de chorus o al final de verse/pre-chorus
+        // ✅ BUG #24 FIX: NO añadir fill en buildup (ya tiene chorus pattern complejo)
+        // Agregar fill solo antes de chorus o al final de verse
         return section.type === 'verse' || 
-               section.type === 'pre-chorus' || 
-               section.type === 'buildup'
+               section.type === 'pre-chorus'
     }
 
     /**

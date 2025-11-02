@@ -130,16 +130,17 @@ export class Orchestrator {
                     duration *= 1.2  // Overlap con siguiente nota
                 }
 
-                // ✅ CIRUGÍA ANTI-ÓRGANO: Truncar DESPUÉS de calcular duration final
-                // LÍMITE MUSICAL: Máximo 8 segundos por nota (evitar "Órgano de Iglesia")
+                // ✅ BUG #23 FIX: Límite MUSICAL (chord.duration), no arbitrario 8s
+                // Las notas deben seguir el ritmo armónico del acorde
                 const noteStartTime = chord.startTime
                 let noteEndTime = noteStartTime + duration
                 
-                // Primero: límite absoluto de 8s
-                if (duration > 8.0) {
-                    duration = 8.0
+                // Primero: límite de chord.duration * 2 (permite overlap legato)
+                const maxMusicalDuration = chord.duration * 2.0
+                if (duration > maxMusicalDuration) {
+                    duration = maxMusicalDuration
                     noteEndTime = noteStartTime + duration
-                    console.log(`[HARMONY LIMIT] Section ${section.index}: Note limited to 8.0s (was longer)`)
+                    console.log(`[HARMONY LIMIT] Section ${section.index}: Note limited to ${maxMusicalDuration.toFixed(2)}s (chord duration * 2)`)
                 }
                 
                 // Segundo: truncar si excede sección
@@ -188,8 +189,10 @@ export class Orchestrator {
             // chord.root ya es MIDI absoluto (48-84), ajustar a octava de bajo
             const bassPitch = (chord.root % 12) + config.octave * 12
 
-            // Velocity
-            const velocity = config.velocity + (prng.next() * config.velocityVariation * 127 - config.velocityVariation * 64)
+            // ✅ BUG #31 FIX: Convertir velocity (0-1) a MIDI (0-127) ANTES de variación
+            const baseVelocity = config.velocity * 127 // 0.43 → 55 MIDI
+            const variation = prng.next() * config.velocityVariation * 127 - config.velocityVariation * 64
+            const velocity = baseVelocity + variation
 
             // Duración
             let duration = chord.duration * config.noteDuration
@@ -197,16 +200,16 @@ export class Orchestrator {
                 duration *= 0.7
             }
 
-            // ✅ CIRUGÍA ANTI-ÓRGANO: Truncar DESPUÉS de calcular duration final
-            // LÍMITE MUSICAL: Máximo 8 segundos por nota (evitar "Órgano de Iglesia")
+            // ✅ BUG #23 FIX: Límite MUSICAL (chord.duration), no arbitrario 8s
+            // El bajo debe seguir el ritmo armónico del acorde
             const noteStartTime = chord.startTime
             let noteEndTime = noteStartTime + duration
             
-            // Primero: límite absoluto de 8s
-            if (duration > 8.0) {
-                duration = 8.0
+            // Primero: límite de chord.duration (bajo no debe exceder acorde)
+            if (duration > chord.duration) {
+                duration = chord.duration
                 noteEndTime = noteStartTime + duration
-                console.log(`[BASS LIMIT] Section ${section.index}: Note limited to 8.0s (was longer)`)
+                console.log(`[BASS LIMIT] Section ${section.index}: Note limited to ${chord.duration.toFixed(2)}s (chord duration)`)
             }
             
             // Segundo: truncar si excede sección
@@ -286,26 +289,16 @@ export class Orchestrator {
             for (const pitch of padNotes) {
                 const adjustedPitch = pitch + (config.octave - 4) * 12
 
-                // ✅ DURACIÓN RESPETANDO SECTION
-                // Pad puede durar largo tiempo, pero NO exceder section.duration
+                // ✅ BUG #23 FIX: Duración basada en chord.duration (no 8-16s arbitrario)
+                // Pad puede ser largo, pero sigue el ritmo armónico
                 const timeLeftInSection = section.startTime + section.duration - chord.startTime
-                const maxPadDuration = Math.min(chord.duration, timeLeftInSection)
-                const desiredLongDuration = 8 + prng.next() * 8 // 8-16 segundos
-                let actualDuration = Math.min(desiredLongDuration, maxPadDuration)
+                const maxMusicalDuration = chord.duration * 4.0 // Pad puede extenderse 4x
+                let actualDuration = Math.min(maxMusicalDuration, timeLeftInSection)
 
-                // ✅ CIRUGÍA ANTI-ÓRGANO: Doble validación - truncar DESPUÉS de calcular actualDuration
-                // LÍMITE MUSICAL: Máximo 8 segundos por nota (evitar "Órgano de Iglesia")
                 const noteStartTime = chord.startTime
                 let noteEndTime = noteStartTime + actualDuration
                 
-                // Primero: límite absoluto de 8s
-                if (actualDuration > 8.0) {
-                    actualDuration = 8.0
-                    noteEndTime = noteStartTime + actualDuration
-                    console.log(`[PAD LIMIT] Section ${section.index}: Note limited to 8.0s (was longer)`)
-                }
-                
-                // Segundo: truncar si excede sección
+                // Truncar si excede sección
                 if (noteEndTime > sectionEndTime) {
                     const oldDuration = actualDuration
                     actualDuration = Math.max(0.1, sectionEndTime - noteStartTime)
@@ -320,7 +313,7 @@ export class Orchestrator {
 
                 notes.push({
                     pitch: Math.max(0, Math.min(127, adjustedPitch)),
-                    velocity: config.velocity,  // Sin variación (pad suave)
+                    velocity: Math.floor(config.velocity * 127),  // ✅ BUG #31 FIX: Convertir 0-1 a MIDI 0-127
                     startTime: noteStartTime,
                     duration: actualDuration, // ✅ NO EXCEDE SECTION (doblemente validado)
                     channel: config.channel || 3
