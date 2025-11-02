@@ -181,8 +181,13 @@ export class DrumPatternEngine {
                         velocity = note.velocity * (1 - fadeProgress * 0.6) // Fade 60%
                     }
 
-                    // Scale velocity by baseVelocity (from config)
-                    const scaledVelocity = Math.floor((velocity / 127) * baseVelocity)
+                    // ✅ BUG #31 FIX FINAL: NO normalizar velocities PRO del patrón
+                    // Los patrones ya tienen velocities profesionales (80-120 MIDI)
+                    // baseVelocity (config.velocity * 127) causaba doble normalización:
+                    // kick=110 MIDI → (110/127)*59 = 51 MIDI (pérdida de 59 puntos!)
+                    // 
+                    // AHORA: Usar velocities del patrón directamente (ya son MIDI 0-127)
+                    const scaledVelocity = Math.floor(velocity)
 
                     notes.push({
                         pitch: note.midi,
