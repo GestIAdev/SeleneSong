@@ -81,5 +81,54 @@ export const MODAL_PROGRESSIONS: Record<string, ChordProgression> = {
         totalBars: 12,
         voiceLeading: 'smooth',
         cyclic: true
+    },
+
+    // NUEVAS PROGRESIONES
+    'phrygian-dark': {
+        id: 'phrygian-dark',
+        name: 'Phrygian Dark',
+        description: 'Progresión frígia oscura con tensión modal',
+        chords: [
+            { degree: 0, quality: 'minor', duration: 2, extensions: [] },    // i
+            { degree: 1, quality: 'major', duration: 2, extensions: [] },    // ♭II
+            { degree: 7, quality: 'minor', duration: 2, extensions: [] },    // ♭vii
+            { degree: 0, quality: 'minor', duration: 2, extensions: [] }     // i
+        ],
+        totalBars: 8,
+        voiceLeading: 'smooth',
+        tags: ['modal', 'phrygian', 'dark', 'tense'],
+        cyclic: true
+    },
+    
+    'lydian-bright': {
+        id: 'lydian-bright',
+        name: 'Lydian Bright',
+        description: 'Progresión lidia brillante y uplifting',
+        chords: [
+            { degree: 0, quality: 'major', duration: 2, extensions: [] },    // I
+            { degree: 2, quality: 'major', duration: 1, extensions: [] },    // II
+            { degree: 6, quality: 'minor', duration: 1, extensions: [] },    // #iv°
+            { degree: 0, quality: 'major', duration: 2, extensions: [] }     // I
+        ],
+        totalBars: 6,
+        voiceLeading: 'smooth',
+        tags: ['modal', 'lydian', 'bright', 'uplifting'],
+        cyclic: true
+    },
+    
+    'dorian-groovy': {
+        id: 'dorian-groovy',
+        name: 'Dorian Groovy',
+        description: 'Progresión dorian groovy con feeling funk',
+        chords: [
+            { degree: 0, quality: 'minor', duration: 2, extensions: [] },    // i
+            { degree: 5, quality: 'minor', duration: 2, extensions: [] },    // iv
+            { degree: 7, quality: 'major', duration: 2, extensions: [] },    // VII
+            { degree: 10, quality: 'major', duration: 2, extensions: [] }    // V
+        ],
+        totalBars: 8,
+        voiceLeading: 'smooth',
+        tags: ['modal', 'dorian', 'groovy', 'funk'],
+        cyclic: true
     }
 }

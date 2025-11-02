@@ -6,6 +6,7 @@
 import MidiWriterJS from 'midi-writer-js'
 import { MIDINote, MIDITrack } from '../core/interfaces.js'
 import { SongStructure } from '../structure/SongStructure.js'
+import { SeededRandom } from '../utils/SeededRandom.js'
 
 
 // Extract classes from MidiWriterJS (CommonJS module)
@@ -13,6 +14,18 @@ const MidiWriter = MidiWriterJS as any
 
 export class MIDIRenderer {
     private readonly PPQ = 128  // Pulses Per Quarter Note (midi-writer-js default)
+    private random: SeededRandom
+
+    constructor(seed?: number) {
+        this.random = new SeededRandom(seed || 12345)
+    }
+
+    /**
+     * Set seed for deterministic random generation
+     */
+    setSeed(seed: number): void {
+        this.random = new SeededRandom(seed)
+    }
 
     render(notes: MIDINote[], structure: SongStructure): Buffer {
         console.log('🎵 [MIDIRenderer] Starting render with', notes.length, 'notes')
@@ -74,11 +87,34 @@ export class MIDIRenderer {
         const tempoTrack = this.createTempoTrack(tempo)
         midiTracks.push(tempoTrack)
 
-        let channel = 0
+        let currentMelodicChannel = 0; // Contador solo para canales no-percusión (0-8, 10-15)
+
+        console.log(`[MIDI RENDERER DEBUG] Processing ${tracks.size} layers for Style ${style.id}`);
         for (const [layerName, notes] of Array.from(tracks.entries())) {
-            const midiTrack = this.createTrack(notes, layerName, channel, this.getProgramForLayer(layerName), tempo)
-            midiTracks.push(midiTrack)
-            channel = (channel + 1) % 16
+            let targetChannel: number;
+
+            // LÓGICA DE CANAL CORREGIDA:
+            if (layerName.toLowerCase() === 'rhythm') {
+                targetChannel = 9; // Fuerza canal 9 para ritmo
+            } else {
+                targetChannel = currentMelodicChannel;
+                currentMelodicChannel++;
+                // Salta el canal 9 si llegamos a él
+                if (currentMelodicChannel === 9) {
+                    currentMelodicChannel = 10;
+                }
+                // Resetea si superamos el 15 (aunque improbable con pocas capas)
+                if (currentMelodicChannel > 15) {
+                    currentMelodicChannel = 0; 
+                }
+            }
+
+            console.log(`[MIDI RENDERER DEBUG] Layer: ${layerName}, Notes: ${notes.length}, Target Channel: ${targetChannel}`); // Log actualizado
+
+            const program = this.getProgramForLayer(layerName, style.id);
+            // Asegúrate de pasar el 'targetChannel' correcto a createTrack
+            const midiTrack = this.createTrack(notes, layerName, targetChannel, program, tempo);
+            midiTracks.push(midiTrack);
         }
 
         const writer = new MidiWriter.Writer(midiTracks)
@@ -115,20 +151,19 @@ export class MIDIRenderer {
         }))
     }
 
-    private createTrack(notes: MIDINote[], name: string, channel: number, program: number, tempo: number = 120): any {
+    private createTrack(notes: MIDINote[], layerName: string, channel: number, program: number, tempo: number = 120): any {
         const track = new MidiWriter.Track()
 
-        console.log(`🔍 [MIDIRenderer] createTrack for "${name}" - Tempo: ${tempo}, Channel: ${channel}, Notes: ${notes.length}`)
+        console.log(`🔍 [MIDIRenderer] createTrack for "${layerName}" - Tempo: ${tempo}, Channel: ${channel}, Notes: ${notes.length}`)
 
         // Set track name (TrackNameEvent requiere objeto {text})
-        track.addEvent(new MidiWriter.TextEvent({ text: name }))
+        track.addEvent(new MidiWriter.TextEvent({ text: layerName }))
 
-        // Set program (instrument)
-        if (program > 0) {
-            track.addEvent(new MidiWriter.ProgramChangeEvent({ program }))
-        }
-
-        // Sort notes by start time
+    // AÑADIR PROGRAM CHANGE AL PRINCIPIO (TICK 0)
+    if (channel !== 9) {
+        console.log(`[MIDI RENDERER DEBUG] Assigning Program ${program} to Channel ${channel} for Layer ${layerName}`);
+        track.addEvent(new MidiWriter.ProgramChangeEvent({ program: program, channel: channel, tick: 0 })); // Especifica canal y tick 0
+    }        // Sort notes by start time
         const sortedNotes = [...notes].sort((a, b) => a.startTime - b.startTime)
 
         // Log first 5 and last 5 notes for debugging
@@ -147,8 +182,8 @@ export class MIDIRenderer {
         let notesAdded = 0
         for (const note of sortedNotes) {
             // Calcular tiempo de inicio absoluto y duración en ticks
-            const noteStartTicks = this.secondsToTicks(note.startTime, tempo)
-            const durationTicks = this.secondsToTicks(note.duration, tempo)
+            const noteStartTicks = this.secondsToTicks(note.startTime, tempo, true) // humanize timing
+            const durationTicks = this.secondsToTicks(note.duration, tempo, false) // NO humanize duration
             
             // Log detailed calculation for first 3 notes
             if (notesAdded < 3) {
@@ -159,11 +194,14 @@ export class MIDIRenderer {
                 console.log(`   Check: ${note.startTime} * ${tempo / 60} * ${this.PPQ} = ${note.startTime * (tempo / 60) * this.PPQ}`)
             }
             
-            // Usar tick absoluto (tiempo desde inicio del track)
+            // CRITICAL FIX: Pass pitch as NUMBER, not string
+            // midi-writer-js accepts raw MIDI pitch values (0-127)
+            // Backend already generates correct pitches (e.g., 60 = C4)
+            // String conversion was causing octave re-interpretation bugs
             const midiNote = new MidiWriter.NoteEvent({
-                pitch: this.pitchToMidiNote(note.pitch),
+                pitch: note.pitch,  // ← RAW PITCH NUMBER (e.g., 60 for C4)
                 duration: `T${durationTicks}`,
-                tick: noteStartTicks, // Tiempo absoluto en ticks
+                tick: noteStartTicks,
                 velocity: note.velocity,
                 channel: channel
             })
@@ -171,7 +209,8 @@ export class MIDIRenderer {
             // Log NoteEvent params for first 3 notes
             if (notesAdded < 3) {
                 console.log(`   NoteEvent params:`, JSON.stringify({
-                    pitch: this.pitchToMidiNote(note.pitch),
+                    pitch: note.pitch,  // ← Log RAW number
+                    pitchName: this.pitchToMidiNote(note.pitch),  // ← Human-readable for debugging
                     duration: `T${durationTicks}`,
                     tick: noteStartTicks,
                     velocity: note.velocity,
@@ -183,7 +222,7 @@ export class MIDIRenderer {
             notesAdded++
         }
         
-        console.log(`✅ [MIDIRenderer] Added ${notesAdded} notes to track "${name}"`)
+        console.log(`✅ [MIDIRenderer] Added ${notesAdded} notes to track "${layerName}"`)
 
         return track
     }
@@ -195,41 +234,78 @@ export class MIDIRenderer {
         return track
     }
 
-    private secondsToTicks(seconds: number, tempo: number = 120): number {
-        // Calcular ticks basado en tempo dinámico
+    private secondsToTicks(seconds: number, tempo: number = 120, humanize: boolean = true): number {
         const ticksPerSecond = (this.PPQ * tempo) / 60
-        const result = Math.round(seconds * ticksPerSecond)
+        let result = seconds * ticksPerSecond
         
-        // Log for debugging (only for extreme values)
-        if (isNaN(result) || !isFinite(result) || result < 0 || result > 1000000) {
-            console.warn(`⚠️ [MIDIRenderer] secondsToTicks ANOMALY:`, JSON.stringify({
-                seconds,
-                tempo,
-                PPQ: this.PPQ,
-                ticksPerSecond,
-                result
-            }))
+        // NUEVO: Humanization (±2% timing variation)
+        if (humanize && this.random.next() < 0.8) { // 80% of notes get humanized
+            const humanizationAmount = 0.02 // ±2%
+            const variation = (this.random.next() * 2 - 1) * humanizationAmount
+            result *= (1 + variation)
         }
         
-        return result
+        return Math.round(result)
     }
 
     private pitchToMidiNote(pitch: number): string[] {
         const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-        const octave = Math.floor(pitch / 12) + 4  // MIDI octave starts from -1, but we use 4 as base
+        const octave = Math.floor(pitch / 12) - 1  // MIDI standard: pitch 60 = C4 (Middle C)
         const noteIndex = pitch % 12
         return [noteNames[noteIndex] + octave]
     }
 
-    private getProgramForLayer(layerName: string): number {
-        const programs: Record<string, number> = {
-            'Melody': 0,    // Piano
-            'Harmony': 0,   // Piano
-            'Bass': 32,     // Electric Bass
-            'Rhythm': 25,   // Steel Drums
-            'Pad': 89       // Pad Choir
+    private getProgramForLayer(layerName: string, styleId: string = 'default'): number {
+        // Style-specific instrument palettes
+        const stylePalettes: Record<string, Record<string, number>> = {
+            'cyberpunk-ambient': {
+                'melody': 81,      // Lead 1 (square wave)
+                'harmony': 89,     // Pad 2 (warm)
+                'bass': 39,        // Synth Bass 2
+                'pad': 92,         // Pad 5 (bowed)
+                'rhythm': 0        // Channel 9 = drums (no program change needed)
+            },
+            'indie-game-loop': {
+                'melody': 11,      // Vibraphone
+                'harmony': 4,      // Electric Piano 1
+                'bass': 34,        // Electric Bass (pick)
+                'pad': 95,         // Pad 8 (sweep)
+                'rhythm': 0
+            },
+            'lofi-minimalist': {
+                'melody': 1,       // Bright Acoustic Piano
+                'harmony': 7,      // Harpsichord
+                'bass': 33,        // Acoustic Bass
+                'pad': 88,         // Pad 1 (new age)
+                'rhythm': 0
+            },
+            'epic-orchestral': {
+                'melody': 40,      // Violin
+                'harmony': 48,     // String Ensemble 1
+                'bass': 43,        // Contrabass
+                'pad': 52,         // Choir Aahs
+                'rhythm': 47       // Timpani (when not channel 9)
+            },
+            'glitch-experimental': {
+                'melody': 80,      // Lead 1 (square)
+                'harmony': 98,     // FX 3 (crystal)
+                'bass': 38,        // Synth Bass 1
+                'pad': 99,         // FX 4 (atmosphere)
+                'rhythm': 0
+            }
         }
-        return programs[layerName] || 0
+        
+        // Fallback palette
+        const defaultPalette: Record<string, number> = {
+            'melody': 0,       // Acoustic Grand Piano
+            'harmony': 0,      // Acoustic Grand Piano
+            'bass': 32,        // Acoustic Bass
+            'pad': 89,         // Pad 2 (warm)
+            'rhythm': 0
+        }
+        
+        const palette = stylePalettes[styleId] || defaultPalette
+        return palette[layerName.toLowerCase()] || 0
     }
 
     // Additional private methods for manual encoding if needed
@@ -335,4 +411,168 @@ export class MIDIRenderer {
         console.log('✅ Structure analysis complete')
     }
 }
+
+/**
+ * GENERAL MIDI INSTRUMENT MAP (REFERENCE)
+ * 
+ * PIANO:
+ * 0 = Acoustic Grand Piano
+ * 1 = Bright Acoustic Piano
+ * 2 = Electric Grand Piano
+ * 3 = Honky-tonk Piano
+ * 4 = Electric Piano 1 (Rhodes)
+ * 5 = Electric Piano 2 (Chorus)
+ * 6 = Harpsichord
+ * 7 = Clavi
+ * 
+ * CHROMATIC PERCUSSION:
+ * 8 = Celesta
+ * 9 = Glockenspiel
+ * 10 = Music Box
+ * 11 = Vibraphone
+ * 12 = Marimba
+ * 13 = Xylophone
+ * 14 = Tubular Bells
+ * 15 = Dulcimer
+ * 
+ * ORGAN:
+ * 16 = Drawbar Organ
+ * 17 = Percussive Organ
+ * 18 = Rock Organ
+ * 19 = Church Organ
+ * 20 = Reed Organ
+ * 21 = Accordion
+ * 22 = Harmonica
+ * 23 = Tango Accordion
+ * 
+ * GUITAR:
+ * 24 = Acoustic Guitar (nylon)
+ * 25 = Acoustic Guitar (steel)
+ * 26 = Electric Guitar (jazz)
+ * 27 = Electric Guitar (clean)
+ * 28 = Electric Guitar (muted)
+ * 29 = Overdriven Guitar
+ * 30 = Distortion Guitar
+ * 31 = Guitar Harmonics
+ * 
+ * BASS:
+ * 32 = Acoustic Bass
+ * 33 = Electric Bass (finger)
+ * 34 = Electric Bass (pick)
+ * 35 = Fretless Bass
+ * 36 = Slap Bass 1
+ * 37 = Slap Bass 2
+ * 38 = Synth Bass 1
+ * 39 = Synth Bass 2
+ * 
+ * STRINGS:
+ * 40 = Violin
+ * 41 = Viola
+ * 42 = Cello
+ * 43 = Contrabass
+ * 44 = Tremolo Strings
+ * 45 = Pizzicato Strings
+ * 46 = Orchestral Harp
+ * 47 = Timpani
+ * 
+ * ENSEMBLE:
+ * 48 = String Ensemble 1
+ * 49 = String Ensemble 2
+ * 50 = Synth Strings 1
+ * 51 = Synth Strings 2
+ * 52 = Choir Aahs
+ * 53 = Voice Oohs
+ * 54 = Synth Voice
+ * 55 = Orchestra Hit
+ * 
+ * BRASS:
+ * 56 = Trumpet
+ * 57 = Trombone
+ * 58 = Tuba
+ * 59 = Muted Trumpet
+ * 60 = French Horn
+ * 61 = Brass Section
+ * 62 = Synth Brass 1
+ * 63 = Synth Brass 2
+ * 
+ * REED:
+ * 64 = Soprano Sax
+ * 65 = Alto Sax
+ * 66 = Tenor Sax
+ * 67 = Baritone Sax
+ * 68 = Oboe
+ * 69 = English Horn
+ * 70 = Bassoon
+ * 71 = Clarinet
+ * 
+ * PIPE:
+ * 72 = Piccolo
+ * 73 = Flute
+ * 74 = Recorder
+ * 75 = Pan Flute
+ * 76 = Blown Bottle
+ * 77 = Shakuhachi
+ * 78 = Whistle
+ * 79 = Ocarina
+ * 
+ * SYNTH LEAD:
+ * 80 = Lead 1 (square)
+ * 81 = Lead 2 (sawtooth)
+ * 82 = Lead 3 (calliope)
+ * 83 = Lead 4 (chiff)
+ * 84 = Lead 5 (charang)
+ * 85 = Lead 6 (voice)
+ * 86 = Lead 7 (fifths)
+ * 87 = Lead 8 (bass + lead)
+ * 
+ * SYNTH PAD:
+ * 88 = Pad 1 (new age)
+ * 89 = Pad 2 (warm)
+ * 90 = Pad 3 (polysynth)
+ * 91 = Pad 4 (choir)
+ * 92 = Pad 5 (bowed)
+ * 93 = Pad 6 (metallic)
+ * 94 = Pad 7 (halo)
+ * 95 = Pad 8 (sweep)
+ * 
+ * SYNTH EFFECTS:
+ * 96 = FX 1 (rain)
+ * 97 = FX 2 (soundtrack)
+ * 98 = FX 3 (crystal)
+ * 99 = FX 4 (atmosphere)
+ * 100 = FX 5 (brightness)
+ * 101 = FX 6 (goblins)
+ * 102 = FX 7 (echoes)
+ * 103 = FX 8 (sci-fi)
+ * 
+ * ETHNIC:
+ * 104 = Sitar
+ * 105 = Banjo
+ * 106 = Shamisen
+ * 107 = Koto
+ * 108 = Kalimba
+ * 109 = Bag pipe
+ * 110 = Fiddle
+ * 111 = Shanai
+ * 
+ * PERCUSSIVE:
+ * 112 = Tinkle Bell
+ * 113 = Agogo
+ * 114 = Steel Drums
+ * 115 = Woodblock
+ * 116 = Taiko Drum
+ * 117 = Melodic Tom
+ * 118 = Synth Drum
+ * 119 = Reverse Cymbal
+ * 
+ * SOUND EFFECTS:
+ * 120 = Guitar Fret Noise
+ * 121 = Breath Noise
+ * 122 = Seashore
+ * 123 = Bird Tweet
+ * 124 = Telephone Ring
+ * 125 = Helicopter
+ * 126 = Applause
+ * 127 = Gunshot
+ */
 

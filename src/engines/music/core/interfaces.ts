@@ -17,6 +17,7 @@ export interface MusicGenerationParams {
     
     // Control
     duration?: number           // segundos
+    targetDuration?: number     // segundos (alias para duration)
     stylePreset?: string        // 'cyberpunk-ambient', 'indie-game-loop', etc.
     styleOverrides?: Partial<StylePreset>
     

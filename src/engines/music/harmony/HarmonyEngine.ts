@@ -5,6 +5,7 @@
 
 import { SeededRandom } from '../utils/SeededRandom.js'
 import { MIDINote } from '../core/interfaces.js'
+import { Section } from '../structure/SongStructure.js' // ✅ IMPORTAR SECTION
 import { CHORD_PROGRESSIONS } from './progressions/index.js'
 import { ChordProgression, ChordDegree } from './ChordProgression.js'
 import { ChordBuilder } from './ChordBuilder.js'
@@ -12,12 +13,13 @@ import { VoiceLeading } from './VoiceLeading.js'
 
 export interface HarmonyOptions {
     seed: number
+    section: Section              // ✅ AÑADIR SECTION COMPLETA
     key: number                    // Tonalidad (0-11)
     mode: string                   // Modo ('major', 'minor', etc.)
     complexity: number             // 0-1
     voiceLeadingStrategy: 'smooth' | 'contrary' | 'parallel' | 'oblique' | 'free'
-    tempo: number                  // BPM
-    totalBars: number              // Número total de compases
+    totalLoad?: number             // Carga total de otras capas (para optimización)
+    // ❌ ELIMINADOS: tempo, totalBars (están en section)
 }
 
 /**
@@ -32,11 +34,17 @@ export class HarmonyEngine {
 
     /**
      * Generar secuencia de acordes
-     * @param options Opciones de generación
+     * @param options Opciones de generación (incluye section completa)
      * @returns Secuencia de acordes MIDI
      */
     generateChordSequence(options: HarmonyOptions): MIDINote[][] {
-        const { key, mode, complexity, voiceLeadingStrategy, totalBars, seed } = options
+        const { section, key, mode, complexity, voiceLeadingStrategy, seed, totalLoad = 0 } = options
+
+        // ✅ USAR section.tempo, section.bars DIRECTAMENTE
+        const tempo = section.profile?.tempoMultiplier 
+            ? (section.profile.tempoMultiplier * 120) // TODO: Obtener tempo base de StylePreset
+            : 120 // Fallback
+        const totalBars = section.bars
 
         // 🔥 DETERMINISMO: Re-inicializar random con el seed proporcionado
         this.random = new SeededRandom(seed)
@@ -47,8 +55,13 @@ export class HarmonyEngine {
         // Adaptar progresión a la tonalidad
         const adaptedProgression = this.adaptProgressionToKey(progression, key)
 
-        // Generar acordes MIDI
-        const chordSequence = this.buildChordSequence(adaptedProgression, totalBars)
+        // Generar acordes MIDI con ajuste de densidad
+        const chordSequence = this.buildChordSequence(
+            adaptedProgression, 
+            section,  // ✅ PASAR SECTION COMPLETA
+            complexity, 
+            totalLoad
+        )
 
         // Aplicar conducción de voces
         return VoiceLeading.optimizeChordSequence(chordSequence, voiceLeadingStrategy)
@@ -93,11 +106,33 @@ export class HarmonyEngine {
     }
 
     /**
-     * Construir secuencia de acordes MIDI
+     * Construir secuencia de acordes MIDI con ajuste de densidad
+     * ✅ REFACTORIZADO: Recibe section completa, respeta section.duration
      */
-    private buildChordSequence(progression: ChordProgression, totalBars: number): MIDINote[][] {
+    private buildChordSequence(
+        progression: ChordProgression, 
+        section: Section,  // ✅ RECIBIR SECTION COMPLETA
+        complexity: number = 0.5, 
+        totalLoad: number = 0
+    ): MIDINote[][] {
         const sequence: MIDINote[][] = []
         let currentBar = 0
+
+        // ✅ USAR section.duration, section.bars
+        const secondsPerBar = section.duration / section.bars
+        const totalBars = section.bars
+
+        // OPTIMIZACIÓN: Ajustar complejidad basada en carga total (similar a RhythmEngine)
+        let adjustedComplexity = complexity
+        if (totalLoad > 1.5) {
+            // Alta carga: reducir complejidad para evitar acordes de 5 notas
+            adjustedComplexity = Math.min(complexity, 0.6)
+            console.log(`[HARMONY DEBUG] High load detected (${totalLoad.toFixed(2)}), reducing chord complexity to ${adjustedComplexity.toFixed(2)}`)
+        } else if (totalLoad > 0.8) {
+            // Carga media: moderar complejidad
+            adjustedComplexity = Math.min(complexity, 0.75)
+            console.log(`[HARMONY DEBUG] Medium load detected (${totalLoad.toFixed(2)}), moderating chord complexity to ${adjustedComplexity.toFixed(2)}`)
+        }
 
         // Repetir progresión hasta completar los compases requeridos
         while (currentBar < totalBars) {
@@ -108,12 +143,14 @@ export class HarmonyEngine {
                 // El Orchestrator se encarga de ajustar a la octava correcta
                 const midiChord = ChordBuilder.buildChord(
                     chord.degree,
-                    chord.quality
+                    chord.quality,
+                    adjustedComplexity, // Usar complejidad ajustada
+                    this.random
                 )
 
-                // Aplicar duración del acorde (en segundos, NO ticks)
-                const durationSeconds = chord.duration * 4 // duration en compases, 1 compás = 4 segundos @ 60 BPM
-                const startTime = currentBar * 4 // Asumiendo 4/4 time
+                // ✅ APLICAR DURACIÓN DEL ACORDE (en segundos, respetando section)
+                const durationSeconds = chord.duration * secondsPerBar
+                const startTime = section.startTime + (currentBar * secondsPerBar)
 
                 sequence.push(midiChord.map(note => ({
                     ...note,
@@ -129,6 +166,27 @@ export class HarmonyEngine {
                 break
             }
         }
+
+        // ✅ VALIDACIÓN: Asegurar que no excedemos section.duration
+        const sectionEnd = section.startTime + section.duration
+        let totalDuration = 0
+        
+        for (const chord of sequence) {
+            if (chord[0]) {
+                const chordEnd = chord[0].startTime + chord[0].duration
+                if (chordEnd > sectionEnd) {
+                    // Truncar última nota si excede
+                    const excess = chordEnd - sectionEnd
+                    console.warn(`[HARMONY DEBUG] Chord exceeds section end by ${excess.toFixed(2)}s, truncating`)
+                    chord.forEach(note => {
+                        note.duration = Math.max(0.1, note.duration - excess)
+                    })
+                }
+                totalDuration += chord[0].duration
+            }
+        }
+
+        console.log(`[HARMONY DEBUG] Section ${section.index}: Generated ${sequence.length} chords, total duration: ${totalDuration.toFixed(2)}s (section: ${section.duration.toFixed(2)}s)`)
 
         return sequence
     }

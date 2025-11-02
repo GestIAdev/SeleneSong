@@ -9,6 +9,12 @@ import { NEOCLASSICAL_DRONE } from './neoclassical.js'
 import { SYNTHWAVE_ACTION } from './synthwave.js'
 import { LOFI_CHILL } from './lofi.js'
 import { EPIC_ORCHESTRAL } from './orchestral.js'
+import { HORROR_SUSPENSE } from './horror-suspense.js'
+import { JAZZ_SWING } from './jazz-swing.js'
+import { METAL_AGGRO } from './metal-aggro.js'
+import { CLASSICAL_WALTZ } from './classical-waltz.js'
+import { TRIBAL_DRUMS } from './tribal-drums.js'
+import { MINIMALIST_AMBIENT } from './minimalist-ambient.js'
 
 export const PRESET_CATALOG: Record<string, StylePreset> = {
     'cyberpunk-ambient': CYBERPUNK_AMBIENT,
@@ -16,7 +22,13 @@ export const PRESET_CATALOG: Record<string, StylePreset> = {
     'neoclassical-drone': NEOCLASSICAL_DRONE,
     'synthwave-action': SYNTHWAVE_ACTION,
     'lofi-minimalist': LOFI_CHILL,
-    'epic-orchestral': EPIC_ORCHESTRAL
+    'epic-orchestral': EPIC_ORCHESTRAL,
+    'horror-suspense': HORROR_SUSPENSE,
+    'jazz-swing': JAZZ_SWING,
+    'metal-aggro': METAL_AGGRO,
+    'classical-waltz': CLASSICAL_WALTZ,
+    'tribal-drums': TRIBAL_DRUMS,
+    'minimalist-ambient': MINIMALIST_AMBIENT
 }
 
 export {
@@ -25,6 +37,12 @@ export {
     NEOCLASSICAL_DRONE,
     SYNTHWAVE_ACTION,
     LOFI_CHILL,
-    EPIC_ORCHESTRAL
+    EPIC_ORCHESTRAL,
+    HORROR_SUSPENSE,
+    JAZZ_SWING,
+    METAL_AGGRO,
+    CLASSICAL_WALTZ,
+    TRIBAL_DRUMS,
+    MINIMALIST_AMBIENT
 }
 

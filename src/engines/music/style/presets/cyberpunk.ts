@@ -45,11 +45,13 @@ export const CYBERPUNK_AMBIENT: StylePreset = {
     },
 
     layers: {
+        // 🎚️ BUG #31 FIX: BALANCED MIX VELOCITIES (0-1 scale, converted to MIDI 0-127)
+        // TARGET MIX: Melody (protagonist) > Bass/Harmony (support) > Drums (groove) > Pad (atmosphere)
         melody: {
             enabled: true,
             octave: 5,
-            velocity: 40,                   // Suave
-            velocityVariation: 0.2,
+            velocity: 0.55,                 // 70 MIDI = Protagonist (was 40 → too quiet)
+            velocityVariation: 0.15,        // ±19 MIDI variation
             articulation: 'legato',
             noteDuration: 2.0,              // Notas largas
             mixWeight: 0.6
@@ -57,8 +59,8 @@ export const CYBERPUNK_AMBIENT: StylePreset = {
         harmony: {
             enabled: true,
             octave: 3,
-            velocity: 30,
-            velocityVariation: 0.1,
+            velocity: 0.32,                 // 41 MIDI = Support, doesn't dominate (was 30*127=3810!)
+            velocityVariation: 0.08,        // ±10 MIDI variation
             articulation: 'legato',
             noteDuration: 4.0,              // Pads largos
             mixWeight: 0.8
@@ -66,18 +68,26 @@ export const CYBERPUNK_AMBIENT: StylePreset = {
         bass: {
             enabled: true,
             octave: 2,
-            velocity: 35,
-            velocityVariation: 0.15,
+            velocity: 0.43,                 // 55 MIDI = Foundation (was 35 → too quiet)
+            velocityVariation: 0.12,        // ±15 MIDI variation
             articulation: 'normal',
             noteDuration: 3.0,
             mixWeight: 0.5
         },
-        rhythm: false,                      // Sin percusión
+        rhythm: {
+            enabled: true,
+            octave: 0, // No aplica para drums
+            velocity: 0.24,                 // 30 MIDI = Groove without overpowering (was 0.3 → correct scale but too loud)
+            velocityVariation: 0.08,        // ±10 MIDI variation
+            articulation: 'staccato',
+            noteDuration: 0.5,
+            mixWeight: 0.2
+        },
         pad: {
             enabled: true,
             octave: 4,
-            velocity: 25,                   // Muy suave (fondo)
-            velocityVariation: 0.05,
+            velocity: 0.14,                 // 18 MIDI = Subtle atmosphere (was 25 → too loud)
+            velocityVariation: 0.04,        // ±5 MIDI variation
             articulation: 'legato',
             noteDuration: 8.0,              // Drones
             mixWeight: 0.4

@@ -11,36 +11,50 @@ import { SectionType } from '../core/types.js'
 export class StructureEngine {
 
     /**
-     * Generar estructura completa
+     * Generar estructura completa - REFACTORIZADO CON FIBONACCI
+     * Usa calculateSectionDurations para duraciones variables dinámicas
      */
     generateStructure(
-        duration: number,
+        targetDuration: number,
         style: StylePreset,
         seed: number,
         modeConfig: any
     ): SongStructure {
         const prng = new SeededRandom(seed)
 
-        // 1. Determinar forma según duración
-        const form = this.selectForm(duration, style, prng)
+        // Determinar forma base para guiar la generación
+        const baseForm = this.selectForm(targetDuration, style, prng)
 
-        // 2. Calcular duraciones de secciones
-        const sections = this.calculateSectionDurations(form, duration, style, prng)
+        console.log(`[STRUCTURE ENGINE] Generating structure for ${targetDuration}s target duration using Fibonacci-based sections`)
 
-        // 3. Asignar perfiles a cada sección
-        const profiledSections = sections.map(section =>
+        // USAR FIBONACCI: Calcular todas las secciones con duraciones variables
+        const allGeneratedSections = this.calculateSectionDurations(
+            baseForm,
+            targetDuration,
+            style,
+            prng
+        )
+
+        // Asignar perfiles a cada sección generada
+        const profiledSections = allGeneratedSections.map(section =>
             this.assignProfile(section, style, modeConfig, prng)
         )
 
-        // 4. Generar transiciones
+        // Generar transiciones
         const finalSections = this.generateTransitions(
             profiledSections,
             style,
             prng
         )
 
+        // Calcular duración total real
+        const totalSectionDuration = allGeneratedSections.reduce((sum, section) => sum + section.duration, 0)
+        const fadeTime = style.temporal.fadeIn + style.temporal.fadeOut
+
+        console.log(`[STRUCTURE ENGINE] Generated ${finalSections.length} sections with variable durations, total: ${totalSectionDuration.toFixed(2)}s`)
+
         return {
-            totalDuration: duration,
+            totalDuration: totalSectionDuration + fadeTime, // Duración real = suma de secciones + fades
             sections: finalSections,
             globalTempo: style.musical.tempo,
             timeSignature: style.musical.timeSignature,
@@ -110,55 +124,90 @@ export class StructureEngine {
         }
     }
 
-    /**
-     * Calcular duraciones usando Fibonacci escalado
-     */
+
     private calculateSectionDurations(
         form: SectionType[],
         totalDuration: number,
         style: StylePreset,
         prng: SeededRandom
     ): Section[] {
-        // Generar secuencia Fibonacci según cantidad de secciones
-        const fibSequence = this.generateFibonacci(form.length)
-        const totalFib = fibSequence.reduce((a, b) => a + b, 0)
+        const fadeTime = style.temporal.fadeIn + style.temporal.fadeOut;
+        const usableDuration = totalDuration - fadeTime;
+        const beatsPerBar = style.musical.timeSignature[0];
+        const bpm = style.musical.tempo;
+        const secondsPerBar = (60 / bpm) * beatsPerBar;
+        
+        // ¡ARQUITECTURA CORRECTA Y VERIFICADA!
+        
+        // 1. Calcular Presupuesto (Redondeo NORMAL, no floor)
+        const totalBarsToAssign = Math.round(usableDuration / secondsPerBar);
+        let barsRemaining = totalBarsToAssign;
 
-        // Reservar tiempo para fade in/out
-        const fadeTime = style.temporal.fadeIn + style.temporal.fadeOut
-        const usableDuration = totalDuration - fadeTime
+        const sections: Section[] = [];
+        let currentTime = style.temporal.fadeIn;
 
-        // Escalar Fibonacci a duración real
-        const sections: Section[] = []
-        let currentTime = style.temporal.fadeIn
+        // 2. Definir una sección "estándar" (ej. 8 compases)
+        const standardSectionBars = 8; 
 
         for (let i = 0; i < form.length; i++) {
-            const proportion = fibSequence[i] / totalFib
-            const sectionDuration = usableDuration * proportion
+            const sectionType = form[i];
+            let barsForThisSection = 0;
 
-            // Calcular compases (redondeando a compás completo)
-            const beatsPerBar = style.musical.timeSignature[0]
-            const bpm = style.musical.tempo
-            const secondsPerBar = (60 / bpm) * beatsPerBar
-            const bars = Math.max(1, Math.round(sectionDuration / secondsPerBar))
+            if (i === form.length - 1) {
+                // *** ÚLTIMA SECCIÓN ***
+                // La última sección se queda con TODOS los compases restantes.
+                // Esto garantiza que la suma total sea EXACTAMENTE totalBarsToAssign.
+                barsForThisSection = Math.max(1, barsRemaining); // Asegura al menos 1 compás
+            } else {
+                // *** SECCIONES INTERMEDIAS ***
+                
+                const sectionsRemaining = (form.length - 1) - i; // Incluyendo esta sección
+                
+                // Distribución proporcional inteligente:
+                // Si quedan suficientes compases, usa standardSectionBars (8)
+                // Si no, distribuye equitativamente entre las secciones restantes
+                if (barsRemaining >= standardSectionBars * sectionsRemaining) {
+                    // Caso normal: hay suficiente presupuesto para todas las secciones con 8 compases
+                    barsForThisSection = standardSectionBars;
+                } else {
+                    // Caso edge: distribuir proporcionalmente los compases restantes
+                    // Asegura que cada sección reciba al menos 1 compás
+                    barsForThisSection = Math.max(1, Math.floor(barsRemaining / sectionsRemaining));
+                }
+            }
+            
+            // Restar del presupuesto
+            barsRemaining -= barsForThisSection;
 
-            // Ajustar duración a compases completos
-            const adjustedDuration = bars * secondsPerBar
-
+            // Calcular duración real y crear la sección
+            const sectionDuration = barsForThisSection * secondsPerBar;
             sections.push({
-                id: `${form[i]}-${i}`,
-                type: form[i],
+                id: `${sectionType}-${i}`,
+                type: sectionType,
                 index: i,
                 startTime: currentTime,
-                duration: adjustedDuration,
-                bars,
-                profile: null as any, // Se asigna después
+                duration: sectionDuration,
+                bars: barsForThisSection,
+                profile: null as any,
                 transition: null as any
-            })
+            });
 
-            currentTime += adjustedDuration
+            currentTime += sectionDuration;
+            console.log(`[STRUCTURE ENGINE] Section ${i + 1} (${sectionType}): ${barsForThisSection} bars = ${sectionDuration.toFixed(2)}s. Remaining bars: ${barsRemaining}`);
         }
 
-        return sections
+        // VALIDACIÓN
+        const totalSectionDuration = sections.reduce((sum, s) => sum + s.duration, 0);
+        const actualTotalBars = sections.reduce((sum, s) => sum + s.bars, 0);
+
+        console.log(`[STRUCTURE ENGINE] Budget validation: Target=${totalBarsToAssign} bars, Actual=${actualTotalBars} bars`);
+
+        // Advertir si la matemática falló (no debería ocurrir)
+        if (actualTotalBars > totalBarsToAssign) {
+             console.warn(`[STRUCTURE ENGINE] ⚠️ Budget MISMATCH! Overspent budget. Expected ${totalBarsToAssign}, got ${actualTotalBars}.`);
+        }
+
+        return sections;
     }
 
     /**

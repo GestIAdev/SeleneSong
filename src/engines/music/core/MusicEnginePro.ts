@@ -38,6 +38,9 @@ export class MusicEnginePro {
     ): Promise<MusicEngineOutput> {
         const startTime = Date.now()
 
+        // Set deterministic seed for all engines
+        this.renderer.setSeed(params.seed || 42)
+
         // 1. Resolver modo (ModeManager) - por ahora usar entropy como default
         const mode: any = {
             entropyFactor: 50,
@@ -56,79 +59,90 @@ export class MusicEnginePro {
 
         // 4. Generar estructura (StructureEngine.generateStructure)
         const structure = this.structureEngine.generateStructure(
-            params.duration || 120,
+            params.targetDuration || params.duration || 120,
             modifiedStyle,
             params.seed,
             mode
         )
 
-        // 5. Generar contenido por sección
+        // 5. Generar contenido por sección (ARQUITECTURA RADICAL: Section como SSOT)
         const allNotes: MIDINote[] = []
         const tracks = new Map<string, MIDINote[]>()
 
         for (const section of structure.sections) {
-            // Harmony
+            // ✅ PASO 1: Generar Harmony PRIMERO (para calcular densidad real)
             const harmonyOptions: any = {
                 seed: params.seed + section.index,
+                section: section, // ✅ PASAR SECTION COMPLETA
                 key: 0, // C major por defecto
                 mode: modifiedStyle.musical.mode,
                 complexity: params.complexity,
-                voiceLeadingStrategy: 'smooth',
-                tempo: modifiedStyle.musical.tempo,
-                totalBars: section.bars
+                voiceLeadingStrategy: 'smooth'
+                // ❌ NO pasar tempo, totalBars - están en section
             }
             const chords = this.harmonyEngine.generateChordSequence(harmonyOptions)
 
-            // Convertir chords a ResolvedChord[]
-            const resolvedChords: any[] = chords.map((chord, index) => ({
-                notes: chord.map(n => n.pitch),
-                root: chord[0]?.pitch || 60,
-                startTime: section.startTime + (index * 4), // 4 segundos por compás
-                duration: 4
-            }))
+            // ✅ PASO 2: Convertir chords a ResolvedChord[]
+            const resolvedChords: any[] = this.convertToResolvedChords(chords, section)
 
-            // Melody
+            // ✅ PASO 3: Generar Melody
             const melodyOptions: any = {
                 seed: params.seed + section.index,
+                section: section, // ✅ PASAR SECTION COMPLETA
                 key: 0, // C major
                 mode: modifiedStyle.musical.mode,
                 complexity: params.complexity,
                 contour: 'arched',
-                tempo: modifiedStyle.musical.tempo,
-                duration: section.duration,
                 range: { min: 4, max: 6 } // Octavas 4-6 (C4-C6)
+                // ❌ NO pasar tempo, duration - están en section
             }
             const melody = this.melodyEngine.generateMelody(melodyOptions)
 
-            // Ajustar startTime de melody para incluir offset de sección
-            const adjustedMelody = melody.map(note => ({
-                ...note,
-                startTime: note.startTime + section.startTime
-            }))
+            // ✅ PASO 4: Calcular TOTALLOAD REAL (basado en notas generadas)
+            const harmonyDensity = chords.flat().length / section.duration // notas/segundo
+            const melodyDensity = melody.length / section.duration // notas/segundo
+            const totalLoad = harmonyDensity + melodyDensity
+            console.log(`[MUSIC ENGINE] Section ${section.index} (${section.type}): harmonyDensity=${harmonyDensity.toFixed(2)}, melodyDensity=${melodyDensity.toFixed(2)}, totalLoad=${totalLoad.toFixed(2)}`)
 
-            // Orchestrator layers
+            // ✅ PASO 5: Generar capas (Orchestrator usa totalLoad REAL)
             const layers = this.orchestrator.generateLayers(
                 section,
                 resolvedChords,
-                adjustedMelody,
+                melody, // ✅ NO ajustar startTime aquí - Orchestrator lo respeta
                 modifiedStyle,
                 params.seed + section.index,
-                mode
+                mode,
+                totalLoad // ✅ PASAR CARGA REAL
             )
 
-            // Collect all notes
-            allNotes.push(...adjustedMelody)
+            // ✅ PASO 6: Recopilar todas las notas
+            allNotes.push(...melody) // ✅ Melody ya tiene startTime correcto
             if (layers.harmony) allNotes.push(...layers.harmony)
             if (layers.bass) allNotes.push(...layers.bass)
             if (layers.rhythm) allNotes.push(...layers.rhythm)
             if (layers.pad) allNotes.push(...layers.pad)
 
-            // Separate into tracks
-            this.addToTrack(tracks, 'Melody', adjustedMelody)
+            // ✅ PASO 7: Separar en tracks
+            this.addToTrack(tracks, 'Melody', melody)
             this.addToTrack(tracks, 'Harmony', layers.harmony || [])
             this.addToTrack(tracks, 'Bass', layers.bass || [])
             this.addToTrack(tracks, 'Rhythm', layers.rhythm || [])
             if (layers.pad) this.addToTrack(tracks, 'Pad', layers.pad)
+        }
+
+        // Generate transition fills between sections
+        for (let i = 0; i < structure.sections.length - 1; i++) {
+            const currentSection = structure.sections[i]
+            const nextSection = structure.sections[i + 1]
+            
+            // Generate transition fill
+            const transitionFill = this.generateTransitionFill(
+                currentSection,
+                nextSection,
+                [] // chords array (pasar los acordes relevantes)
+            )
+            
+            allNotes.push(...transitionFill)
         }
 
         // 6. Generar Poesía (placeholder)
@@ -233,6 +247,29 @@ export class MusicEnginePro {
         tracks.get(trackName)!.push(...notes)
     }
     
+    /**
+     * ✅ HELPER: Convertir MIDINote[][] (chords del HarmonyEngine) a ResolvedChord[]
+     * Respeta section.duration y section.bars para calcular tiempos correctos
+     */
+    private convertToResolvedChords(chords: MIDINote[][], section: any): any[] {
+        const secondsPerBar = section.duration / section.bars
+        
+        return chords.map((chord, index) => {
+            // Calcular startTime basado en la posición del acorde
+            // Si el acorde ya tiene startTime (del HarmonyEngine), usarlo
+            // Si no, calcularlo como offset dentro de la sección
+            const chordStartTime = chord[0]?.startTime ?? (section.startTime + (index * secondsPerBar))
+            const chordDuration = chord[0]?.duration ?? secondsPerBar
+            
+            return {
+                notes: chord.map(n => n.pitch),
+                root: chord[0]?.pitch || 60,
+                startTime: chordStartTime,
+                duration: chordDuration
+            }
+        })
+    }
+    
     private async generatePoetry(seed: number, structure: any): Promise<{ verses: string[]; fullText: string; theme: string; mood: string }> {
         // Placeholder - implementar generación de poesía
         console.log(`Generating poetry with seed ${seed} for structure with ${structure.sections.length} sections`)
@@ -258,6 +295,41 @@ export class MusicEnginePro {
         const duration = Date.now() - startTime
         console.log(`Generation completed in ${duration}ms`)
         console.log(`Generated ${output.midi.notes.length} notes across ${output.midi.tracks.length} tracks`)
+    }
+
+    /**
+     * Generate transition fills between sections
+     */
+    private generateTransitionFill(
+        fromSection: any,
+        toSection: any,
+        chords: any[]
+    ): MIDINote[] {
+        const fillNotes: MIDINote[] = []
+        const transitionStart = fromSection.startTime + fromSection.duration - 2 // Last 2 seconds
+        const transitionDuration = 2 // 2 seconds fill
+        
+        // Drum fill (snare roll)
+        for (let t = 0; t < transitionDuration; t += 0.125) { // 16th notes
+            fillNotes.push({
+                pitch: 38, // Snare
+                velocity: 60 + Math.floor(t / transitionDuration * 40), // Crescendo
+                startTime: transitionStart + t,
+                duration: 0.1,
+                channel: 9
+            })
+        }
+        
+        // Cymbal crash at transition point
+        fillNotes.push({
+            pitch: 49, // Crash cymbal
+            velocity: 100,
+            startTime: fromSection.startTime + fromSection.duration,
+            duration: 3.0, // Long ring
+            channel: 9
+        })
+        
+        return fillNotes
     }
 }
 

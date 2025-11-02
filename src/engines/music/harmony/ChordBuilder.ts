@@ -15,11 +15,39 @@ export class ChordBuilder {
      * Construir acorde básico
      * @param root Nota fundamental relativa (0-11, donde C=0)
      * @param quality Calidad del acorde
+     * @param complexity Complejidad (0-1) para extensiones
+     * @param random Instancia de SeededRandom para determinismo
      * @returns Array de notas MIDI con pitch relativo
      */
-    static buildChord(root: number, quality: ChordQuality): MIDINote[] {
+    static buildChord(root: number, quality: ChordQuality, complexity: number = 0.5, random?: any): MIDINote[] {
+        // Base triads
         const pitches = buildChord(root, quality)
-        return pitches.map(pitch => ({ pitch, velocity: 80, startTime: 0, duration: 1 })) // Default velocity=80, duration=1s
+        
+        // Add extensions based on complexity
+        if (complexity > 0.3) {
+            // Add 7th
+            const seventh = quality === 'major' ? 11 : 10 // Major 7th or minor 7th
+            pitches.push(root + seventh)
+        }
+        
+        if (complexity > 0.6) {
+            // Add 9th
+            pitches.push(root + 14) // 2nd octave + 2 semitones
+        }
+        
+        if (complexity > 0.8) {
+            // Add 11th or 13th - Using deterministic choice
+            const rand = random ? random.next() : Math.random()
+            const extension = rand < 0.5 ? 17 : 21 // 11th or 13th
+            pitches.push(root + extension)
+        }
+        
+        return pitches.map(pitch => ({ 
+            pitch, 
+            velocity: 80, 
+            startTime: 0, 
+            duration: 1 
+        }))
     }
 
     /**

@@ -6,6 +6,7 @@
 import { SeededRandom } from '../utils/SeededRandom.js'
 import { MIDINote } from '../core/interfaces.js'
 import { MelodicContour } from '../core/types.js'
+import { Section } from '../structure/SongStructure.js' // ✅ IMPORTAR SECTION
 
 
 export type MotifTransformation =
@@ -19,13 +20,13 @@ export type MotifTransformation =
 
 export interface MelodyOptions {
     seed: number
+    section: Section               // ✅ AÑADIR SECTION COMPLETA
     key: number                    // Tonalidad (0-11)
     mode: string                   // Modo ('major', 'minor', etc.)
     complexity: number             // 0-1
     contour: MelodicContour        // Contorno melódico
-    tempo: number                  // BPM
-    duration: number               // Duración en segundos
     range: { min: number, max: number } // Rango de octavas
+    // ❌ ELIMINADOS: tempo, duration (están en section)
 }
 
 /**
@@ -40,11 +41,18 @@ export class MelodyEngine {
 
     /**
      * Generar melodía completa
+     * ✅ REFACTORIZADO: Recibe section completa, respeta section.duration
      * @param options Opciones de generación
      * @returns Notas melódicas MIDI
      */
     generateMelody(options: MelodyOptions): MIDINote[] {
-        const { key, mode, complexity, contour, duration, range, seed, tempo } = options
+        const { section, key, mode, complexity, contour, range, seed } = options
+
+        // ✅ USAR section.duration, section.tempo DIRECTAMENTE
+        const duration = section.duration
+        const tempo = section.profile?.tempoMultiplier
+            ? (section.profile.tempoMultiplier * 120)  // TODO: Obtener tempo base de StylePreset
+            : 120 // Fallback
 
         // 🔥 DETERMINISMO: Re-inicializar random con el seed proporcionado
         this.random = new SeededRandom(seed)
@@ -61,13 +69,28 @@ export class MelodyEngine {
         // Aplicar contorno melódico
         const contouredPhrase = this.applyContour(phrase, contour, range)
 
+        // ✅ AJUSTAR startTime para incluir offset de sección
+        const melody = contouredPhrase.map(note => ({
+            ...note,
+            startTime: note.startTime + section.startTime
+        }))
+
+        // ✅ VALIDACIÓN: Asegurar que no excedemos section.duration
+        const sectionEnd = section.startTime + section.duration
+        const lastNote = melody[melody.length - 1]
+        if (lastNote && (lastNote.startTime + lastNote.duration) > sectionEnd) {
+            const excess = (lastNote.startTime + lastNote.duration) - sectionEnd
+            console.warn(`[MELODY DEBUG] Last note exceeds section end by ${excess.toFixed(2)}s, truncating`)
+            lastNote.duration = Math.max(0.1, lastNote.duration - excess)
+        }
+
         // 🔍 DEBUG: Log first 5 notes después de contour
-        console.log('🔍 [MelodyEngine] Generated melody - First 5 notes:')
-        contouredPhrase.slice(0, 5).forEach((note, i) => {
+        console.log(`[MELODY DEBUG] Section ${section.index}: Generated ${melody.length} notes, duration: ${duration.toFixed(2)}s`)
+        melody.slice(0, 5).forEach((note, i) => {
             console.log(`  [${i}] pitch=${note.pitch}, startTime=${note.startTime.toFixed(3)}s, duration=${note.duration.toFixed(3)}s`)
         })
 
-        return contouredPhrase
+        return melody
     }
 
     /**
@@ -83,8 +106,16 @@ export class MelodyEngine {
 
         for (let i = 0; i < motifLength; i++) {
             const pitch = this.random.choice(scale) + (4 * 12) // Octava 4
-            const durationSeconds = this.getFibonacciDuration(i, motifLength)
-            const velocity = 80 + this.random.nextInt(-10, 10)
+            const durationSeconds = this.getFibonacciDuration(i, motifLength, 'verse')
+            // Calculate velocity with musical intelligence
+            const baseVelocity = 80
+            const contourVelocity = this.calculateDynamicVelocity(i, motifLength)
+            const accentVelocity = (i % 4 === 0) ? 15 : 0 // Accent downbeats
+            const microVariation = this.random.nextInt(-5, 5)
+
+            const velocity = Math.min(127, Math.max(40, 
+                baseVelocity + contourVelocity + accentVelocity + microVariation
+            ))
 
             motif.push({
                 pitch,
@@ -121,15 +152,43 @@ export class MelodyEngine {
     /**
      * Obtener duración basada en secuencia Fibonacci
      */
-    private getFibonacciDuration(position: number, totalLength: number): number {
-        const fib = [1, 1, 2, 3, 5, 8, 13, 21]
-        const durations = [0.25, 0.5, 1, 1.5, 2] // Duraciones musicales
-
-        // Usar Fibonacci para crear ritmos orgánicos
+    private getFibonacciDuration(position: number, totalLength: number, context: 'intro' | 'verse' | 'climax' | 'outro' = 'verse'): number {
+        // Context-aware duration pools
+        const durationPools: Record<string, number[]> = {
+            intro: [1.0, 1.5, 2.0, 3.0],        // Notas largas, espaciadas
+            verse: [0.5, 0.75, 1.0, 1.5],       // Variedad moderada
+            climax: [0.25, 0.5, 0.75, 1.0],     // Notas más rápidas
+            outro: [1.5, 2.0, 3.0, 4.0]         // Muy largas, decayendo
+        }
+        
+        const durations = durationPools[context]
+        
+        // Use Fibonacci for organic variation within context
+        const fib = [1, 1, 2, 3, 5, 8]
         const fibIndex = position % fib.length
         const durationIndex = fib[fibIndex] % durations.length
+        
+        // Add micro-variation (±10%) for humanization
+        const baseDuration = durations[durationIndex]
+        const microVariation = 1 + (this.random.next() * 0.2 - 0.1) // Usa SeededRandom
+        
+        return baseDuration * microVariation
+    }
 
-        return durations[durationIndex]
+    /**
+     * Calculate dynamic velocity based on melodic contour
+     * Higher notes = louder (natural tendency)
+     * Creates musical phrasing
+     */
+    private calculateDynamicVelocity(position: number, totalLength: number): number {
+        const progress = position / (totalLength - 1)
+        
+        // Crescendo to middle, diminuendo after
+        if (progress < 0.5) {
+            return progress * 40 // +0 to +20
+        } else {
+            return (1 - progress) * 40 // +20 to +0
+        }
     }
 
     /**
@@ -369,9 +428,19 @@ export class MelodyEngine {
                 shift = max - (progress * (max - min))
                 break
             case 'arched':
-                shift = progress < 0.5
-                    ? min + (progress * 2 * (max - min))
-                    : max - ((progress - 0.5) * 2 * (max - min))
+                // Asymmetric arch (golden ratio peak at ~0.618)
+                const peakPosition = 0.618 // Golden ratio for natural climax
+                const ascent = progress < peakPosition
+                const phase = ascent ? progress / peakPosition : (1 - progress) / (1 - peakPosition)
+                
+                // Ease-in-out curve (more natural than linear)
+                const easedPhase = phase < 0.5 
+                    ? 2 * phase * phase 
+                    : 1 - Math.pow(-2 * phase + 2, 2) / 2
+                
+                shift = ascent
+                    ? min + easedPhase * (max - min)
+                    : min + easedPhase * (max - min)
                 break
             case 'valley':
                 shift = progress < 0.5
@@ -379,7 +448,11 @@ export class MelodyEngine {
                     : min + ((progress - 0.5) * 2 * (max - min))
                 break
             case 'wave':
-                shift = min + Math.sin(progress * Math.PI * 2) * (max - min)
+                // Multiple waves with controlled amplitude
+                const waveFrequency = 3 // 3 ciclos completos
+                const waveAmplitude = 0.6 // Solo 60% del rango (evita extremos)
+                const centerOctave = (min + max) / 2
+                shift = centerOctave + Math.sin(progress * Math.PI * 2 * waveFrequency) * (max - min) * waveAmplitude
                 break
             case 'static':
             default:
