@@ -507,7 +507,9 @@ export class Orchestrator {
                 resultLayers.pad = padNotes
             }
             // Si no hay Pad configurado/enabled, usar Rhythm
-            else if (style.layers.rhythm && style.layers.rhythm.enabled) {
+            // ✅ BUG #24 FIX: NO añadir rhythm si DrumPatternEngine ya generó patrones
+            // DrumPatternEngine genera patrones completos (31 notas), no necesita relleno
+            else if (style.layers.rhythm && style.layers.rhythm.enabled && (!resultLayers.rhythm || resultLayers.rhythm.length === 0)) {
                 console.log(`[ACTIVITY DEBUG] Filling silence ${silentPeriod.start}s-${silentPeriod.end}s with Rhythm`)
                 const rhythmNotes = this.generateMinimumRhythmActivity(
                     silentPeriod.start,
