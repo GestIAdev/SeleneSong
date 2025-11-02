@@ -357,6 +357,8 @@ export class Orchestrator {
 
     /**
      * Aplicar mixing
+     * ✅ REFACTORIZADO BUG #31: NO aplicar mixWeight a velocity (ya viene en escala MIDI 0-127)
+     * mixWeight causaba velocity corruption: 60 MIDI * 0.3 mixWeight = 18 MIDI (inaudible)
      */
     applyMixing(
         tracks: Map<string, MIDINote[]>,
@@ -371,13 +373,10 @@ export class Orchestrator {
                 continue
             }
 
-            // Aplicar mixWeight (ajustar velocity global)
-            const mixedNotes = notes.map(note => ({
-                ...note,
-                velocity: Math.floor(note.velocity * layerConfig.mixWeight)
-            }))
-
-            mixed.set(trackName, mixedNotes)
+            // ✅ NO APLICAR mixWeight a velocity (Bug #31 fix)
+            // Las velocities ya vienen correctas en escala MIDI (0-127) desde los generators
+            // mixWeight solo se usa para cálculos internos, NO para modificar velocity final
+            mixed.set(trackName, notes)
         }
 
         return mixed
