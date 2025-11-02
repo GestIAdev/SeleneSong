@@ -8,6 +8,7 @@ import { Section } from '../structure/SongStructure.js'
 import { StylePreset, LayerConfig } from '../style/StylePreset.js'
 import { ModeConfig } from '../core/types.js'
 import { SeededRandom } from '../utils/SeededRandom.js'
+import { DrumPatternEngine } from '../rhythm/DrumPatternEngine.js'
 
 /**
  * ACORDE RESUELTO
@@ -76,7 +77,8 @@ export class Orchestrator {
             section,
             style.musical.tempo,
             prng,
-            totalLoad  // ✅ USAR CARGA REAL
+            totalLoad,  // ✅ USAR CARGA REAL
+            seed        // ✅ PASAR SEED ORIGINAL para DrumPatternEngine
         )
 
         // REGLA DE ACTIVIDAD MÍNIMA: Asegurar que al menos una capa esté siempre activa
@@ -234,7 +236,7 @@ export class Orchestrator {
 
     /**
      * Generar capa rítmica
-     * ✅ REFACTORIZADO: Usa totalLoad REAL directamente
+     * ✅ REFACTORIZADO BUG #24: Usa DrumPatternEngine (estructurado) en vez de lógica caótica
      */
     private generateRhythmLayer(
         chords: ResolvedChord[],
@@ -242,96 +244,20 @@ export class Orchestrator {
         section: Section,
         tempo: number,
         prng: SeededRandom,
-        totalLoad: number = 0  // ✅ RECIBIR CARGA REAL
+        totalLoad: number = 0,
+        seed?: number  // ← Seed original (necesario para DrumPatternEngine)
     ): MIDINote[] {
         if (!config) return []
 
-        const notes: MIDINote[] = []
-        const secondsPerBeat = 60 / tempo
-        const density = section.profile.rhythmicDensity
+        // 🥁 USAR DRUM PATTERN ENGINE (estructurado)
+        const drumSeed = seed ? seed + section.index * 10000 : 12345
+        const drumEngine = new DrumPatternEngine(tempo, drumSeed)
+        const baseVelocity = Math.floor(config.velocity * 127) // 0-1 → 0-127 MIDI
         
-        // ✅ USAR totalLoad DIRECTAMENTE (sin calcular harmonyDensity/padDensity)
-        console.log(`[RHYTHM DEBUG] Section ${section.index}, density: ${density}, totalLoad: ${totalLoad.toFixed(2)}`)
+        // Generar patrón estructurado según sección
+        const notes = drumEngine.generateForSection(section, baseVelocity)
         
-        // NUEVO: Drum kit mapping (GM Standard)
-        const KICK = 36
-        const SNARE = 38
-        const CLOSED_HIHAT = 42
-        const OPEN_HIHAT = 46
-        const CRASH = 49
-        
-        // OPTIMIZACIÓN: Subdivision consciente de la carga (umbrales más agresivos)
-        // Si hay mucha actividad en harmony/melody, simplificar el ritmo para evitar sobrecarga
-        let subdivision: number
-        if (totalLoad > 1.5) { // Alta carga: ritmo muy simple
-            subdivision = 1.0
-            console.log(`[RHYTHM DEBUG] High load detected (${totalLoad.toFixed(2)}), forcing simple rhythm (subdivision: ${subdivision})`)
-        } else if (totalLoad > 0.8) { // Carga media: ritmo moderado
-            subdivision = 0.5
-            console.log(`[RHYTHM DEBUG] Medium load detected (${totalLoad.toFixed(2)}), using moderate rhythm (subdivision: ${subdivision})`)
-        } else if (density > 0.7) { // Baja carga: usar densidad normal
-            subdivision = 0.25
-            console.log(`[RHYTHM DEBUG] Low load, high density (${density}), using complex rhythm (subdivision: ${subdivision})`)
-        } else if (density > 0.4) {
-            subdivision = 0.5
-            console.log(`[RHYTHM DEBUG] Low load, medium density (${density}), using moderate rhythm (subdivision: ${subdivision})`)
-        } else {
-            subdivision = 1.0
-            console.log(`[RHYTHM DEBUG] Low load, low density (${density}), using simple rhythm (subdivision: ${subdivision})`)
-        }
-        
-        let currentTime = section.startTime
-        const endTime = section.startTime + section.duration
-        let beatNumber = 0
-
-        while (currentTime < endTime) {
-            // NUEVO: Musical drum pattern
-            const isDownbeat = beatNumber % 4 === 0
-            const isBackbeat = beatNumber % 4 === 2
-            const isOffbeat = beatNumber % 2 === 1
-            
-            // Kick on downbeats (1 and 3)
-            if (isDownbeat && prng.next() > 0.1) { // 90% probability
-                // [RHYTHM DEBUG] Comentado para limpieza de logs
-                notes.push({
-                    pitch: KICK,
-                    velocity: Math.floor(config.velocity * 127 + 20), // Kicks louder
-                    startTime: currentTime,
-                    duration: secondsPerBeat * 0.3,
-                    channel: 9
-                })
-            }
-            
-            // Snare on backbeats (2 and 4)
-            if (isBackbeat && prng.next() > 0.05) { // 95% probability
-                // [RHYTHM DEBUG] Comentado para limpieza de logs
-                notes.push({
-                    pitch: SNARE,
-                    velocity: Math.floor(config.velocity * 127 + 10),
-                    startTime: currentTime,
-                    duration: secondsPerBeat * 0.2,
-                    channel: 9
-                })
-            }
-            
-            // Hi-hats on every subdivision (density-dependent)
-            if (density > 0.3 && prng.next() > 0.2) { // 80% probability
-                // [RHYTHM DEBUG] Comentado para limpieza de logs
-                const hihat = isOffbeat ? OPEN_HIHAT : CLOSED_HIHAT
-                notes.push({
-                    pitch: hihat,
-                    velocity: Math.floor(config.velocity * 127 - 20), // Hihats softer
-                    startTime: currentTime,
-                    duration: secondsPerBeat * subdivision * 0.5,
-                    channel: 9
-                })
-            }
-            
-            currentTime += secondsPerBeat * subdivision
-            beatNumber++
-        }
-
-        console.log(`[RHYTHM DEBUG] Generated ${notes.length} rhythm notes`)
+        console.log(`🥁 [Orchestrator] Generated ${notes.length} structured drum notes (${section.type})`)
         return notes
     }
 

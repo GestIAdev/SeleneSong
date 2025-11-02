@@ -77,11 +77,11 @@ export const CYBERPUNK_AMBIENT: StylePreset = {
         rhythm: {
             enabled: true,
             octave: 0, // No aplica para drums
-            velocity: 0.24,                 // 30 MIDI = Groove without overpowering (was 0.3 → correct scale but too loud)
-            velocityVariation: 0.08,        // ±10 MIDI variation
+            velocity: 0.47,                 // 60 MIDI = Cyberpunk needs PUNCH (kicks/snares audible)
+            velocityVariation: 0.12,        // ±15 MIDI variation for dynamics
             articulation: 'staccato',
             noteDuration: 0.5,
-            mixWeight: 0.2
+            mixWeight: 0.3                  // Increased from 0.2 (drums more present)
         },
         pad: {
             enabled: true,
