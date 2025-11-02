@@ -62,7 +62,7 @@ export const CYBERPUNK_AMBIENT: StylePreset = {
             velocity: 0.32,                 // 41 MIDI = Support, doesn't dominate (was 30*127=3810!)
             velocityVariation: 0.08,        // ±10 MIDI variation
             articulation: 'legato',
-            noteDuration: 4.0,              // Pads largos
+            noteDuration: 1.0,              // ✅ BUG #23 FIX: Sigue chord duration (was 4.0 → 17s órgano)
             mixWeight: 0.8
         },
         bass: {
@@ -71,7 +71,7 @@ export const CYBERPUNK_AMBIENT: StylePreset = {
             velocity: 0.43,                 // 55 MIDI = Foundation (was 35 → too quiet)
             velocityVariation: 0.12,        // ±15 MIDI variation
             articulation: 'normal',
-            noteDuration: 3.0,
+            noteDuration: 0.8,              // ✅ BUG #23 FIX: Más corto que acorde (was 3.0 → 13s órgano)
             mixWeight: 0.5
         },
         rhythm: {
@@ -86,7 +86,7 @@ export const CYBERPUNK_AMBIENT: StylePreset = {
         pad: {
             enabled: true,
             octave: 4,
-            velocity: 0.14,                 // 18 MIDI = Subtle atmosphere (was 25 → too loud)
+            velocity: 0.30,                 // ✅ BUG #31 FIX: 38 MIDI = Subtle but AUDIBLE (was 0.14 → 17 inaudible)
             velocityVariation: 0.04,        // ±5 MIDI variation
             articulation: 'legato',
             noteDuration: 8.0,              // Drones
