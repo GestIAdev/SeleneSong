@@ -38,6 +38,7 @@ export class Orchestrator {
     /**
      * Generar capas adicionales
      * ✅ REFACTORIZADO: Recibe totalLoad REAL calculado por MusicEnginePro
+     * 🔥 BUG #25 FIX: Recibe DrumPatternEngine reutilizable (no crear en cada sección)
      */
     generateLayers(
         section: Section,
@@ -46,7 +47,8 @@ export class Orchestrator {
         style: StylePreset,
         seed: number,
         mode: ModeConfig,
-        totalLoad: number = 0  // ✅ RECIBIR CARGA REAL (calculada por MusicEnginePro)
+        totalLoad: number = 0,  // ✅ RECIBIR CARGA REAL (calculada por MusicEnginePro)
+        drumEngine?: any  // 🔥 BUG #25 FIX: DrumPatternEngine reutilizable (opcional para retrocompatibilidad)
     ): OrchestrationLayers {
         const prng = new SeededRandom(seed + section.index * 10000)
 
@@ -78,7 +80,8 @@ export class Orchestrator {
             style.musical.tempo,
             prng,
             totalLoad,  // ✅ USAR CARGA REAL
-            seed        // ✅ PASAR SEED ORIGINAL para DrumPatternEngine
+            seed,       // ✅ PASAR SEED ORIGINAL para DrumPatternEngine
+            drumEngine  // 🔥 BUG #25 FIX: Pasar instancia reutilizable
         )
 
         // REGLA DE ACTIVIDAD MÍNIMA: Asegurar que al menos una capa esté siempre activa
@@ -90,7 +93,9 @@ export class Orchestrator {
 
     /**
      * Generar capa de armonía
-     * ✅ REFACTORIZADO: Trunca notas que excedan section.duration (Bug #23)
+     * ✅ BUG #23 FIX RADICAL (ARQUITECTO-34A): DURACIÓN MÁXIMA ABSOLUTA DE 6 SEGUNDOS
+     * No importa chord.duration - Harmony NUNCA debe exceder 6s por nota
+     * Estrategia: "Staccato Chords" (6s max, con re-articulation cada 6s)
      */
     private generateHarmonyLayer(
         chords: ResolvedChord[],
@@ -103,66 +108,70 @@ export class Orchestrator {
         const notes: MIDINote[] = []
         const totalChords = chords.length
         const sectionEndTime = section.startTime + section.duration
+        
+        // 🔥 ARQUITECTO-34A: DURACIÓN MÁXIMA ABSOLUTA (no negociable)
+        const MAX_HARMONY_DURATION = 6.0  // 6 segundos MAX (re-articulation cada 6s)
 
         for (let chordIndex = 0; chordIndex < chords.length; chordIndex++) {
             const chord = chords[chordIndex]
             
-            // NUEVO: Musical phrasing (crescendo/diminuendo)
-            const phraseProgress = chordIndex / (totalChords - 1)
+            // Musical phrasing (crescendo/diminuendo)
+            const phraseProgress = totalChords > 1 
+                ? chordIndex / (totalChords - 1)
+                : 0.5
             const phrasingDynamic = this.calculatePhrasingDynamic(phraseProgress, section.type)
             
-            for (const pitch of chord.notes) {
-                // Ajustar a octava de la capa
-                // pitch es relativo a la tónica (0-11), config.octave es la octava absoluta
-                const adjustedPitch = pitch + config.octave * 12
+            // 🔥 ARQUITECTO-34A: Subdividir acordes largos en re-articulations de 6s
+            // Si chord.duration > 6s, generar múltiples acordes de 6s (overlap legato)
+            const numArticulations = Math.ceil(chord.duration / MAX_HARMONY_DURATION)
+            
+            for (let artIndex = 0; artIndex < numArticulations; artIndex++) {
+                const artStartTime = chord.startTime + (artIndex * MAX_HARMONY_DURATION)
+                
+                // Validar que la articulación inicia dentro de la sección y del acorde
+                if (artStartTime >= sectionEndTime || artStartTime >= chord.startTime + chord.duration) {
+                    break
+                }
 
-                // NUEVO: Velocity con contexto musical
-                const baseVelocity = config.velocity * 127 // Convert 0-1 to MIDI
-                const variation = config.velocityVariation * 127
-                const randomVariation = prng.next() * variation * 2 - variation
-                const velocity = baseVelocity + phrasingDynamic + randomVariation
-
-                // Duración según articulación
-                let duration = chord.duration * config.noteDuration
+                // Calcular duración de esta articulación
+                const timeLeftInChord = (chord.startTime + chord.duration) - artStartTime
+                const timeLeftInSection = sectionEndTime - artStartTime
+                let baseDuration = Math.min(MAX_HARMONY_DURATION, timeLeftInChord, timeLeftInSection)
+                
+                // Aplicar noteDuration y articulation
+                let duration = baseDuration * config.noteDuration
                 if (config.articulation === 'staccato') {
                     duration *= 0.5
                 } else if (config.articulation === 'legato') {
-                    duration *= 1.2  // Overlap con siguiente nota
+                    duration *= 1.2  // Overlap con siguiente articulación
                 }
+                
+                // Asegurar mínimo audible (0.2s)
+                if (duration < 0.2) {
+                    break
+                }
+                
+                for (const pitch of chord.notes) {
+                    const adjustedPitch = pitch + config.octave * 12
 
-                // ✅ BUG #23 FIX: Límite MUSICAL (chord.duration), no arbitrario 8s
-                // Las notas deben seguir el ritmo armónico del acorde
-                const noteStartTime = chord.startTime
-                let noteEndTime = noteStartTime + duration
-                
-                // Primero: límite de chord.duration * 2 (permite overlap legato)
-                const maxMusicalDuration = chord.duration * 2.0
-                if (duration > maxMusicalDuration) {
-                    duration = maxMusicalDuration
-                    noteEndTime = noteStartTime + duration
-                    console.log(`[HARMONY LIMIT] Section ${section.index}: Note limited to ${maxMusicalDuration.toFixed(2)}s (chord duration * 2)`)
-                }
-                
-                // Segundo: truncar si excede sección
-                if (noteEndTime > sectionEndTime) {
-                    const oldDuration = duration
-                    duration = Math.max(0.1, sectionEndTime - noteStartTime)
-                    console.log(`[HARMONY TRUNCATE] Section ${section.index}: Note truncated from ${oldDuration.toFixed(2)}s to ${duration.toFixed(2)}s`)
-                }
-                
-                // Validar que la nota inicia dentro de la sección
-                if (noteStartTime >= sectionEndTime) {
-                    console.log(`[HARMONY SKIP] Section ${section.index}: Note at ${noteStartTime.toFixed(2)}s skipped (after section end ${sectionEndTime.toFixed(2)}s)`)
-                    continue // Descartar nota fuera de sección
-                }
+                    // Velocity con contexto musical
+                    const baseVelocity = config.velocity * 127
+                    const variation = config.velocityVariation * 127
+                    const randomVariation = prng.next() * variation * 2 - variation
+                    let velocity = baseVelocity + phrasingDynamic + randomVariation
+                    
+                    if (isNaN(velocity) || !isFinite(velocity) || velocity < 1) {
+                        velocity = 80
+                    }
 
-                notes.push({
-                    pitch: Math.max(0, Math.min(127, adjustedPitch)),
-                    velocity: Math.max(0, Math.min(127, Math.floor(velocity))),
-                    startTime: noteStartTime,
-                    duration,
-                    channel: config.channel || 1
-                })
+                    notes.push({
+                        pitch: Math.max(0, Math.min(127, adjustedPitch)),
+                        velocity: Math.max(0, Math.min(127, Math.floor(velocity))),
+                        startTime: artStartTime,
+                        duration, // ✅ MAX 6 SEGUNDOS (re-articulado)
+                        channel: config.channel || 1
+                    })
+                }
             }
         }
 
@@ -171,7 +180,8 @@ export class Orchestrator {
 
     /**
      * Generar línea de bajo
-     * ✅ REFACTORIZADO: Trunca notas que excedan section.duration (Bug #23)
+     * ✅ BUG #23 FIX (SCHERZO SONORO): Subdivide acordes largos (>3s) en notas rítmicas cortas
+     * En lugar de 1 nota de 10s → genera 4 notas de 2.5s (más definición rítmica)
      */
     private generateBassLayer(
         chords: ResolvedChord[],
@@ -194,44 +204,62 @@ export class Orchestrator {
             const variation = prng.next() * config.velocityVariation * 127 - config.velocityVariation * 64
             const velocity = baseVelocity + variation
 
-            // Duración
-            let duration = chord.duration * config.noteDuration
-            if (config.articulation === 'staccato') {
-                duration *= 0.7
-            }
-
-            // ✅ BUG #23 FIX: Límite MUSICAL (chord.duration), no arbitrario 8s
-            // El bajo debe seguir el ritmo armónico del acorde
-            const noteStartTime = chord.startTime
-            let noteEndTime = noteStartTime + duration
+            // ✅ BUG #23 FIX (SCHERZO SONORO): Subdividir acordes largos
+            // Si chord.duration > 3 segundos, subdivide en notas de ~1-2s
+            const MAX_BASS_NOTE_DURATION = 2.5 // Máximo 2.5s por nota de bajo
             
-            // Primero: límite de chord.duration (bajo no debe exceder acorde)
-            if (duration > chord.duration) {
-                duration = chord.duration
-                noteEndTime = noteStartTime + duration
-                console.log(`[BASS LIMIT] Section ${section.index}: Note limited to ${chord.duration.toFixed(2)}s (chord duration)`)
+            if (chord.duration > MAX_BASS_NOTE_DURATION) {
+                // Subdividir: calcular cuántas notas necesitamos
+                const numSubdivisions = Math.ceil(chord.duration / MAX_BASS_NOTE_DURATION)
+                const subdivisionDuration = chord.duration / numSubdivisions
+                
+                for (let i = 0; i < numSubdivisions; i++) {
+                    const noteStartTime = chord.startTime + (i * subdivisionDuration)
+                    let noteDuration = subdivisionDuration * config.noteDuration
+                    
+                    if (config.articulation === 'staccato') {
+                        noteDuration *= 0.7
+                    }
+                    
+                    // Validar límites
+                    if (noteStartTime >= sectionEndTime) break
+                    const noteEndTime = noteStartTime + noteDuration
+                    if (noteEndTime > sectionEndTime) {
+                        noteDuration = Math.max(0.1, sectionEndTime - noteStartTime)
+                    }
+                    
+                    notes.push({
+                        pitch: Math.max(0, Math.min(127, bassPitch)),
+                        velocity: Math.max(0, Math.min(127, Math.floor(velocity))),
+                        startTime: noteStartTime,
+                        duration: noteDuration,
+                        channel: config.channel || 2
+                    })
+                }
+            } else {
+                // Acorde corto (≤3s): generar 1 sola nota (comportamiento original)
+                let duration = chord.duration * config.noteDuration
+                if (config.articulation === 'staccato') {
+                    duration *= 0.7
+                }
+                
+                const noteStartTime = chord.startTime
+                let noteEndTime = noteStartTime + duration
+                
+                // Validar límites
+                if (noteStartTime >= sectionEndTime) continue
+                if (noteEndTime > sectionEndTime) {
+                    duration = Math.max(0.1, sectionEndTime - noteStartTime)
+                }
+                
+                notes.push({
+                    pitch: Math.max(0, Math.min(127, bassPitch)),
+                    velocity: Math.max(0, Math.min(127, Math.floor(velocity))),
+                    startTime: noteStartTime,
+                    duration,
+                    channel: config.channel || 2
+                })
             }
-            
-            // Segundo: truncar si excede sección
-            if (noteEndTime > sectionEndTime) {
-                const oldDuration = duration
-                duration = Math.max(0.1, sectionEndTime - noteStartTime)
-                console.log(`[BASS TRUNCATE] Section ${section.index}: Note truncated from ${oldDuration.toFixed(2)}s to ${duration.toFixed(2)}s`)
-            }
-            
-            // Validar que la nota inicia dentro de la sección
-            if (noteStartTime >= sectionEndTime) {
-                console.log(`[BASS SKIP] Section ${section.index}: Note at ${noteStartTime.toFixed(2)}s skipped (after section end ${sectionEndTime.toFixed(2)}s)`)
-                continue // Descartar nota fuera de sección
-            }
-
-            notes.push({
-                pitch: Math.max(0, Math.min(127, bassPitch)),
-                velocity: Math.max(0, Math.min(127, Math.floor(velocity))),
-                startTime: noteStartTime,
-                duration,
-                channel: config.channel || 2
-            })
         }
 
         return notes
@@ -241,6 +269,10 @@ export class Orchestrator {
      * Generar capa rítmica
      * ✅ REFACTORIZADO BUG #24: Usa DrumPatternEngine (estructurado) en vez de lógica caótica
      */
+    /**
+     * 🥁 Generar capa rítmica con DrumPatternEngine
+     * 🔥 BUG #25 FIX: Reutiliza instancia única de DrumPatternEngine (no crear en cada sección)
+     */
     private generateRhythmLayer(
         chords: ResolvedChord[],
         config: LayerConfig | false,
@@ -248,80 +280,92 @@ export class Orchestrator {
         tempo: number,
         prng: SeededRandom,
         totalLoad: number = 0,
-        seed?: number  // ← Seed original (necesario para DrumPatternEngine)
+        seed?: number,  // ← Seed original (necesario para DrumPatternEngine si no se pasa instancia)
+        drumEngine?: any  // 🔥 BUG #25 FIX: Instancia reutilizable (opcional para retrocompatibilidad)
     ): MIDINote[] {
         if (!config) return []
 
-        // 🥁 USAR DRUM PATTERN ENGINE (estructurado)
-        const drumSeed = seed ? seed + section.index * 10000 : 12345
-        const drumEngine = new DrumPatternEngine(tempo, drumSeed)
+        // 🔥 BUG #25 FIX: Usar instancia pasada O crear nueva (fallback)
+        let engine: any
+        if (drumEngine) {
+            engine = drumEngine  // ← REUTILIZAR INSTANCIA
+        } else {
+            // Fallback: crear nueva (solo para retrocompatibilidad)
+            const drumSeed = seed ? seed + section.index * 10000 : 12345
+            engine = new DrumPatternEngine(tempo, drumSeed)
+            console.warn(`⚠️  [Orchestrator] Creating new DrumPatternEngine (fallback) - BUG #25 active!`)
+        }
+        
         const baseVelocity = Math.floor(config.velocity * 127) // 0-1 → 0-127 MIDI
         
         // Generar patrón estructurado según sección
-        const notes = drumEngine.generateForSection(section, baseVelocity)
+        const notes = engine.generateForSection(section, baseVelocity)
         
-        console.log(`🥁 [Orchestrator] Generated ${notes.length} structured drum notes (${section.type})`)
         return notes
     }
 
     /**
      * Generar pad atmosférico
-     * ✅ REFACTORIZADO: Respeta section.duration (no excede límite) + Truncamiento adicional
+     * ✅ BUG #23 FIX RADICAL (ARQUITECTO-34A): DURACIÓN MÁXIMA ABSOLUTA DE 4 SEGUNDOS
+     * No importa chord.duration - El Pad NUNCA debe exceder 4s por nota
+     * Estrategia: "Respiratory Pads" (inhale 4s, exhale 4s, repeat)
      */
     private generatePadLayer(
         chords: ResolvedChord[],
         config: LayerConfig,
-        section: Section,  // ✅ RECIBIR SECTION
+        section: Section,
         prng: SeededRandom
     ): MIDINote[] {
         const notes: MIDINote[] = []
         const sectionEndTime = section.startTime + section.duration
+        
+        // 🔥 ARQUITECTO-34A: DURACIÓN MÁXIMA ABSOLUTA (no negociable)
+        const MAX_PAD_DURATION = 4.0  // 4 segundos MAX (respiración musical)
 
         for (const chord of chords) {
             // OPTIMIZACIÓN: Pad solo toca tónica y quinta (no todo el acorde)
-            // Para evitar redundancia con harmony y reducir carga
             const root = chord.root
             const fifth = root + 7 // Quinta del acorde
 
             // Notas del pad: solo tónica y quinta
             const padNotes = [root, fifth]
 
-            for (const pitch of padNotes) {
-                const adjustedPitch = pitch + (config.octave - 4) * 12
+            // 🔥 ARQUITECTO-34A: Subdividir acordes largos en "respiraciones" de 4s
+            // Si chord.duration > 4s, generar múltiples notas de 4s (con gaps pequeños)
+            const numBreaths = Math.ceil(chord.duration / (MAX_PAD_DURATION + 0.5)) // +0.5s gap entre respiraciones
+            const breathCycle = MAX_PAD_DURATION + 0.5 // 4s pad + 0.5s gap
 
-                // ✅ BUG #23 FIX: Duración basada en chord.duration (no 8-16s arbitrario)
-                // Pad puede ser largo, pero sigue el ritmo armónico
-                const timeLeftInSection = section.startTime + section.duration - chord.startTime
-                const maxMusicalDuration = chord.duration * 4.0 // Pad puede extenderse 4x
-                let actualDuration = Math.min(maxMusicalDuration, timeLeftInSection)
-
-                const noteStartTime = chord.startTime
-                let noteEndTime = noteStartTime + actualDuration
+            for (let breathIndex = 0; breathIndex < numBreaths; breathIndex++) {
+                const breathStartTime = chord.startTime + (breathIndex * breathCycle)
                 
-                // Truncar si excede sección
-                if (noteEndTime > sectionEndTime) {
-                    const oldDuration = actualDuration
-                    actualDuration = Math.max(0.1, sectionEndTime - noteStartTime)
-                    console.log(`[PAD TRUNCATE] Section ${section.index}: Note truncated from ${oldDuration.toFixed(2)}s to ${actualDuration.toFixed(2)}s`)
-                }
-                
-                // Validar que la nota inicia dentro de la sección
-                if (noteStartTime >= sectionEndTime) {
-                    console.log(`[PAD SKIP] Section ${section.index}: Note at ${noteStartTime.toFixed(2)}s skipped (after section end ${sectionEndTime.toFixed(2)}s)`)
-                    continue // Descartar nota fuera de sección
+                // Validar que la "respiración" inicia dentro de la sección y del acorde
+                if (breathStartTime >= sectionEndTime || breathStartTime >= chord.startTime + chord.duration) {
+                    break
                 }
 
-                notes.push({
-                    pitch: Math.max(0, Math.min(127, adjustedPitch)),
-                    velocity: Math.floor(config.velocity * 127),  // ✅ BUG #31 FIX: Convertir 0-1 a MIDI 0-127
-                    startTime: noteStartTime,
-                    duration: actualDuration, // ✅ NO EXCEDE SECTION (doblemente validado)
-                    channel: config.channel || 3
-                })
+                // Calcular duración de esta respiración (puede ser menor que 4s si es la última)
+                const timeLeftInChord = (chord.startTime + chord.duration) - breathStartTime
+                const timeLeftInSection = sectionEndTime - breathStartTime
+                let breathDuration = Math.min(MAX_PAD_DURATION, timeLeftInChord, timeLeftInSection)
+                
+                // Asegurar mínimo audible (0.5s)
+                if (breathDuration < 0.5) {
+                    break
+                }
+
+                for (const pitch of padNotes) {
+                    const adjustedPitch = pitch + (config.octave - 4) * 12
+
+                    notes.push({
+                        pitch: Math.max(0, Math.min(127, adjustedPitch)),
+                        velocity: Math.floor(config.velocity * 127),
+                        startTime: breathStartTime,
+                        duration: breathDuration, // ✅ MAX 4 SEGUNDOS (respiratorio)
+                        channel: config.channel || 3
+                    })
+                }
             }
         }
-
-        console.log(`[PAD DEBUG] Section ${section.index}: Generated ${notes.length} pad notes`)
 
         return notes
     }
@@ -475,8 +519,6 @@ export class Orchestrator {
             }
         }
 
-        console.log(`[ACTIVITY DEBUG] Section ${section.index}: Found ${silentPeriods.length} silent periods >= 2s`)
-
         // Si no hay silencios problemáticos, devolver capas originales
         if (silentPeriods.length === 0) {
             return layers
@@ -490,7 +532,6 @@ export class Orchestrator {
 
             // Intentar agregar Pad primero (más atmosférico)
             if (style.layers.pad && style.layers.pad.enabled && (!resultLayers.pad || resultLayers.pad.length === 0)) {
-                console.log(`[ACTIVITY DEBUG] Filling silence ${silentPeriod.start}s-${silentPeriod.end}s with Pad`)
                 const padNotes = this.generateMinimumPadActivity(
                     silentPeriod.start,
                     duration,
@@ -503,7 +544,6 @@ export class Orchestrator {
             // ✅ BUG #24 FIX: NO añadir rhythm si DrumPatternEngine ya generó patrones
             // DrumPatternEngine genera patrones completos (31 notas), no necesita relleno
             else if (style.layers.rhythm && style.layers.rhythm.enabled && (!resultLayers.rhythm || resultLayers.rhythm.length === 0)) {
-                console.log(`[ACTIVITY DEBUG] Filling silence ${silentPeriod.start}s-${silentPeriod.end}s with Rhythm`)
                 const rhythmNotes = this.generateMinimumRhythmActivity(
                     silentPeriod.start,
                     duration,

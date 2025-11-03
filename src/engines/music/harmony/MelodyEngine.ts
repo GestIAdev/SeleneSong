@@ -95,18 +95,44 @@ export class MelodyEngine {
 
     /**
      * Generar motivo melódico base
+     * ✅ BUG #25 FIX RADICAL (ARQUITECTO-33A): FRASES CANTABLES
+     * - Escalas restrictivas (pentatónicas para cyberpunk)
+     * - Saltos máximos de 5 semitonos (4ta justa)
+     * - Motivos de 3-4 notas (memor
+
+ables)
      */
     private generateMotif(key: number, mode: string, complexity: number, tempo: number): MIDINote[] {
-        const motifLength = complexity > 0.7 ? 8 : complexity > 0.4 ? 6 : 4
+        // 🔥 ARQUITECTO-33A: Motivos más cortos (3-4 notas, no 4-8)
+        const motifLength = complexity > 0.7 ? 4 : 3
         const motif: MIDINote[] = []
 
-        // Escala base según modo
-        const scale = this.getScaleForMode(key, mode)
+        // 🔥 ARQUITECTO-33A: Escala RESTRICTIVA (pentatónica para cyberpunk)
+        // Pentatónica = solo 5 notas (saltos más pequeños, más cantable)
+        const scale = this.getRestrictiveScale(key, mode)
+        
         let currentTime = 0
+        let previousPitch = this.random.choice(scale) + (4 * 12) // Octava 4
 
         for (let i = 0; i < motifLength; i++) {
-            const pitch = this.random.choice(scale) + (4 * 12) // Octava 4
+            // 🔥 ARQUITECTO-33A: RESTRICCIÓN DE SALTO MELÓDICO (max 5 semitonos = 4ta justa)
+            const MAX_MELODIC_INTERVAL = 5 // 5 semitonos (4ta justa)
+            
+            // Generar pitch cercano al anterior (evitar saltos de campanitas)
+            let pitch: number
+            let attempts = 0
+            do {
+                pitch = this.random.choice(scale) + (4 * 12) // Octava 4
+                attempts++
+                if (attempts > 10) {
+                    // Fallback: usar pitch anterior ± 2 semitonos
+                    pitch = previousPitch + this.random.choice([-2, -1, 0, 1, 2])
+                    break
+                }
+            } while (Math.abs(pitch - previousPitch) > MAX_MELODIC_INTERVAL)
+            
             const durationSeconds = this.getFibonacciDuration(i, motifLength, 'verse')
+            
             // Calculate velocity with musical intelligence
             const baseVelocity = 80
             const contourVelocity = this.calculateDynamicVelocity(i, motifLength)
@@ -121,9 +147,10 @@ export class MelodyEngine {
                 pitch,
                 velocity,
                 startTime: currentTime,
-                duration: durationSeconds // ✅ duration EN SEGUNDOS
+                duration: durationSeconds
             })
 
+            previousPitch = pitch // Actualizar para siguiente nota
             currentTime += durationSeconds
         }
 
@@ -131,21 +158,24 @@ export class MelodyEngine {
     }
 
     /**
-     * Obtener escala para modo específico
+     * 🔥 ARQUITECTO-33A: Escalas RESTRICTIVAS (pentatónicas y blues)
+     * Solo 5 notas por escala (vs 7 notas en escalas mayores/menores)
+     * Resultado: Saltos más pequeños, frases más cantables
      */
-    private getScaleForMode(key: number, mode: string): number[] {
+    private getRestrictiveScale(key: number, mode: string): number[] {
+        // 🔥 FORZAR PENTATÓNICA PARA CYBERPUNK (más restrictiva)
         const scales: Record<string, number[]> = {
-            'major': [0, 2, 4, 5, 7, 9, 11],
-            'minor': [0, 2, 3, 5, 7, 8, 10],
-            'dorian': [0, 2, 3, 5, 7, 9, 10],
-            'phrygian': [0, 1, 3, 5, 7, 8, 10],
-            'lydian': [0, 2, 4, 6, 7, 9, 11],
-            'mixolydian': [0, 2, 4, 5, 7, 9, 10],
-            'pentatonic': [0, 2, 4, 7, 9],
-            'blues': [0, 3, 5, 6, 7, 10]
+            'major': [0, 2, 4, 7, 9],           // Pentatónica mayor (5 notas)
+            'minor': [0, 3, 5, 7, 10],          // Pentatónica menor (5 notas)
+            'dorian': [0, 2, 3, 7, 9],          // Pentatónica dorian (5 notas)
+            'phrygian': [0, 1, 5, 7, 10],       // Pentatónica phrygian (5 notas)
+            'lydian': [0, 2, 4, 7, 9],          // Pentatónica mayor (más brillante)
+            'mixolydian': [0, 2, 4, 7, 9],      // Pentatónica mayor (blues-rock)
+            'pentatonic': [0, 2, 4, 7, 9],      // Pentatónica mayor
+            'blues': [0, 3, 5, 6, 7, 10]        // Blues (6 notas, incluye blue note)
         }
 
-        const intervals = scales[mode] || scales['major']
+        const intervals = scales[mode] || scales['pentatonic']
         return intervals.map(interval => key + interval)
     }
 
@@ -214,21 +244,46 @@ export class MelodyEngine {
 
     /**
      * Desarrollo del motivo en frase completa
+     * ✅ BUG #25 FIX RADICAL (ARQUITECTO-33A): MOTIVOS REPETIDOS + SWING
+     * - Repite motivo base 70% del tiempo (coherencia)
+     * - Solo transforma 30% del tiempo (variación sutil)
+     * - Añade swing timing (off-beats desplazados 8-12ms)
      */
     private developPhrase(motif: MIDINote[], duration: number, tempo: number, contour: MelodicContour): MIDINote[] {
         const phrase: MIDINote[] = []
         const motifDurationSeconds = motif.reduce((sum, note) => sum + note.duration, 0)
         const repetitions = Math.ceil(duration / motifDurationSeconds)
+        
+        // 🔥 ARQUITECTO-33A: Swing parameters (como DrumPatternEngine)
+        const swingAmount = 0.08 // 8% swing (sutil pero audible)
+        const beatDuration = (60 / tempo) // Segundos por beat
 
         let currentTime = 0
         for (let i = 0; i < repetitions; i++) {
-            const transformedMotif = this.transformMotifForRepetition(motif, i, contour)
+            // 🔥 ARQUITECTO-33A: REPETIR MOTIVO BASE 70% del tiempo (coherencia)
+            // Solo transformar 30% del tiempo (variación sutil, no caos)
+            const shouldTransform = this.random.next() < 0.3 // 30% chance de transformación
+            const transformedMotif = shouldTransform
+                ? this.transformMotifForRepetition(motif, i, contour)
+                : motif // ← ¡REPETIR SIN TRANSFORMAR!
             
-            // Ajustar startTime de cada nota
+            // Ajustar startTime de cada nota + SWING
             for (const note of transformedMotif) {
+                let noteStartTime = currentTime + note.startTime
+                
+                // 🎭 ARQUITECTO-33A: SWING (desplazar off-beats como DrumPatternEngine)
+                // Detectar si la nota cae en off-beat (aproximadamente)
+                const beatPosition = (noteStartTime % beatDuration) / beatDuration
+                const isOffBeat = beatPosition > 0.4 && beatPosition < 0.6 // Rango 0.4-0.6 = off-beat
+                
+                if (isOffBeat) {
+                    // Añadir swing delay (8% del beat)
+                    noteStartTime += swingAmount * beatDuration
+                }
+                
                 phrase.push({
                     ...note,
-                    startTime: currentTime + note.startTime
+                    startTime: noteStartTime
                 })
             }
             
@@ -241,14 +296,19 @@ export class MelodyEngine {
 
     /**
      * Transformar motivo para repetición
+     * ✅ BUG #25 FIX RADICAL (ARQUITECTO-33A): TRANSFORMACIONES SUTILES
+     * Solo usa transposition (±2-5 semitonos) para variación orgánica
+     * NO usa retrograde/inversion (demasiado abstracto para melodías cantables)
      */
     private transformMotifForRepetition(motif: MIDINote[], repetition: number, contour: MelodicContour): MIDINote[] {
-        const transformations: MotifTransformation[] = ['retrograde', 'inversion', 'augmentation', 'diminution']
-
         if (repetition === 0) return motif // Primera repetición sin transformación
 
-        const transformation = transformations[repetition % transformations.length]
-        return this.applyMotifTransformation(motif, transformation)
+        // 🔥 ARQUITECTO-33A: Solo TRANSPOSITION (variación orgánica)
+        // Transposiciones sutiles: ±2, ±3, ±5 semitonos (intervalos musicales)
+        const musicalIntervals = [-5, -3, -2, 2, 3, 5] // 4ta desc, 3ra desc, 2da desc, 2da asc, 3ra asc, 4ta asc
+        const interval = this.random.choice(musicalIntervals)
+        
+        return this.applyTransposition(motif, interval)
     }
 
     /**

@@ -146,8 +146,25 @@ export class StructureEngine {
         const sections: Section[] = [];
         let currentTime = style.temporal.fadeIn;
 
-        // 2. Definir una sección "estándar" (ej. 8 compases)
-        const standardSectionBars = 8; 
+        // 2. Definir patrones de duración VARIABLES (Fibonacci-inspired)
+        // Intro/Outro: 4 bars (cortos)
+        // Verse/Pre-chorus: 8 bars (estándar)
+        // Chorus: 8-12 bars (expandidos)
+        // Bridge/Buildup: 6-8 bars (tensión)
+        // Interlude: 4-6 bars (transición)
+        
+        const sectionBarPatterns: Record<SectionType, number[]> = {
+            'intro': [4, 6],
+            'verse': [8, 12],
+            'pre-chorus': [6, 8],
+            'chorus': [8, 12, 16],
+            'interlude': [4, 6, 8],
+            'bridge': [8, 12],
+            'buildup': [6, 8],
+            'breakdown': [6, 8],
+            'drop': [8, 12],
+            'outro': [4, 6, 8]
+        };
 
         for (let i = 0; i < form.length; i++) {
             const sectionType = form[i];
@@ -156,23 +173,23 @@ export class StructureEngine {
             if (i === form.length - 1) {
                 // *** ÚLTIMA SECCIÓN ***
                 // La última sección se queda con TODOS los compases restantes.
-                // Esto garantiza que la suma total sea EXACTAMENTE totalBarsToAssign.
-                barsForThisSection = Math.max(1, barsRemaining); // Asegura al menos 1 compás
+                barsForThisSection = Math.max(4, barsRemaining); // Mínimo 4 compases (outro decente)
             } else {
                 // *** SECCIONES INTERMEDIAS ***
                 
-                const sectionsRemaining = (form.length - 1) - i; // Incluyendo esta sección
+                // 🎭 DIRECTIVA 32A: Seleccionar duración del patrón Fibonacci
+                const patterns = sectionBarPatterns[sectionType] || [8];
+                const chosenPattern = prng.choice(patterns);  // Elige variación aleatoria
                 
-                // Distribución proporcional inteligente:
-                // Si quedan suficientes compases, usa standardSectionBars (8)
-                // Si no, distribuye equitativamente entre las secciones restantes
-                if (barsRemaining >= standardSectionBars * sectionsRemaining) {
-                    // Caso normal: hay suficiente presupuesto para todas las secciones con 8 compases
-                    barsForThisSection = standardSectionBars;
+                const sectionsRemaining = form.length - i;  // Total restante
+                
+                // Si hay suficiente presupuesto, usar patrón Fibonacci
+                if (barsRemaining >= chosenPattern + (sectionsRemaining - 1) * 4) {
+                    // Hay suficiente para esta sección + mínimo 4 bars para cada restante
+                    barsForThisSection = chosenPattern;
                 } else {
-                    // Caso edge: distribuir proporcionalmente los compases restantes
-                    // Asegura que cada sección reciba al menos 1 compás
-                    barsForThisSection = Math.max(1, Math.floor(barsRemaining / sectionsRemaining));
+                    // Presupuesto ajustado: dividir equitativamente lo restante
+                    barsForThisSection = Math.max(4, Math.floor(barsRemaining / sectionsRemaining));
                 }
             }
             

@@ -10,6 +10,7 @@ import { MelodyEngine } from '../harmony/MelodyEngine.js'
 import { VitalsIntegrationEngine } from '../vitals/VitalsIntegrationEngine.js'
 import { Orchestrator } from '../orchestration/Orchestrator.js'
 import { MIDIRenderer } from '../render/MIDIRenderer.js'
+import { DrumPatternEngine } from '../rhythm/DrumPatternEngine.js'  // ← IMPORT
 import { VitalSigns } from './types.js'
 
 
@@ -21,6 +22,7 @@ export class MusicEnginePro {
     private vitalsEngine: VitalsIntegrationEngine
     private orchestrator: Orchestrator
     private renderer: MIDIRenderer
+    private drumEngine: DrumPatternEngine | null = null  // ← INSTANCIA ÚNICA
     
     constructor() {
         this.styleEngine = new StyleEngine()
@@ -30,6 +32,7 @@ export class MusicEnginePro {
         this.vitalsEngine = new VitalsIntegrationEngine()
         this.orchestrator = new Orchestrator()
         this.renderer = new MIDIRenderer()
+        // drumEngine se crea en generate() cuando conocemos el tempo
     }
     
     async generate(
@@ -64,6 +67,13 @@ export class MusicEnginePro {
             params.seed,
             mode
         )
+
+        // 🔥 BUG #25 FIX: Crear DrumPatternEngine UNA SOLA VEZ (no en cada sección)
+        const tempo = modifiedStyle.musical.tempo
+        if (!this.drumEngine || this.drumEngine['tempo'] !== tempo) {
+            this.drumEngine = new DrumPatternEngine(tempo, params.seed || 42)
+            console.log(`🔧 [MUSIC ENGINE PRO] DrumPatternEngine created (tempo=${tempo}, seed=${params.seed || 42})`)
+        }
 
         // 5. Generar contenido por sección (ARQUITECTURA RADICAL: Section como SSOT)
         const allNotes: MIDINote[] = []
@@ -112,7 +122,8 @@ export class MusicEnginePro {
                 modifiedStyle,
                 params.seed + section.index,
                 mode,
-                totalLoad // ✅ PASAR CARGA REAL
+                totalLoad, // ✅ PASAR CARGA REAL
+                this.drumEngine // 🔥 BUG #25 FIX: Pasar instancia única
             )
 
             // ✅ PASO 6: Recopilar todas las notas
