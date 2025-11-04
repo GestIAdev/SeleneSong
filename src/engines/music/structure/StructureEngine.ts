@@ -70,8 +70,8 @@ export class StructureEngine {
         style: StylePreset,
         prng: SeededRandom
     ): SectionType[] {
-        // Duraciones cortas (< 60s)
-        if (duration < 60) {
+        // Duraciones cortas (<= 60s) - 🔥 BUG #18.B FIX: Frontera lógica corregida
+        if (duration <= 60) {
             if (style.temporal.loopable) {
                 // Loop simple: A-B-A o A-A-B
                 return prng.next() < 0.5
@@ -132,7 +132,9 @@ export class StructureEngine {
         prng: SeededRandom
     ): Section[] {
         const fadeTime = style.temporal.fadeIn + style.temporal.fadeOut;
-        const usableDuration = totalDuration - fadeTime;
+        // 🔥 BUG #18 FIX DEFINITIVO (DIRECTIVA ARQUITECTO): NO restar fadeTime para presupuesto
+        // La totalDuration solicitada debe ser la base para el cálculo del presupuesto de compases musicales
+        const usableDuration = totalDuration;  // ✅ CORRECTO: usar totalDuration completa
         const beatsPerBar = style.musical.timeSignature[0];
         const bpm = style.musical.tempo;
         const secondsPerBar = (60 / bpm) * beatsPerBar;

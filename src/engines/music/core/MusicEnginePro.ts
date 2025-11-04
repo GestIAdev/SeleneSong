@@ -106,7 +106,10 @@ export class MusicEnginePro {
                 range: { min: 4, max: 6 } // Octavas 4-6 (C4-C6)
                 // ❌ NO pasar tempo, duration - están en section
             }
-            const melody = this.melodyEngine.generateMelody(melodyOptions)
+            // 🎸 FRENTE #5.2: Desestructurar MelodyResult { notes, instrumentKey }
+            const melodyResult = this.melodyEngine.generateMelody(melodyOptions)
+            const melody = melodyResult.notes
+            const melodyInstrumentKey = melodyResult.instrumentKey
 
             // ✅ PASO 4: Calcular TOTALLOAD REAL (basado en notas generadas)
             const harmonyDensity = chords.flat().length / section.duration // notas/segundo
@@ -133,12 +136,20 @@ export class MusicEnginePro {
             if (layers.rhythm) allNotes.push(...layers.rhythm)
             if (layers.pad) allNotes.push(...layers.pad)
 
-            // ✅ PASO 7: Separar en tracks
-            this.addToTrack(tracks, 'Melody', melody)
-            this.addToTrack(tracks, 'Harmony', layers.harmony || [])
-            this.addToTrack(tracks, 'Bass', layers.bass || [])
-            this.addToTrack(tracks, 'Rhythm', layers.rhythm || [])
-            if (layers.pad) this.addToTrack(tracks, 'Pad', layers.pad)
+            // 🔧 FASE 3.10 (Contrato Definitivo): Nombres simples lowercase (sin ::)
+            // El formato :: falló. Backend DEBE escribir nombres simples que el frontend entienda.
+            // 
+            // FORMATO: "tracktype" (lowercase, una palabra, sin separadores)
+            // - melody, harmony, bass, pad, rhythm
+            // El frontend seleccionará el instrumento dinámicamente basado en este nombre.
+            
+            this.addToTrack(tracks, 'melody', melody)
+            this.addToTrack(tracks, 'harmony', layers.harmony || [])
+            this.addToTrack(tracks, 'bass', layers.bass || [])
+            this.addToTrack(tracks, 'rhythm', layers.rhythm || [])
+            if (layers.pad) {
+                this.addToTrack(tracks, 'pad', layers.pad)
+            }
         }
 
         // Generate transition fills between sections
@@ -160,16 +171,21 @@ export class MusicEnginePro {
         const poetry = await this.generatePoetry(params.seed, structure)
 
         // 7. Orquestar y mezclar (Orchestrator.separateIntoTracks, Orchestrator.applyMixing)
+        // 🔧 FASE 3.11 (Reparación del Ensamblaje): Leer tracks con nombres lowercase
+        // Bug: Escribíamos 'melody' pero leíamos 'Melody' → undefined → 0 notas al MIDIRenderer
+        const melodyTrack = tracks.get('melody') || []
+        
         const separatedTracks = this.orchestrator.separateIntoTracks(
-            tracks.get('Melody') || [],
+            melodyTrack,
             {
-                harmony: tracks.get('Harmony') || [],
-                bass: tracks.get('Bass') || [],
-                rhythm: tracks.get('Rhythm') || [],
-                pad: tracks.get('Pad')
+                harmony: tracks.get('harmony') || [],
+                bass: tracks.get('bass') || [],
+                rhythm: tracks.get('rhythm') || [],
+                pad: tracks.get('pad')
             },
             modifiedStyle
         )
+        
         const mixedTracks = this.orchestrator.applyMixing(separatedTracks, modifiedStyle)
 
         // 8. Renderizar MIDI (MIDIRenderer.renderMultiTrack)

@@ -93,8 +93,12 @@ export class MIDIRenderer {
         for (const [layerName, notes] of Array.from(tracks.entries())) {
             let targetChannel: number;
 
-            // LÓGICA DE CANAL CORREGIDA:
-            if (layerName.toLowerCase() === 'rhythm') {
+            // 🔧 FASE 3.10 (Contrato Definitivo): layerName ya es simple lowercase (sin ::)
+            // layerName = "melody", "harmony", "bass", "pad", "rhythm"
+            const trackType = layerName.toLowerCase()
+
+            // LÓGICA DE CANAL:
+            if (trackType === 'rhythm') {
                 targetChannel = 9; // Fuerza canal 9 para ritmo
             } else {
                 targetChannel = currentMelodicChannel;
@@ -111,12 +115,13 @@ export class MIDIRenderer {
 
             console.log(`[MIDI RENDERER DEBUG] Layer: ${layerName}, Notes: ${notes.length}, Target Channel: ${targetChannel}`); // Log actualizado
 
-            const program = this.getProgramForLayer(layerName, style.id);
+            const program = this.getProgramForLayer(trackType, style.id);
             // Asegúrate de pasar el 'targetChannel' correcto a createTrack
             const midiTrack = this.createTrack(notes, layerName, targetChannel, program, tempo);
             midiTracks.push(midiTrack);
         }
 
+        console.log(`🔧 [MIDIRenderer] Total tracks to write: ${midiTracks.length} (1 tempo + ${tracks.size} music)`)
         const writer = new MidiWriter.Writer(midiTracks)
         const midiData = writer.buildFile()
         
@@ -156,14 +161,19 @@ export class MIDIRenderer {
 
         console.log(`🔍 [MIDIRenderer] createTrack for "${layerName}" - Tempo: ${tempo}, Channel: ${channel}, Notes: ${notes.length}`)
 
-        // Set track name (TrackNameEvent requiere objeto {text})
-        track.addEvent(new MidiWriter.TextEvent({ text: layerName }))
+        // 🔧 FASE 3.12: DIAGNÓSTICO - Comentar TrackNameEvent para ver si causa tracks fantasma
+        // HIPÓTESIS: @tonejs/midi está parseando el TrackNameEvent como un track separado
+        // Si eliminarlo soluciona el problema, usaremos otro método para nombrar tracks
+        // track.addEvent(new MidiWriter.TrackNameEvent({ text: layerName }))
+        console.log(`📝 [MIDIRenderer] Track name "${layerName}" SKIPPED (testing phantom tracks bug)`)
 
-    // AÑADIR PROGRAM CHANGE AL PRINCIPIO (TICK 0)
-    if (channel !== 9) {
-        console.log(`[MIDI RENDERER DEBUG] Assigning Program ${program} to Channel ${channel} for Layer ${layerName}`);
-        track.addEvent(new MidiWriter.ProgramChangeEvent({ program: program, channel: channel, tick: 0 })); // Especifica canal y tick 0
-    }        // Sort notes by start time
+        // Program Change al principio (tick 0 implícito para channels melódicos)
+        if (channel !== 9) {
+            track.addEvent(new MidiWriter.ProgramChangeEvent({ program: program, channel: channel }))
+            console.log(`🎼 [MIDIRenderer] Program ${program} assigned to channel ${channel}`)
+        }
+
+        // Sort notes by start time
         const sortedNotes = [...notes].sort((a, b) => a.startTime - b.startTime)
 
         // Log first 5 and last 5 notes for debugging

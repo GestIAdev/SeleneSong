@@ -57,17 +57,19 @@ export class DrumPatternEngine {
      * 🎵 PATRONES v2.0 - RHYTHM DIVINE (18+ variaciones únicas)
      * 
      * SISTEMA DE VARIACIONES:
-     * - A: Patrón básico (groove estándar)
-     * - B: Variación intermedia (más sincopado)
-     * - C: Variación compleja (cyberpunk/glitchy)
+     * - A: Patrón básico (groove estándar) → complexity: 'low'
+     * - B: Variación intermedia (más sincopado) → complexity: 'medium'
+     * - C: Variación compleja (cyberpunk/glitchy) → complexity: 'high'
      * 
      * HUMANIZACIÓN:
      * - Kicks: 100-120 velocity (potentes)
      * - Snares: 85-110 velocity (dinámicos)
      * - Hi-hats: 65-85 velocity (suaves)
      * - Ghost notes: 40-55 velocity (barely audible)
+     * 
+     * 🎭 FRENTE #3 (SCHERZO RÍTMICO): Añadida propiedad 'complexity' para progresión inteligente
      */
-    private loadPatterns(): Record<string, DrumPattern> {
+    private loadPatterns(): Record<string, DrumPattern & { complexity?: 'low' | 'medium' | 'high' }> {
         return {
             // ═══════════════════════════════════════════════════════════
             // INTRO PATTERNS (Minimal pero audible)
@@ -75,6 +77,7 @@ export class DrumPatternEngine {
             
             intro_A: {
                 bars: 4,
+                complexity: 'low',
                 notes: [
                     // Minimal hi-hats en beats principales
                     { beat: 1, midi: 42, velocity: 75 },   // HH closed
@@ -86,6 +89,7 @@ export class DrumPatternEngine {
             
             intro_B: {
                 bars: 4,
+                complexity: 'medium',
                 notes: [
                     // Intro con kick suave + shaker
                     { beat: 1, midi: 36, velocity: 85 },   // Kick (suave)
@@ -102,6 +106,7 @@ export class DrumPatternEngine {
             
             verse_A: {
                 bars: 4,
+                complexity: 'low',
                 notes: [
                     // Groove básico 4/4
                     { beat: 1, midi: 36, velocity: 110 },  // Kick
@@ -124,6 +129,7 @@ export class DrumPatternEngine {
             
             verse_B: {
                 bars: 4,
+                complexity: 'medium',
                 notes: [
                     // Groove sincopado (kicks en off-beats)
                     { beat: 1, midi: 36, velocity: 112 },  // Kick
@@ -148,6 +154,7 @@ export class DrumPatternEngine {
             
             verse_C: {
                 bars: 4,
+                complexity: 'high',
                 notes: [
                     // Groove cyberpunk (glitchy hi-hats)
                     { beat: 1, midi: 36, velocity: 115 },  // Kick (fuerte)
@@ -176,6 +183,7 @@ export class DrumPatternEngine {
             
             chorus_A: {
                 bars: 4,
+                complexity: 'low',
                 notes: [
                     // Chorus potente con crash
                     { beat: 1, midi: 36, velocity: 120 },  // Kick (máximo)
@@ -202,6 +210,7 @@ export class DrumPatternEngine {
             
             chorus_B: {
                 bars: 4,
+                complexity: 'medium',
                 notes: [
                     // Chorus sincopado (double kicks)
                     { beat: 1, midi: 36, velocity: 118 },  // Kick
@@ -230,6 +239,7 @@ export class DrumPatternEngine {
             
             chorus_C: {
                 bars: 4,
+                complexity: 'high',
                 notes: [
                     // Chorus cyberpunk (glitches + tambourine)
                     { beat: 1, midi: 36, velocity: 120 },  // Kick (máximo)
@@ -264,6 +274,7 @@ export class DrumPatternEngine {
             
             bridge_A: {
                 bars: 4,
+                complexity: 'low',
                 notes: [
                     // Bridge minimal (shaker + tambourine)
                     { beat: 1, midi: 70, velocity: 72 },   // Shaker
@@ -275,6 +286,7 @@ export class DrumPatternEngine {
             
             bridge_B: {
                 bars: 4,
+                complexity: 'medium',
                 notes: [
                     // Bridge con kick suave + rim
                     { beat: 1, midi: 36, velocity: 75 },   // Kick (muy suave)
@@ -293,6 +305,7 @@ export class DrumPatternEngine {
             
             buildup: {
                 bars: 4,
+                complexity: 'high',  // Siempre complejo
                 notes: [
                     // Bar 1: Minimal (HH + Kick suaves - tensión inicial)
                     { beat: 1, midi: 36, velocity: 80 },   // Kick (suave)
@@ -328,6 +341,7 @@ export class DrumPatternEngine {
             
             outro: {
                 bars: 4,
+                complexity: 'low',  // Simple fade
                 notes: [
                     // Mismo que verse_A pero con fade automático
                     { beat: 1, midi: 36, velocity: 110 },  // Kick
@@ -335,6 +349,115 @@ export class DrumPatternEngine {
                     { beat: 2.5, midi: 38, velocity: 95 }, // Snare
                     { beat: 3, midi: 36, velocity: 105 },  // Kick
                     { beat: 4.5, midi: 46, velocity: 70 }  // HH open
+                ]
+            },
+
+            // ═══════════════════════════════════════════════════════════
+            // FILL LIBRARY (🎭 FRENTE #3: SCHERZO RÍTMICO)
+            // Fills musicales de 1-2 compases para reemplazar truncamiento
+            // ═══════════════════════════════════════════════════════════
+            
+            // 🥁 FILLS DE 1 COMPÁS
+            fill_1bar_hihat: {
+                bars: 1,
+                complexity: 'low',
+                notes: [
+                    // Hi-hat roll simple (16avos espaciados)
+                    { beat: 1, midi: 42, velocity: 72 },    // HH closed
+                    { beat: 1.25, midi: 42, velocity: 68 }, // HH closed
+                    { beat: 1.5, midi: 42, velocity: 75 },  // HH closed
+                    { beat: 1.75, midi: 42, velocity: 70 }, // HH closed
+                    { beat: 2, midi: 42, velocity: 78 },    // HH closed
+                    { beat: 2.5, midi: 42, velocity: 72 },  // HH closed
+                    { beat: 3, midi: 42, velocity: 80 },    // HH closed
+                    { beat: 3.5, midi: 42, velocity: 75 },  // HH closed
+                    { beat: 4, midi: 46, velocity: 85 }     // HH open (finaliza)
+                ]
+            },
+            
+            fill_1bar_snare: {
+                bars: 1,
+                complexity: 'medium',
+                notes: [
+                    // Snare build con kicks
+                    { beat: 1, midi: 36, velocity: 105 },   // Kick
+                    { beat: 2, midi: 38, velocity: 80 },    // Snare (ghost)
+                    { beat: 2.5, midi: 38, velocity: 85 },  // Snare
+                    { beat: 3, midi: 38, velocity: 90 },    // Snare
+                    { beat: 3.5, midi: 38, velocity: 95 },  // Snare (crescendo)
+                    { beat: 4, midi: 38, velocity: 100 },   // Snare (clímax)
+                    { beat: 4, midi: 49, velocity: 105 }    // Crash (finaliza)
+                ]
+            },
+            
+            fill_1bar_toms: {
+                bars: 1,
+                complexity: 'high',
+                notes: [
+                    // Tom descent (high → mid → low)
+                    { beat: 1, midi: 50, velocity: 95 },    // Tom high
+                    { beat: 1.5, midi: 50, velocity: 88 },  // Tom high
+                    { beat: 2, midi: 47, velocity: 100 },   // Tom mid
+                    { beat: 2.5, midi: 47, velocity: 92 },  // Tom mid
+                    { beat: 3, midi: 45, velocity: 105 },   // Tom low
+                    { beat: 3.5, midi: 45, velocity: 98 },  // Tom low
+                    { beat: 4, midi: 36, velocity: 115 },   // Kick (potente)
+                    { beat: 4, midi: 49, velocity: 110 }    // Crash (finaliza)
+                ]
+            },
+            
+            // 🥁 FILLS DE 2 COMPASES
+            fill_2bar_progressive: {
+                bars: 2,
+                complexity: 'medium',
+                notes: [
+                    // Bar 1: Build gradual con hi-hats
+                    { beat: 1, midi: 36, velocity: 100 },   // Kick
+                    { beat: 1, midi: 42, velocity: 75 },    // HH closed
+                    { beat: 2, midi: 42, velocity: 72 },    // HH closed
+                    { beat: 2.5, midi: 38, velocity: 85 },  // Snare
+                    { beat: 3, midi: 42, velocity: 78 },    // HH closed
+                    { beat: 3.5, midi: 42, velocity: 70 },  // HH closed
+                    { beat: 4, midi: 42, velocity: 80 },    // HH closed
+                    { beat: 4.5, midi: 38, velocity: 88 },  // Snare
+                    
+                    // Bar 2: Clímax con tom descent
+                    { beat: 5, midi: 50, velocity: 92 },    // Tom high
+                    { beat: 5.5, midi: 50, velocity: 88 },  // Tom high
+                    { beat: 6, midi: 47, velocity: 95 },    // Tom mid
+                    { beat: 6.5, midi: 47, velocity: 90 },  // Tom mid
+                    { beat: 7, midi: 45, velocity: 100 },   // Tom low
+                    { beat: 7.5, midi: 38, velocity: 95 },  // Snare
+                    { beat: 8, midi: 36, velocity: 115 },   // Kick (potente)
+                    { beat: 8, midi: 49, velocity: 110 }    // Crash (finaliza)
+                ]
+            },
+            
+            fill_2bar_glitchy: {
+                bars: 2,
+                complexity: 'high',
+                notes: [
+                    // Bar 1: Glitches con shaker + rim
+                    { beat: 1, midi: 70, velocity: 68 },    // Shaker
+                    { beat: 1.5, midi: 37, velocity: 60 },  // Rim (ghost)
+                    { beat: 2, midi: 70, velocity: 72 },    // Shaker
+                    { beat: 2.5, midi: 42, velocity: 55 },  // HH closed (ghost)
+                    { beat: 3, midi: 70, velocity: 70 },    // Shaker
+                    { beat: 3.25, midi: 37, velocity: 58 }, // Rim (ghost)
+                    { beat: 3.5, midi: 42, velocity: 50 },  // HH closed (ghost)
+                    { beat: 4, midi: 70, velocity: 75 },    // Shaker
+                    { beat: 4.5, midi: 38, velocity: 80 },  // Snare (build)
+                    
+                    // Bar 2: Explosión controlada
+                    { beat: 5, midi: 36, velocity: 110 },   // Kick
+                    { beat: 5, midi: 42, velocity: 82 },    // HH closed
+                    { beat: 5.25, midi: 42, velocity: 65 }, // HH closed (glitch)
+                    { beat: 6, midi: 38, velocity: 95 },    // Snare
+                    { beat: 6, midi: 39, velocity: 85 },    // Clap (layered)
+                    { beat: 7, midi: 50, velocity: 92 },    // Tom high
+                    { beat: 7.5, midi: 47, velocity: 95 },  // Tom mid
+                    { beat: 8, midi: 36, velocity: 118 },   // Kick (máximo)
+                    { beat: 8, midi: 49, velocity: 112 }    // Crash (épico)
                 ]
             }
         }
@@ -345,7 +468,7 @@ export class DrumPatternEngine {
      * ✅ BUG #24 FIX (SCHERZO SONORO): Maneja secciones de 5, 6, 7 compases inteligentemente
      */
     generateForSection(section: Section, baseVelocity: number = 60): MIDINote[] {
-        const patternName = this.selectPattern(section.type)
+        const patternName = this.selectPattern(section)  // 🎭 FRENTE #3: Ahora recibe Section completa
         const pattern = this.patterns[patternName]
         
         if (!pattern) {
@@ -373,33 +496,15 @@ export class DrumPatternEngine {
             this.generatePatternNotes(pattern, patternName, section, repeatOffset, beatDuration, notes)
         }
 
-        // ✅ BUG #24 FIX: Si hay compases sobrantes (5, 6, 7 bars), rellenar inteligentemente
+        // ✅ FRENTE #3 (SCHERZO RÍTMICO): FILLS > TRUNCAMIENTO
+        // Si hay compases sobrantes, generar fill musical en lugar de truncar
         if (remainingBars > 0) {
-            const remainingOffset = fullRepeats * (barDuration * patternBars)
-            const remainingDuration = remainingBars * barDuration
+            const fillStartTime = section.startTime + (fullRepeats * barDuration * patternBars)
+            console.log(`[RHYTHM DIVINE] Aplicando fill de ${remainingBars} compases para ${section.type}`)
             
-            // Estrategia: Usar patrón adaptado (truncado) + fill opcional
-            // Si quedan 1-2 compases: usar solo inicio del patrón
-            // Si quedan 3+ compases: usar patrón completo truncado + fill
-            if (remainingBars <= 2) {
-                // Truncar patrón a los primeros N compases
-                const truncatedPattern = {
-                    ...pattern,
-                    bars: remainingBars,
-                    notes: pattern.notes.filter(note => note.beat <= (remainingBars * 4) + 0.01)
-                }
-                console.log(`🥁 [RHYTHM DIVINE] Truncating pattern to ${remainingBars} bars for remaining section`)
-                this.generatePatternNotes(truncatedPattern, `${patternName}_trunc`, section, remainingOffset, beatDuration, notes)
-            } else {
-                // Usar patrón completo truncado sin fill (para evitar "caos")
-                const truncatedPattern = {
-                    ...pattern,
-                    bars: remainingBars,
-                    notes: pattern.notes.filter(note => note.beat <= (remainingBars * 4) + 0.01)
-                }
-                console.log(`🥁 [RHYTHM DIVINE] Using full pattern truncated to ${remainingBars} bars`)
-                this.generatePatternNotes(truncatedPattern, `${patternName}_adapted`, section, remainingOffset, beatDuration, notes)
-            }
+            // Generar fill dinámico
+            const fillNotes = this.generateFillForBars(remainingBars, section, fillStartTime, beatDuration)
+            notes.push(...fillNotes)
         }
 
         // Agregar fill al final si corresponde
@@ -467,34 +572,135 @@ export class DrumPatternEngine {
     }
 
     /**
-     * 🎯 Seleccionar patrón con variaciones A/B/C (determinista)
+     * 🔥 FRENTE #3 (SCHERZO RÍTMICO): Generar fill musical para compases restantes
+     * Reemplaza el truncamiento con fills profesionales de la biblioteca
+     * 
+     * @param bars - Número de compases restantes (1 o 2)
+     * @param section - Sección actual
+     * @param fillStartTime - Tiempo de inicio del fill
+     * @param beatDuration - Duración de un beat
+     * @returns Array de MIDINote para el fill
      */
-    private selectPattern(sectionType: string): string {
-        // Seleccionar variación (A, B, C) de manera determinista
-        const variation = this.prng.choice(['A', 'B', 'C'])
+    private generateFillForBars(
+        bars: number,
+        section: Section,
+        fillStartTime: number,
+        beatDuration: number
+    ): MIDINote[] {
+        const notes: MIDINote[] = []
         
-        const mapping: Record<string, string> = {
-            'intro': `intro_${variation}`,
-            'verse': `verse_${variation}`,
-            'pre-chorus': `verse_${variation}`,  // Pre-chorus usa verse con variación
-            'chorus': `chorus_${variation}`,
-            'interlude': `bridge_${variation}`,
-            'bridge': `bridge_${variation}`,
-            'buildup': 'buildup',                // Buildup tiene patrón único (glitchy)
-            'outro': 'outro'                     // Outro tiene patrón único (fade)
+        // Seleccionar fill apropiado según compases restantes
+        let fillPatternName: string
+        
+        if (bars === 1) {
+            // 1 compás: Seleccionar entre fills de 1 bar según intensidad
+            const fillOptions = ['fill_1bar_hihat', 'fill_1bar_snare', 'fill_1bar_toms']
+            const intensityIndex = section.profile && section.profile.intensity > 0.8 ? 2 : 
+                                   section.profile && section.profile.intensity > 0.5 ? 1 : 0
+            fillPatternName = fillOptions[intensityIndex]
+        } else {
+            // 2 compases: Seleccionar entre fills de 2 bars según intensidad
+            const fillOptions = ['fill_2bar_progressive', 'fill_2bar_glitchy']
+            fillPatternName = section.profile && section.profile.intensity > 0.7 ? 
+                             fillOptions[1] : fillOptions[0]
         }
         
-        const patternName = mapping[sectionType]
+        const fillPattern = this.patterns[fillPatternName]
         
-        // Fallback: Si no existe la variación, usar _A
-        if (!this.patterns[patternName]) {
-            const basePattern = sectionType === 'intro' ? 'intro_A' :
-                               sectionType === 'verse' || sectionType === 'pre-chorus' ? 'verse_A' :
-                               sectionType === 'chorus' ? 'chorus_A' :
-                               sectionType === 'bridge' || sectionType === 'interlude' ? 'bridge_A' :
-                               'verse_A'
+        if (!fillPattern) {
+            console.warn(`⚠️  [RHYTHM DIVINE] Fill pattern '${fillPatternName}' no encontrado`)
+            return notes
+        }
+        
+        console.log(`[RHYTHM DIVINE] Aplicando patrón de fill '${fillPatternName}' para ${bars} compases restantes en ${section.type}`)
+        
+        // Generar notas del fill (similar a generatePatternNotes pero sin repetición)
+        fillPattern.notes.forEach(note => {
+            let noteTime = fillStartTime + ((note.beat - 1) * beatDuration)
+            
+            // Aplicar swing a off-beats
+            const beatPosition = note.beat % 1
+            if (beatPosition === 0.5) {
+                const swingDelay = this.swingAmount * beatDuration
+                noteTime += swingDelay
+            }
+            
+            // Aplicar humanización
+            let velocity = note.velocity
+            const humanizationVariation = (this.prng.next() - 0.5) * 2 * this.humanizationFactor
+            velocity = velocity * (1 + humanizationVariation)
+            
+            const finalVelocity = Math.max(35, Math.min(127, Math.floor(velocity)))
+            
+            console.log(`🥁 [RHYTHM DIVINE] Section: ${section.type}, Pattern: ${fillPatternName}, MIDI: ${note.midi}, Beat: ${note.beat.toFixed(2)}, Time(s): ${noteTime.toFixed(3)}, Velocity: ${finalVelocity}`)
+            
+            notes.push({
+                pitch: note.midi,
+                velocity: finalVelocity,
+                startTime: noteTime,
+                duration: 0.1,
+                channel: 9
+            })
+        })
+        
+        return notes
+    }
+
+    /**
+     * 🎯 Seleccionar patrón con PROGRESIÓN INTELIGENTE (NO aleatoriedad)
+     * 🎭 FRENTE #3 (SCHERZO RÍTMICO): Selección basada en intensidad + índice
+     * 
+     * LÓGICA DE PROGRESIÓN:
+     * - Alta intensidad (>0.8) → Patrón complejo (_C)
+     * - Primera aparición (index=0) → Patrón simple (_A)
+     * - Secciones intermedias → Patrón medio (_B)
+     */
+    private selectPattern(section: Section): string {
+        const { type, profile, index } = section
+        
+        // Mapeo de tipos base
+        const baseMapping: Record<string, string> = {
+            'intro': 'intro',
+            'verse': 'verse',
+            'pre-chorus': 'verse',  // Pre-chorus usa verse con variación
+            'chorus': 'chorus',
+            'interlude': 'bridge',
+            'bridge': 'bridge',
+            'buildup': 'buildup',   // Buildup tiene patrón único
+            'outro': 'outro'        // Outro tiene patrón único
+        }
+        
+        const basePattern = baseMapping[type] || 'verse'
+        
+        // Patrones únicos (sin variaciones A/B/C)
+        if (basePattern === 'buildup' || basePattern === 'outro') {
+            console.log(`[RHYTHM DIVINE] Selección progresiva: Section '${type}' (Index: ${index}) → Patrón único: '${basePattern}'`)
             return basePattern
         }
+        
+        // Determinar variación según progresión inteligente
+        let variation: 'A' | 'B' | 'C' = 'A'
+        
+        if (profile && profile.intensity > 0.8) {
+            // 🔥 Alta intensidad → Complejidad alta
+            variation = 'C'
+        } else if (index === 0) {
+            // 🌱 Primera aparición → Patrón simple
+            variation = 'A'
+        } else {
+            // 📈 Secciones intermedias → Patrón medio
+            variation = 'B'
+        }
+        
+        const patternName = `${basePattern}_${variation}`
+        
+        // Validar que el patrón existe
+        if (!this.patterns[patternName]) {
+            console.warn(`⚠️  [RHYTHM DIVINE] Patrón '${patternName}' no encontrado, usando fallback: ${basePattern}_A`)
+            return `${basePattern}_A`
+        }
+        
+        console.log(`[RHYTHM DIVINE] Selección progresiva: Section '${type}' (Index: ${index}, Intensity: ${profile?.intensity.toFixed(2) || 'N/A'}) → Patrón elegido: '${patternName}'`)
         
         return patternName
     }
