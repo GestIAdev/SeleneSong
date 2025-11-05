@@ -235,20 +235,9 @@ export class MusicEnginePro {
         const poetry = await this.generatePoetry(params.seed, structure)
 
         // 7. Orquestar y mezclar (Orchestrator.separateIntoTracks, Orchestrator.applyMixing)
-        // 🔧 FASE 3.11 (Reparación del Ensamblaje): Leer tracks con nombres lowercase
-        // Bug: Escribíamos 'melody' pero leíamos 'Melody' → undefined → 0 notas al MIDIRenderer
-        const melodyTrack = tracks.get('melody') || []
-        
-        const separatedTracks = this.orchestrator.separateIntoTracks(
-            melodyTrack,
-            {
-                harmony: tracks.get('harmony') || [],
-                bass: tracks.get('bass') || [],
-                rhythm: tracks.get('rhythm') || [],
-                pad: tracks.get('pad')
-            },
-            modifiedStyle
-        )
+        // � BUG FIX #7 (FASE 6.0b): Pasar TODOS los tracks (incluyendo melody2, melody3, melody4)
+        // En lugar de pasar solo tracks.get('melody'), pasar el Map completo para preservar multicapa
+        const separatedTracks = this.orchestrator.separateAllTracks(tracks, modifiedStyle)
         
         const mixedTracks = this.orchestrator.applyMixing(separatedTracks, modifiedStyle)
 
@@ -256,50 +245,56 @@ export class MusicEnginePro {
         const midiBuffer = this.renderer.renderMultiTrack(mixedTracks, structure, modifiedStyle)
 
         // 🎨 SCHERZO SÓNICO - Fase 4.1: Construir Metadata JSON
-        // Mapping empírico: [melody=0, skip=1, harmony=2, skip=3, bass=4, rhythm=5, skip=6, pad=7]
+        // 🐛 BUG FIX #7 (FASE 6.0b): Generar metadata desde mixedTracks DINÁMICAMENTE
+        // En FASE 6.0, melody puede tener múltiples tracks ('melody', 'melody2', 'melody3', 'melody4')
+        // No podemos usar empiricalMapping hardcoded, necesitamos iterar sobre mixedTracks directamente
         const trackMetadata: TrackMetadata[] = []
-        const empiricalMapping: { [key: string]: number } = {
-            'melody': 0,
-            'harmony': 2,
-            'bass': 4,
-            'rhythm': 5,
-            'pad': 7
-        }
         
-        // Para cada layer, usar el PRIMER instrumento seleccionado (sección intro)
-        // El frontend usará esto como el instrumento para todo el track
-        // (En el futuro, podríamos soportar cambios de instrumento por sección)
-        const layerOrder: Array<'melody' | 'harmony' | 'bass' | 'rhythm' | 'pad'> = [
-            'melody', 'harmony', 'bass', 'rhythm', 'pad'
-        ]
-        
-        for (const layer of layerOrder) {
-            const selections = instrumentSelections.get(layer) || []
+        let trackIndex = 0
+        for (const [trackName, notes] of Array.from(mixedTracks.entries())) {
+            // Determinar trackType desde trackName
+            let trackType: string
+            if (trackName.startsWith('melody')) {
+                trackType = 'melody'
+            } else {
+                trackType = trackName // 'harmony', 'bass', 'rhythm', 'pad'
+            }
+            
+            // Buscar instrumento en instrumentSelections
+            const selections = instrumentSelections.get(trackType) || []
             if (selections.length === 0) {
-                console.log(`⚠️ [MusicEnginePro] No hay selección de instrumento para layer '${layer}', saltando metadata.`)
+                console.log(`⚠️ [MusicEnginePro] No instrument selection for track '${trackName}', skipping metadata`)
+                trackIndex++
                 continue
             }
             
-            // Usar el primer instrumento seleccionado (intro/primera sección)
-            const firstSelection = selections[0]
-            const empiricalIndex = empiricalMapping[layer]
+            // Para multicapa melody, determinar índice del layer
+            let selectionIndex = 0
+            if (trackName.startsWith('melody') && trackName.length > 6) {
+                // 'melody2' → index 1, 'melody3' → index 2, etc.
+                const layerNumber = parseInt(trackName.substring(6), 10)
+                selectionIndex = layerNumber - 1
+            }
+            
+            const selection = selections[selectionIndex] || selections[0]
             
             // 🥁 FASE 5.2: Incluir samples map si es drumkit
             const metadataEntry: any = {
-                empiricalIndex,
-                trackType: layer,
-                instrumentKey: firstSelection.key,
-                instrumentType: firstSelection.type
+                empiricalIndex: trackIndex,
+                trackType: trackType,
+                instrumentKey: selection.key,
+                instrumentType: selection.type
             }
             
-            if (firstSelection.type === 'drumkit' && firstSelection.samples) {
-                metadataEntry.samples = firstSelection.samples
-                console.log(`🥁 [MusicEnginePro] Drumkit metadata: ${firstSelection.key} con ${Object.keys(firstSelection.samples).length} samples`)
+            if (selection.type === 'drumkit' && selection.samples) {
+                metadataEntry.samples = selection.samples
+                console.log(`🥁 [MusicEnginePro] Drumkit metadata: ${selection.key} con ${Object.keys(selection.samples).length} samples`)
             }
             
             trackMetadata.push(metadataEntry)
             
-            console.log(`📊 [MusicEnginePro] Metadata: Track ${empiricalIndex} (${layer}) → ${firstSelection.key} (${firstSelection.type})`)
+            console.log(`📊 [MusicEnginePro] Metadata: Track ${trackIndex} (${trackName}) → ${selection.key} (${selection.type})`)
+            trackIndex++
         }
 
         // 9. Construir MusicEngineOutput
@@ -586,12 +581,21 @@ export class MusicEnginePro {
             // 🐛 BUG FIX #4 (FASE 6.0b): Tron patterns (intensity < 0.4) usan ambient-kit-1 (con crash-long)
             // Condicion alineada con DrumPatternEngine.ts linea 707 (selectPattern)
             if (intensity < 0.4) {
-                const ambientKit: InstrumentSelection = {
-                    key: 'drums/ambient-kit-1',
-                    type: 'drumkit'
+                // 🐛 BUG FIX #6 (FASE 6.0b): Buscar ambient-kit-1 en rhythmPalette para obtener samples mapping
+                const ambientKitFromPalette = this.sonicPalette.rhythmPalette.find(inst => inst.key === 'ambient-kit-1')
+                
+                if (ambientKitFromPalette) {
+                    console.log(`🎨 [MusicEnginePro] Section '${sectionType}' (intensity=${intensity.toFixed(2)}): ${layer} → ${ambientKitFromPalette.key} (FORZADO ambient-kit-1 para Tron)`)
+                    return ambientKitFromPalette  // Devolver con samples incluidos
+                } else {
+                    // Fallback si no se encuentra (no debería pasar)
+                    console.warn(`⚠️ [MusicEnginePro] ambient-kit-1 NOT FOUND in rhythmPalette, usando fallback`)
+                    const ambientKit: InstrumentSelection = {
+                        key: 'drums/ambient-kit-1',
+                        type: 'drumkit'
+                    }
+                    return ambientKit
                 }
-                console.log(`🎨 [MusicEnginePro] Section '${sectionType}' (intensity=${intensity.toFixed(2)}): ${layer} → ${ambientKit.key} (FORZADO ambient-kit-1 para Tron)`)
-                return ambientKit
             }
             selectionPool = this.sonicPalette.rhythmPalette
         } else if (layer === 'pad') {

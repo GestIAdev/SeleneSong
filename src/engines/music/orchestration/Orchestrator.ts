@@ -438,6 +438,25 @@ export class Orchestrator {
     }
 
     /**
+     * 🐛 BUG FIX #7 (FASE 6.0b): Separar TODOS los tracks (incluyendo multicapa melody)
+     * En FASE 6.0, melody puede tener múltiples layers ('melody', 'melody2', 'melody3', 'melody4')
+     * Esta función copia TODOS los tracks directamente, preservando la separación multicapa
+     */
+    separateAllTracks(
+        tracks: Map<string, MIDINote[]>,
+        style: StylePreset
+    ): Map<string, MIDINote[]> {
+        // Copiar todos los tracks directamente (incluyendo melody, melody2, melody3, melody4)
+        const separated = new Map<string, MIDINote[]>()
+        
+        for (const [trackName, notes] of Array.from(tracks.entries())) {
+            separated.set(trackName, notes)
+        }
+
+        return separated
+    }
+
+    /**
      * Aplicar mixing
      * ✅ REFACTORIZADO BUG #31: NO aplicar mixWeight a velocity (ya viene en escala MIDI 0-127)
      * mixWeight causaba velocity corruption: 60 MIDI * 0.3 mixWeight = 18 MIDI (inaudible)

@@ -131,7 +131,7 @@ export const CYBERPUNK_PRESET: StylePreset = {
             { key: 'melody/strings/Viola', type: 'multisample' }
         ],
         
-        // HARMONY DUBCHILL: Pads distorsionados (17) + Strings agresivos (Horn, Violin, Contra Bass)
+        // HARMONY DUBCHILL: Pads distorsionados (17) + Strings agresivos (Horn, Violin, Contra-Bass)
         harmony_dubchill: [
             // 17 Pads Distorted oneshots
             { key: 'pads/distorted/distorted-1', type: 'oneshot' },
@@ -151,10 +151,10 @@ export const CYBERPUNK_PRESET: StylePreset = {
             { key: 'pads/distorted/distorted-15', type: 'oneshot' },
             { key: 'pads/distorted/distorted-16', type: 'oneshot' },
             { key: 'pads/distorted/distorted-17', type: 'oneshot' },
-            // 3 Strings multisamples (Horn, Violin, Contra Bass - 28+12 samples)
+            // 3 Strings multisamples (Horn, Violin, Contra-Bass - 28+12 samples)
             { key: 'melody/strings/Horn', type: 'multisample' },
             { key: 'melody/strings/Violin', type: 'multisample' },
-            { key: 'melody/strings/Contra Bass', type: 'multisample' }
+            { key: 'melody/strings/Contra-Bass', type: 'multisample' }
         ],
         
         // 🎸 MELODY CHILL: Vocal Chops (16) + Plucks oneshots (3) + Pluck MAX multisample (84 notas)
@@ -345,7 +345,7 @@ export const CYBERPUNK_PRESET: StylePreset = {
             { key: 'melody/strings/Viola', type: 'multisample' },
             { key: 'melody/strings/Horn', type: 'multisample' },
             { key: 'melody/strings/Violin', type: 'multisample' },
-            { key: 'melody/strings/Contra Bass', type: 'multisample' }
+            { key: 'melody/strings/Contra-Bass', type: 'multisample' }
         ],
         
         // POOL 2: PLUCKS (melodía percusiva)
