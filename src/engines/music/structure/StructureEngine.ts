@@ -211,7 +211,10 @@ export class StructureEngine {
                 transition: null as any
             });
 
+            // 🔥 FASE 5.3 (SCHERZO QUIRÚRGICO): Prevenir drift de precisión flotante
+            // IEEE 754 acumula errores en cada suma. Redondear a 12 decimales (picosegundos)
             currentTime += sectionDuration;
+            currentTime = Math.round(currentTime * 1e12) / 1e12;
             console.log(`[STRUCTURE ENGINE] Section ${i + 1} (${sectionType}): ${barsForThisSection} bars = ${sectionDuration.toFixed(2)}s. Remaining bars: ${barsRemaining}`);
         }
 

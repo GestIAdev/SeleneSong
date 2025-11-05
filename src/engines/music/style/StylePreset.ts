@@ -18,6 +18,9 @@ export interface StylePreset {
     // Configuración de Capas
     layers: LayerConfiguration
 
+    // 🎨 SCHERZO SÓNICO - Fase 4.1: Arsenal de Instrumentos
+    instruments?: InstrumentConfiguration  // Opcional para retrocompatibilidad
+
     // Textura y Densidad
     texture: TextureProfile
 
@@ -143,6 +146,53 @@ export interface LayerConfig {
     // MIDI channel/instrument
     channel?: number                // 0-15 (para multi-channel MIDI)
     program?: number                // 0-127 (program change para GM)
+}
+
+// 🎨 SCHERZO SÓNICO - Fase 4.1: Instrumento Dinámico
+// 🥁 FASE 5.2: Extendido para soportar 'drumkit' (MIDI → sample mapping)
+export interface InstrumentSelection {
+    key: string                                    // 'melody/pluck/MAX' o 'rythm/hard-kick1' o 'dubchill-kit-1'
+    type: 'multisample' | 'oneshot' | 'drumkit'   // Tipo de sample (carpeta vs archivo vs drum kit)
+    samples?: Record<number, string>               // Solo para drumkit: { 36: 'rythm/hard-kick1', 38: 'rythm/snare-reverb' }
+}
+
+// 🎸 FASE 5.9: PALETA SÓNICA DETERMINISTA
+// Naturaleza del instrumento en la composición
+export type InstrumentRole = 'harmony' | 'melody' | 'rhythm' | 'bass';
+
+// Vibe global de la canción (decidido por seed al inicio)
+export type VibeType = 'chill' | 'dubchill';
+
+// Paleta completa de instrumentos para una canción (creada una vez al inicio)
+export interface SonicPalette {
+    vibe: VibeType                              // Mood global de la canción
+    
+    // IDENTIDAD ESTÁTICA (elegidos una vez, no cambian)
+    harmonyInstrument: InstrumentSelection      // Piano, strings, etc. - se queda toda la canción
+    melodyInstrument: InstrumentSelection       // Lead synth/pluck - se queda toda la canción
+    
+    // ENERGÍA DINÁMICA (cambian según intensidad de sección)
+    rhythmPalette: InstrumentSelection[]        // Pool para rhythm (chill o dubchill según vibe)
+    bassPalette: InstrumentSelection[]          // Pool para bass (chill o dubchill según vibe)
+}
+
+// 🎨 SCHERZO SÓNICO - Fase 4.1: Configuración de Instrumentos por Layer
+// 🎸 FASE 5.9: Refactorizado con 8 pools separados (harmony/melody/rhythm/bass × chill/dubchill)
+export interface InstrumentConfiguration {
+    // IDENTIDAD ESTÁTICA - Pools para elegir al inicio (no dependen de intensity)
+    harmony_chill: InstrumentSelection[]       // Piano, strings ambientales
+    harmony_dubchill: InstrumentSelection[]    // Strings oscuras, synth pads densos
+    melody_chill: InstrumentSelection[]        // Plucks suaves, leads etéreos
+    melody_dubchill: InstrumentSelection[]     // Leads agresivos, synths distorsionados
+    
+    // ENERGÍA DINÁMICA - Pools para elegir según intensity de sección
+    bass_chill: InstrumentSelection[]          // Sub-bass sutiles (intensity < 0.7)
+    bass_dubchill: InstrumentSelection[]       // Synth-bass rugidos (intensity >= 0.7)
+    rhythm_chill: InstrumentSelection[]        // Soft kicks/hats (intensity < 0.7)
+    rhythm_dubchill: InstrumentSelection[]     // Hard kicks/glitches (intensity >= 0.7)
+    
+    // LEGACY (mantener para retrocompatibilidad temporal)
+    pad: InstrumentSelection[]
 }
 
 // Perfil de Textura

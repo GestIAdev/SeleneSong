@@ -54,6 +54,13 @@ export interface MusicEngineOutput {
         buffer: Buffer
         notes: MIDINote[]
         tracks: MIDITrack[]
+        // 🎨 SCHERZO SÓNICO - Fase 4.1: Metadata JSON para bypass Bug C
+        trackMetadata?: Array<{
+            empiricalIndex: number      // Índice empírico (0, 2, 4, 5, 7 - workaround Bug C)
+            trackType: string            // 'melody', 'harmony', 'bass', 'rhythm', 'pad'
+            instrumentKey: string        // 'melody/pluck/MAX' o 'rythm/hard-kick1'
+            instrumentType: 'multisample' | 'oneshot'
+        }>
     }
     poetry: {
         verses: string[]

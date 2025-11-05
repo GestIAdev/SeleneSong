@@ -539,6 +539,10 @@ export class DrumPatternEngine {
                 noteTime += swingDelay
             }
             
+            // 🔥 FASE 5.3 (SCHERZO QUIRÚRGICO): Prevenir acumulación de error flotante
+            // Redondear a 12 decimales después de todas las operaciones
+            noteTime = Math.round(noteTime * 1e12) / 1e12
+            
             // No agregar notas que excedan la duración de la sección
             if (noteTime < section.startTime + section.duration) {
                 // Aplicar fade en outro
@@ -624,6 +628,10 @@ export class DrumPatternEngine {
                 const swingDelay = this.swingAmount * beatDuration
                 noteTime += swingDelay
             }
+            
+            // 🔥 FASE 5.3 (SCHERZO QUIRÚRGICO): Prevenir acumulación de error flotante
+            // Redondear a 12 decimales después de todas las operaciones
+            noteTime = Math.round(noteTime * 1e12) / 1e12
             
             // Aplicar humanización
             let velocity = note.velocity

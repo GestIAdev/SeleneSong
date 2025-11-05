@@ -193,7 +193,17 @@ export class MIDIRenderer {
         for (const note of sortedNotes) {
             // Calcular tiempo de inicio absoluto y duración en ticks
             const noteStartTicks = this.secondsToTicks(note.startTime, tempo, true) // humanize timing
-            const durationTicks = this.secondsToTicks(note.duration, tempo, false) // NO humanize duration
+            let durationTicks = this.secondsToTicks(note.duration, tempo, false) // NO humanize duration
+            
+            // 🔥 FASE 5.3 (SCHERZO QUIRÚRGICO): GUARDIA ANTI-NEGATIVOS
+            // Prevenir RangeError de Tone.js por valores corruptos de punto flotante
+            if (!Number.isFinite(durationTicks) || durationTicks < 0) {
+                console.warn(`⚠️  [MIDIRenderer] CORRECTING invalid durationTicks: ${durationTicks} → 1 (note at ${note.startTime}s)`)
+                durationTicks = 1 // Mínimo 1 tick (prevenir crash)
+            }
+            if (!Number.isFinite(noteStartTicks) || noteStartTicks < 0) {
+                console.warn(`⚠️  [MIDIRenderer] CORRECTING invalid noteStartTicks: ${noteStartTicks} → 0 (note pitch ${note.pitch})`)
+            }
             
             // Log detailed calculation for first 3 notes
             if (notesAdded < 3) {
