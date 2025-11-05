@@ -21,6 +21,10 @@ export interface StylePreset {
     // 🎨 SCHERZO SÓNICO - Fase 4.1: Arsenal de Instrumentos
     instruments?: InstrumentConfiguration  // Opcional para retrocompatibilidad
 
+    // 🎸 FASE 6.0 - FRENTE #A: Pools Temáticos + Estrategias Multicapa
+    melodicLayerPools?: MelodicLayerPools         // Pools temáticos (strings, plucks, vocals, leads)
+    layerStrategies?: Record<VibeType, LayerStrategy>  // Estrategias por vibe (chill, dubchill)
+
     // Textura y Densidad
     texture: TextureProfile
 
@@ -178,6 +182,7 @@ export interface SonicPalette {
 
 // 🎨 SCHERZO SÓNICO - Fase 4.1: Configuración de Instrumentos por Layer
 // 🎸 FASE 5.9: Refactorizado con 8 pools separados (harmony/melody/rhythm/bass × chill/dubchill)
+// 🎸 FASE 6.0 - FRENTE #A: Extendido con melodicLayerPools y layerStrategies para AND logic multicapa
 export interface InstrumentConfiguration {
     // IDENTIDAD ESTÁTICA - Pools para elegir al inicio (no dependen de intensity)
     harmony_chill: InstrumentSelection[]       // Piano, strings ambientales
@@ -194,6 +199,27 @@ export interface InstrumentConfiguration {
     // LEGACY (mantener para retrocompatibilidad temporal)
     pad: InstrumentSelection[]
 }
+
+// 🎸 FASE 6.0 - FRENTE #A: Pools Temáticos para Multicapa
+// Organiza instrumentos melódicos en categorías para selección simultánea
+export interface MelodicLayerPools {
+    strings: InstrumentSelection[]    // Strings (atmósfera sostenida)
+    plucks: InstrumentSelection[]     // Plucks (melodía percusiva)
+    vocals: InstrumentSelection[]     // Vocal chops (humanidad + emoción)
+    leads: InstrumentSelection[]      // Synth leads (energía + protagonismo)
+}
+
+// 🎸 FASE 6.0 - FRENTE #A: Estrategia de Capas por Vibe
+// Define cuántas capas y qué pools usar según vibe (chill vs dubchill)
+export interface LayerStrategy {
+    minLayers: number                 // Mínimo de capas simultáneas (2-3)
+    maxLayers: number                 // Máximo de capas simultáneas (3-4)
+    pools: string[]                   // Pools a usar (['strings', 'plucks', 'vocals'])
+    weights: number[]                 // Peso de cada pool ([0.4, 0.3, 0.3] = preferencia strings)
+}
+
+// 🎨 SCHERZO SÓNICO - Fase 4.1: Configuración de Instrumentos por Layer
+// 🎸 FASE 5.9: Refactorizado con 8 pools separados (harmony/melody/rhythm/bass × chill/dubchill)
 
 // Perfil de Textura
 export interface TextureProfile {

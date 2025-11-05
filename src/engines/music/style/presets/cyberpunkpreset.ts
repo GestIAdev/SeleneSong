@@ -329,5 +329,75 @@ export const CYBERPUNK_PRESET: StylePreset = {
         fadeIn: 4.0,
         fadeOut: 6.0,
         loopable: true
+    },
+
+    // 🎸 FASE 6.0 - FRENTE #A: ARQUITECTURA MULTICAPA
+    // Sistema de pools temáticos para selección simultánea de 2-4 capas melódicas
+    // Implementa AND logic (strings + plucks + vocals + leads tocando juntos)
+    melodicLayerPools: {
+        // POOL 1: STRINGS (atmósfera sostenida)
+        strings: [
+            { key: 'melody/strings/Cello', type: 'multisample' },
+            { key: 'melody/strings/Viola', type: 'multisample' },
+            { key: 'melody/strings/Horn', type: 'multisample' },
+            { key: 'melody/strings/Violin', type: 'multisample' },
+            { key: 'melody/strings/Contra Bass', type: 'multisample' }
+        ],
+        
+        // POOL 2: PLUCKS (melodía percusiva)
+        plucks: [
+            { key: 'melody/pluck/pluck1', type: 'oneshot' },
+            { key: 'melody/pluck/pluck2', type: 'oneshot' },
+            { key: 'melody/pluck/pluck3', type: 'oneshot' },
+            { key: 'melody/pluck/MAX', type: 'multisample' }
+        ],
+        
+        // POOL 3: VOCALS (humanidad + emoción)
+        vocals: [
+            { key: 'melody/vocal-chops/chop-1-oneshot', type: 'oneshot' },
+            { key: 'melody/vocal-chops/chop-2-oneshot', type: 'oneshot' },
+            { key: 'melody/vocal-chops/chop-3-oneshot', type: 'oneshot' },
+            { key: 'melody/vocal-chops/chop-4-oneshot', type: 'oneshot' },
+            { key: 'melody/vocal-chops/chop-5-oneshot', type: 'oneshot' },
+            { key: 'melody/vocal-chops/chop-6-oneshot', type: 'oneshot' },
+            { key: 'melody/vocal-chops/chop-7-oneshot', type: 'oneshot' },
+            { key: 'melody/vocal-chops/chop-8-oneshot', type: 'oneshot' },
+            { key: 'melody/vocal-chops/chop-9-oneshot', type: 'oneshot' },
+            { key: 'melody/vocal-chops/chop-10-oneshot', type: 'oneshot' },
+            { key: 'melody/vocal-chops/chop-11-oneshot', type: 'oneshot' },
+            { key: 'melody/vocal-chops/chop-12-oneshot', type: 'oneshot' },
+            { key: 'melody/vocal-chops/chop-13-oneshot', type: 'oneshot' },
+            { key: 'melody/vocal-chops/chop-14-oneshot', type: 'oneshot' },
+            { key: 'melody/vocal-chops/chop-15-oneshot', type: 'oneshot' },
+            { key: 'melody/vocal-chops/chop-16-oneshot', type: 'oneshot' }
+        ],
+        
+        // POOL 4: LEADS (energía + protagonismo)
+        leads: [
+            { key: 'melody/synth-lead/classic-moog-brass', type: 'multisample' },
+            { key: 'melody/synth-lead/classic-sync', type: 'multisample' },
+            { key: 'melody/synth-lead/pulse-buzz-lead', type: 'multisample' },
+            { key: 'melody/synth-lead/sawtedlead', type: 'multisample' },
+            { key: 'melody/synth-lead/shrill', type: 'multisample' },
+            { key: 'melody/synth-lead/softsawz', type: 'multisample' },
+            { key: 'melody/synth-lead/wave-layer', type: 'multisample' }
+        ]
+    },
+
+    // 🎸 FASE 6.0 - FRENTE #A: ESTRATEGIAS DE CAPAS POR VIBE
+    // Define cuántas capas y qué pools usar según el vibe (chill vs dubchill)
+    layerStrategies: {
+        chill: {
+            minLayers: 2,
+            maxLayers: 3,
+            pools: ['strings', 'plucks', 'vocals'],  // Atmosférico: strings base + plucks o vocals
+            weights: [0.4, 0.3, 0.3]                  // Preferencia strings (40%), resto balanceado
+        },
+        dubchill: {
+            minLayers: 3,
+            maxLayers: 4,
+            pools: ['strings', 'plucks', 'vocals', 'leads'],  // Más denso: agregar leads
+            weights: [0.25, 0.25, 0.25, 0.25]                  // Balanceado (todos 25%)
+        }
     }
 }
