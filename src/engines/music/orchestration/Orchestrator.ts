@@ -360,6 +360,10 @@ export class Orchestrator {
         // 🔥 ARQUITECTO-34A: DURACIÓN MÁXIMA ABSOLUTA (no negociable)
         const MAX_PAD_DURATION = 4.0  // 4 segundos MAX (respiración musical)
 
+        // 🐛 BUG #2 FIX (FASE 6.0): Progresión armónica en pads largos
+        // En vez de repetir el mismo acorde, transponemos cada respiración (+2, +4, +7, +0)
+        const transpositions = [0, 2, 4, 7, 0, -2, -4, -7]  // Intervalos mayores/menores + quinta
+
         for (const chord of chords) {
             // OPTIMIZACIÓN: Pad solo toca tónica y quinta (no todo el acorde)
             const root = chord.root
@@ -391,8 +395,11 @@ export class Orchestrator {
                     break
                 }
 
+                // 🐛 BUG #2 FIX: Aplicar transposición cíclica para variedad armónica
+                const transposition = transpositions[breathIndex % transpositions.length]
+
                 for (const pitch of padNotes) {
-                    const adjustedPitch = pitch + (config.octave - 4) * 12
+                    const adjustedPitch = pitch + (config.octave - 4) * 12 + transposition  // + transposición
 
                     notes.push({
                         pitch: Math.max(0, Math.min(127, adjustedPitch)),
