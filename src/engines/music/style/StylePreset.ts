@@ -155,9 +155,9 @@ export interface LayerConfig {
 // 🎨 SCHERZO SÓNICO - Fase 4.1: Instrumento Dinámico
 // 🥁 FASE 5.2: Extendido para soportar 'drumkit' (MIDI → sample mapping)
 export interface InstrumentSelection {
-    key: string                                    // 'melody/pluck/MAX' o 'rythm/hard-kick1' o 'dubchill-kit-1'
+    key: string                                    // 'melody/pluck/MAX' o 'rhythm/hard-kick1' o 'dubchill-kit-1'
     type: 'multisample' | 'oneshot' | 'drumkit'   // Tipo de sample (carpeta vs archivo vs drum kit)
-    samples?: Record<number, string>               // Solo para drumkit: { 36: 'rythm/hard-kick1', 38: 'rythm/snare-reverb' }
+    samples?: Record<number, string>               // Solo para drumkit: { 36: 'rhythm/hard-kick1', 38: 'rhythm/snare-reverb' }
 }
 
 // 🎸 FASE 5.9: PALETA SÓNICA DETERMINISTA

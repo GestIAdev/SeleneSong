@@ -583,6 +583,16 @@ export class MusicEnginePro {
         if (layer === 'bass') {
             selectionPool = this.sonicPalette.bassPalette
         } else if (layer === 'rhythm') {
+            // 🐛 BUG FIX #4 (FASE 6.0b): Tron patterns (intensity < 0.4) usan ambient-kit-1 (con crash-long)
+            // Condicion alineada con DrumPatternEngine.ts linea 707 (selectPattern)
+            if (intensity < 0.4) {
+                const ambientKit: InstrumentSelection = {
+                    key: 'drums/ambient-kit-1',
+                    type: 'drumkit'
+                }
+                console.log(`🎨 [MusicEnginePro] Section '${sectionType}' (intensity=${intensity.toFixed(2)}): ${layer} → ${ambientKit.key} (FORZADO ambient-kit-1 para Tron)`)
+                return ambientKit
+            }
             selectionPool = this.sonicPalette.rhythmPalette
         } else if (layer === 'pad') {
             // PAD: Lógica legacy (no está en paleta todavía)
