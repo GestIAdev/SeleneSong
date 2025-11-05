@@ -126,14 +126,16 @@ export class MusicEnginePro {
 
         for (const section of structure.sections) {
             // 🎨 SCHERZO SÓNICO - Fase 4.1: Seleccionar instrumentos dinámicamente
-            const melodyInstrument = this.selectInstrumentForSection(section, 'melody', modifiedStyle)
+            // ❌ Bug #7 fix: NO seleccionar melody aquí (usa FIJO classic-sync). Se pobla después con melodicLayers.
+            // const melodyInstrument = this.selectInstrumentForSection(section, 'melody', modifiedStyle)
             const harmonyInstrument = this.selectInstrumentForSection(section, 'harmony', modifiedStyle)
             const bassInstrument = this.selectInstrumentForSection(section, 'bass', modifiedStyle)
             const rhythmInstrument = this.selectInstrumentForSection(section, 'rhythm', modifiedStyle)
             const padInstrument = this.selectInstrumentForSection(section, 'pad', modifiedStyle)
             
             // Rastrear selecciones (necesario para construir metadata JSON después)
-            instrumentSelections.get('melody')!.push(melodyInstrument)
+            // ❌ Bug #7 fix: NO push melody aquí. Se pobla después del loop con this.melodicLayers.
+            // instrumentSelections.get('melody')!.push(melodyInstrument)
             instrumentSelections.get('harmony')!.push(harmonyInstrument)
             instrumentSelections.get('bass')!.push(bassInstrument)
             instrumentSelections.get('rhythm')!.push(rhythmInstrument)
@@ -215,6 +217,10 @@ export class MusicEnginePro {
                 this.addToTrack(tracks, 'pad', layers.pad)
             }
         }
+
+        // ✅ Bug #7 fix: Poblar instrumentSelections.get('melody') con melodicLayers (no con FIJO classic-sync)
+        // Esto garantiza que la metadata JSON tenga Viola, shrill, chop-6, MAX en lugar de classic-sync x4
+        instrumentSelections.set('melody', [...this.melodicLayers])
 
         // Generate transition fills between sections
         for (let i = 0; i < structure.sections.length - 1; i++) {
@@ -581,15 +587,17 @@ export class MusicEnginePro {
             // 🐛 BUG FIX #4 (FASE 6.0b): Tron patterns (intensity < 0.4) usan ambient-kit-1 (con crash-long)
             // Condicion alineada con DrumPatternEngine.ts linea 707 (selectPattern)
             if (intensity < 0.4) {
-                // 🐛 BUG FIX #6 (FASE 6.0b): Buscar ambient-kit-1 en rhythmPalette para obtener samples mapping
-                const ambientKitFromPalette = this.sonicPalette.rhythmPalette.find(inst => inst.key === 'ambient-kit-1')
+                // 🐛 BUG FIX #6 (FASE 6.0c): ambient-kit-1 está en rhythm_chill, NO en rhythmPalette (dubchill)
+                // Buscar directamente en preset.instruments.rhythm_chill
+                const chillRhythmPool = stylePreset.instruments?.rhythm_chill || []
+                const ambientKitFromPreset = chillRhythmPool.find(inst => inst.key === 'ambient-kit-1')
                 
-                if (ambientKitFromPalette) {
-                    console.log(`🎨 [MusicEnginePro] Section '${sectionType}' (intensity=${intensity.toFixed(2)}): ${layer} → ${ambientKitFromPalette.key} (FORZADO ambient-kit-1 para Tron)`)
-                    return ambientKitFromPalette  // Devolver con samples incluidos
+                if (ambientKitFromPreset) {
+                    console.log(`🎨 [MusicEnginePro] Section '${sectionType}' (intensity=${intensity.toFixed(2)}): ${layer} → ${ambientKitFromPreset.key} (FORZADO ambient-kit-1 para Tron)`)
+                    return ambientKitFromPreset  // Devolver con samples incluidos
                 } else {
                     // Fallback si no se encuentra (no debería pasar)
-                    console.warn(`⚠️ [MusicEnginePro] ambient-kit-1 NOT FOUND in rhythmPalette, usando fallback`)
+                    console.warn(`⚠️ [MusicEnginePro] ambient-kit-1 NOT FOUND in rhythm_chill, usando fallback`)
                     const ambientKit: InstrumentSelection = {
                         key: 'drums/ambient-kit-1',
                         type: 'drumkit'
