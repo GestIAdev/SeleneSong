@@ -556,15 +556,16 @@ export class RedisConnectionManager {
 
           const connectionPromise = Promise.race([
             client.connect().catch((error: any) => {
-              // If the error is "Socket already opened", consider it connected
+              // If the error is "Socket already opened", the client is already connected
               if (
                 error.message &&
                 error.message.includes("Socket already opened")
               ) {
                 console.log(
-                  `✅ IORedis socket already opened for ${connectionId}, connection successful`,
+                  `✅ IORedis socket already opened for ${connectionId}, treating as successful connection`,
                 );
-                return true;
+                // Return true to indicate successful connection
+                return Promise.resolve(true);
               }
               throw error;
             }),
@@ -664,15 +665,26 @@ export class RedisConnectionManager {
 
         try {
           if (!client.isReady) {
-            const connectPromise = client.connect();
-            const timeoutPromise = new Promise<never>((_, _reject) =>
-              setTimeout(
-                () => _reject(new Error("Redis connect timeout")),
-                3000,
-              ),
-            );
+            // 🔥 CRITICAL FIX: Wrap connect() to catch "Socket already opened" error
+            try {
+              const connectPromise = client.connect();
+              const timeoutPromise = new Promise<never>((_, _reject) =>
+                setTimeout(
+                  () => _reject(new Error("Redis connect timeout")),
+                  3000,
+                ),
+              );
 
-            await Promise.race([connectPromise, timeoutPromise]);
+              await Promise.race([connectPromise, timeoutPromise]);
+            } catch (connectError: any) {
+              // If socket is already opened, treat as success
+              if (connectError.message && connectError.message.includes("Socket already opened")) {
+                console.log(`✅ Redis socket already opened for ${connectionId}, treating as successful connection`);
+                // Continue to ping test
+              } else {
+                throw connectError;
+              }
+            }
           }
 
           const pingPromise = client.ping();

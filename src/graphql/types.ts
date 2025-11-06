@@ -22,6 +22,7 @@ import { SeleneOffline } from "../Offline/Offline.js";
 export interface GraphQLContext {
   database: SeleneDatabase;
   cache: SeleneCache;
+  redis?: any; // Direct Redis client for resolvers (optional for backward compatibility)
   monitoring: SeleneMonitoring;
   reactor: SeleneReactor;
   containment: SeleneContainment;

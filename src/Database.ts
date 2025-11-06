@@ -246,7 +246,8 @@ export class SeleneDatabase {
         id: dbPatient.id,
         firstName: dbPatient.first_name,
         lastName: dbPatient.last_name,
-        fullName: `${dbPatient.first_name} ${dbPatient.last_name}`,
+        name: dbPatient.name || `${dbPatient.first_name || ''} ${dbPatient.last_name || ''}`.trim() || 'Unknown Patient', // 🔥 FIX: Use name from view directly
+        fullName: dbPatient.name || `${dbPatient.first_name} ${dbPatient.last_name}`,
         email: dbPatient.email,
         phone: dbPatient.phone_primary,
         phoneSecondary: dbPatient.phone_secondary,
@@ -519,7 +520,45 @@ export class SeleneDatabase {
       // Emit real-time update
       await this.emitRealtimeUpdate("patients", "updated", patient);
 
-      return patient;
+      // 🔥 MAP DATABASE FIELDS TO GRAPHQL FORMAT
+      return {
+        id: patient.id,
+        name: patient.name || `${patient.first_name || ''} ${patient.last_name || ''}`.trim() || 'Unknown Patient',
+        firstName: patient.first_name,
+        lastName: patient.last_name,
+        fullName: patient.name || `${patient.first_name} ${patient.last_name}`,
+        email: patient.email,
+        phone: patient.phone_primary,
+        phoneSecondary: patient.phone_secondary,
+        dateOfBirth: patient.date_of_birth,
+        age: null,
+        gender: patient.gender,
+        addressStreet: patient.address_street,
+        addressCity: patient.address_city,
+        addressState: patient.address_state,
+        addressPostalCode: patient.address_postal_code,
+        addressCountry: patient.address_country,
+        fullAddress: null,
+        emergencyContactName: patient.emergency_contact_name,
+        emergencyContactPhone: patient.emergency_contact_phone,
+        emergencyContact: patient.emergency_contact_name && patient.emergency_contact_phone
+          ? JSON.stringify({ name: patient.emergency_contact_name, phone: patient.emergency_contact_phone })
+          : null,
+        medicalConditions: patient.medical_conditions,
+        medicationsCurrent: patient.current_medications,
+        allergies: patient.allergies,
+        anxietyLevel: patient.anxiety_level,
+        insuranceProvider: patient.insurance_provider,
+        insuranceStatus: patient.insurance_provider ? 'active' : 'no_insurance',
+        policyNumber: patient.policy_number,
+        medicalHistory: patient.medical_history,
+        billingStatus: 'pending',
+        consentToTreatment: patient.consent_to_treatment || false,
+        consentToContact: patient.consent_to_contact !== false,
+        isActive: patient.is_active !== false,
+        createdAt: patient.created_at,
+        updatedAt: patient.updated_at
+      };
     } catch (error) {
       await client.query("ROLLBACK");
       console.error("💥 Failed to update patient:", error as Error);

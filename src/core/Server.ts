@@ -149,8 +149,10 @@ export class SeleneServer {
       // Setup Socket.IO
       this.setupSocketIO();
 
-      // Initialize nuclear components (now async)
-      await this.initializeComponents();
+      // 🔥 CRITICAL FIX: REMOVED DOUBLE INITIALIZATION
+      // initializeComponents() is called in start() method (line ~2445)
+      // Calling it here causes "Socket already opened" error
+      // await this.initializeComponents(); // ❌ EXTIRPATED!
 
       console.log("✅ SELENE SONG CORE CORE INITIALIZED");
     } catch (error) {
@@ -2246,14 +2248,20 @@ export class SeleneServer {
     console.log("🚀 🚀 🚀 PHASE 2: INITIALIZING STARTUP SEQUENCE");
 
     try {
-      console.log("🚀 PHASE 2.1: SHOWING STARTUP BANNER");
+      // 🔥 CRITICAL FIX: Create components BEFORE trying to connect them
+      console.log("🚀 PHASE 2.1: CREATING COMPONENTS");
+      console.log("🚀 Calling initializeComponents()...");
+      await this.initializeComponents();
+      console.log("✅ Components created successfully");
+
+      console.log("🚀 PHASE 2.2: SHOWING STARTUP BANNER");
       startupLogger.showStartupBanner();
       console.log("✅ Startup banner displayed");
 
-      console.log("🚀 PHASE 2.2: STARTING COMPONENT INITIALIZATION");
+      console.log("🚀 PHASE 2.3: STARTING COMPONENT CONNECTIONS");
 
     // Start all components (non-blocking for development)
-    console.log("🚀 PHASE 2.2.1: REGISTERING DATABASE COMPONENT");
+    console.log("🚀 PHASE 2.3.1: CONNECTING DATABASE");
     startupLogger.registerComponent("Database", "starting");
     try {
       console.log("🚀 Connecting to database...");
@@ -2271,7 +2279,9 @@ export class SeleneServer {
         "failed",
         error instanceof Error ? error.message : String(error),
       );
-    }      console.log("🚀 PHASE 2.2.2: REGISTERING CACHE COMPONENT");
+    }
+
+      console.log("🚀 PHASE 2.3.2: CONNECTING CACHE");
       startupLogger.registerComponent("Cache", "starting");
       try {
         console.log("🚀 Connecting to cache...");
@@ -2440,10 +2450,8 @@ export class SeleneServer {
         console.warn(`⚠️ Memory Monitor failed to start: ${error}`);
       }
 
-      console.log("🚀 PHASE 2.10: INITIALIZING COMPONENTS");
-      console.log("🚀 Calling initializeComponents()...");
-      await this.initializeComponents();
-      console.log("✅ Components initialized successfully");
+      // � PHASE 2.10 REMOVED - Components now created in PHASE 2.1 (before connections)
+      // This fixes "Cannot read properties of undefined (reading 'connect')" errors
 
       console.log("🚀 PHASE 2.11: CONSCIOUSNESS AWAKENING");
       // 🎯 DIRECTIVA V156 - FASE 2A: CONTROLLED CONSCIOUSNESS AWAKENING

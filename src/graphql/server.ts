@@ -26,6 +26,7 @@ import { SeleneConscious } from "../Conscious/Conscious.js";
 import { SeleneHeal } from "../Heal/Heal.js";
 import { SelenePredict } from "../Predict/Predict.js";
 import { SeleneOffline } from "../Offline/Offline.js";
+import { redisManager } from "../RedisConnectionManager.js";
 
 
 /**
@@ -35,6 +36,7 @@ import { SeleneOffline } from "../Offline/Offline.js";
 export class SeleneNuclearGraphQL {
   private server!: ApolloServer<GraphQLContext>;
   private isRunning: boolean = false;
+  private redisClient: any; // Direct Redis client for GraphQL context
 
   constructor(
     private database: SeleneDatabase,
@@ -50,6 +52,15 @@ export class SeleneNuclearGraphQL {
     private offline: SeleneOffline,
   ) {
     console.log("🔥 Initializing Selene Song Core GraphQL Server...");
+
+    // 🔥 CRITICAL FIX: Get direct Redis client for GraphQL context
+    this.redisClient = redisManager.getIORedisClient("graphql-context");
+    if (!this.redisClient) {
+      console.warn("⚠️ Failed to get Redis client for GraphQL context - resolvers may not have Redis access");
+    } else {
+      console.log("✅ Redis client obtained for GraphQL context");
+    }
+
     console.log(
       "✅ Selene Song Core GraphQL initialized (no Express app created)",
     );
@@ -442,10 +453,11 @@ export class SeleneNuclearGraphQL {
             res: any;
           }): Promise<GraphQLContext> => {
             console.log("🔄 GraphQL context created for request");
-            // Full context with all nuclear components
+            // Full context with all nuclear components + DIRECT REDIS ACCESS
             return {
               database: this.database,
               cache: this.cache,
+              redis: this.redisClient, // 🔥 CRITICAL: Direct Redis client for resolvers
               monitoring: this.monitoring,
               reactor: this.reactor,
               containment: this.containment,

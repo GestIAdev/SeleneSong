@@ -17,7 +17,7 @@ export const patientQueries = {
         `🔍 PATIENTS query called with limit: ${limit}, offset: ${offset}`,
       );
 
-      // Query real PostgreSQL database - same as V3 but simpler response
+      // Query real PostgreSQL database - FULL SCHEMA ALIGNED
       const query = `
         SELECT 
           id,
@@ -27,7 +27,12 @@ export const patientQueries = {
           email,
           phone_primary as phone,
           date_of_birth as "dateOfBirth",
-          gender,
+          address,
+          emergency_contact as "emergencyContact",
+          insurance_provider as "insuranceProvider",
+          policy_number as "policyNumber",
+          medical_history as "medicalHistory",
+          billing_status as "billingStatus",
           is_active as "isActive",
           created_at as "createdAt",
           updated_at as "updatedAt"
@@ -47,6 +52,53 @@ export const patientQueries = {
     } catch (error) {
       console.error("Patients query error:", error as Error);
       return [];
+    }
+  },
+
+  // Patient - Single patient query by ID
+  patient: async (
+    _: any,
+    { id }: any,
+    _context: GraphQLContext,
+  ) => {
+    try {
+      console.log(`🔍 PATIENT query called with id: ${id}`);
+
+      // Query real PostgreSQL database - FULL SCHEMA ALIGNED
+      const query = `
+        SELECT 
+          id,
+          first_name as "firstName",
+          last_name as "lastName", 
+          CONCAT(first_name, ' ', last_name) as name,
+          email,
+          phone_primary as phone,
+          date_of_birth as "dateOfBirth",
+          address,
+          emergency_contact as "emergencyContact",
+          insurance_provider as "insuranceProvider",
+          policy_number as "policyNumber",
+          medical_history as "medicalHistory",
+          billing_status as "billingStatus",
+          is_active as "isActive",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+        FROM patients 
+        WHERE id = $1 AND is_active = true AND deleted_at IS NULL
+      `;
+
+      const result = await _context.database.executeQuery(query, [id]);
+      
+      if (result.rows.length === 0) {
+        console.log(`🔍 PATIENT not found with id: ${id}`);
+        return null;
+      }
+
+      console.log(`🔍 PATIENT found:`, result.rows[0]);
+      return result.rows[0];
+    } catch (error) {
+      console.error("Patient query error:", error as Error);
+      return null;
     }
   },
 
