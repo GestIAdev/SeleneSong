@@ -151,9 +151,28 @@ export const typeDefs = `#graphql
     email: String!
     firstName: String!
     lastName: String!
+    fullName: String! # Computed: firstName + lastName
     role: String!
     isActive: Boolean!
+    lastLoginAt: String
     createdAt: String!
+  }
+
+  # 🔐 AUTHENTICATION TYPES (V3 - VERITAS)
+  type AuthResponse {
+    accessToken: String!
+    refreshToken: String!
+    expiresIn: Int!
+    user: User!
+  }
+
+  input LoginInput {
+    email: String!
+    password: String!
+  }
+
+  input RefreshTokenInput {
+    refreshToken: String!
   }
 
   # 🏥 MEDICAL RECORDS
@@ -840,6 +859,9 @@ export const typeDefs = `#graphql
 
   # 📊 QUERIES
   type Query {
+    # 🔐 Authentication Queries (V3 - VERITAS)
+    me: User
+    
     # Health & Status
     health: String!
     nuclearStatus: NuclearSystemStatus!
@@ -911,6 +933,11 @@ export const typeDefs = `#graphql
 
   # ⚡ MUTATIONS
   type Mutation {
+    # 🔐 Authentication Mutations (V3 - VERITAS)
+    login(input: LoginInput!): AuthResponse!
+    logout: Boolean!
+    refreshToken(input: RefreshTokenInput!): AuthResponse!
+    
     # Patients
     createPatient(input: PatientInput!): Patient!
     updatePatient(id: ID!, input: UpdatePatientInput!): Patient!

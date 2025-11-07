@@ -10,6 +10,8 @@ import {
   AppointmentMutation,
 } from "../Calendar/resolvers.js";
 import {
+  treatments,
+  treatment,
   treatmentsV3,
   treatmentV3,
   treatmentRecommendationsV3,
@@ -21,6 +23,10 @@ import {
   treatmentV3Updated,
   TreatmentV3,
 } from "./resolvers/index.js";
+import {
+  medicalRecords,
+  medicalRecord,
+} from "./resolvers/Query/medicalRecord.js";
 import {
   MedicalRecord,
   MedicalRecordV3,
@@ -47,11 +53,11 @@ import {
   BillingDataMutation,
 } from "../BillingData/resolvers.js";
 import {
-
   ComplianceV3,
   ComplianceQuery,
   ComplianceMutation,
 } from "../Compliance/resolvers.js";
+import { AuthQuery, AuthMutation, User } from "./resolvers/Auth/index.js";
 
 console.log("🔥 MAIN RESOLVERS LOADED - CHECKING QUANTUM RESURRECTION...");
 console.log("🔍 ReactorMutation available?", !!ReactorMutation);
@@ -66,6 +72,8 @@ console.log(
 
 // Define Treatment domain resolvers
 const TreatmentQuery = {
+  treatments, // ✅ Legacy resolver for migration
+  treatment, // ✅ Legacy resolver for migration
   treatmentsV3,
   treatmentV3,
   treatmentRecommendationsV3,
@@ -84,10 +92,13 @@ const TreatmentSubscription = {
 };
 
 export const Query = {
+  ...AuthQuery, // 🔥 V3 Authentication
   ...ReactorQuery,
   ...PatientQuery,
   ...AppointmentQuery,
   ...TreatmentQuery,
+  medicalRecords, // ✅ Legacy resolver for migration
+  medicalRecord, // ✅ Legacy resolver for migration
   ...MedicalRecordQuery,
   ...DocumentQuery,
   ...InventoryQuery,
@@ -96,6 +107,7 @@ export const Query = {
 };
 
 export const Mutation = {
+  ...AuthMutation, // 🔥 V3 Authentication
   ...ReactorMutation,
   ...PatientMutation,
   ...AppointmentMutation,
@@ -117,6 +129,7 @@ export const resolvers = {
   Query,
   Mutation,
   Subscription,
+  User, // 🔥 V3 Auth - User type resolver
   Patient,
   Appointment, // V169 Schema Bridge resolver
   AppointmentV3,
