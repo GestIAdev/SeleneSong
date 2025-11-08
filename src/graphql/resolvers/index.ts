@@ -22,6 +22,8 @@ import { AppointmentV3 } from "./FieldResolvers/appointment.js";
 
 // Import all Treatment domain resolvers
 import {
+  treatments,
+  treatment,
   treatmentsV3,
   treatmentV3,
   treatmentRecommendationsV3,
@@ -73,6 +75,8 @@ export { appointmentSubscriptions } from "./Subscription/appointment.js";
 export { AppointmentV3 } from "./FieldResolvers/appointment.js";
 
 export {
+  treatments,
+  treatment,
   treatmentsV3,
   treatmentV3,
   treatmentRecommendationsV3,
@@ -130,6 +134,8 @@ export const AppointmentResolvers = {
 // Consolidated Treatment domain exports
 export const TreatmentResolvers = {
   Query: {
+    treatments,
+    treatment,
     treatmentsV3,
     treatmentV3,
     treatmentRecommendationsV3,
@@ -170,6 +176,8 @@ export const AllResolvers = {
     ...documentQueries,
     ...patientQueries,
     ...appointmentQueries,
+    treatments,
+    treatment,
     treatmentsV3,
     treatmentV3,
     treatmentRecommendationsV3,

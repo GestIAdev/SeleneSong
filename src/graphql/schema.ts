@@ -872,6 +872,10 @@ export const typeDefs = `#graphql
     patient(id: ID!): Patient
     searchPatients(query: String!): [Patient!]!
     
+    # Patients V3 - Veritas Enhanced
+    patientsV3(limit: Int, offset: Int): [Patient!]!
+    patientV3(id: ID!): Patient
+    
     # Appointments
     appointments(limit: Int, offset: Int, patientId: ID): [Appointment!]!
     appointment(id: ID!): Appointment

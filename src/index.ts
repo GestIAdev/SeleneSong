@@ -2,6 +2,7 @@ import { SeleneServer } from "./core/Server.js";
 import { SeleneNuclearGraphQL } from "./graphql/server.js";
 import { consoleSilencer } from "./ConsoleSilencer.js";
 import { RedisConnectionManager } from "./RedisConnectionManager.js";
+import { redisMonitor } from "./RedisMonitor.js";
 import * as path from "path";
 import * as fs from "fs";
 import * as v8 from "v8";
@@ -944,7 +945,13 @@ function performClusterMemoryAudit() {
 // Perform initial audit
 setTimeout(() => performClusterMemoryAudit(), 10000); // 10 seconds after startup
 
+// 📊 REDIS MONITOR: Hourly stats summary (V166 - passive telemetry)
+setInterval(() => {
+  redisMonitor.logStatsSummary();
+}, 3600000); // 1 hour = 3600000ms
+
 // ?? MISSION V407: 10-minute 'performClusterMemoryAudit' monitor removed by GeminiPunk.
+
 
 
 

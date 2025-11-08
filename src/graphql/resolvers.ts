@@ -3,6 +3,7 @@ import {
   PatientQuery,
   PatientMutation,
 } from "../Patients/resolvers.js";
+import { patientQueries } from "./resolvers/index.js"; // ✅ V3 Patient queries
 import {
   Appointment,
   AppointmentV3,
@@ -94,7 +95,8 @@ const TreatmentSubscription = {
 export const Query = {
   ...AuthQuery, // 🔥 V3 Authentication
   ...ReactorQuery,
-  ...PatientQuery,
+  ...PatientQuery, // Legacy patients queries
+  ...patientQueries, // ✅ V3 patients queries (patientsV3, patientV3)
   ...AppointmentQuery,
   ...TreatmentQuery,
   medicalRecords, // ✅ Legacy resolver for migration

@@ -13,6 +13,8 @@ const __filename = fileURLToPath(import.meta.url);
 const Redis = require('ioredis');
 
 import { createClient as createRedisClient, RedisClientType } from "redis";
+import { redisMonitor } from "./RedisMonitor.js";
+
 interface RedisConfig {
   host: string;
   port: number;
@@ -62,7 +64,7 @@ export class RedisConnectionManager {
       password: process.env.REDIS_PASSWORD,
       db: parseInt(process.env.REDIS_DB || "0"),
       maxRetriesPerRequest: 3,
-      lazyConnect: true,
+      lazyConnect: false, // 🔥 FIX: Auto-connect on creation
     };
 
     // Start cleanup interval (every 5 minutes)
@@ -187,6 +189,9 @@ export class RedisConnectionManager {
     const connectionId = `${context}_${++this.connectionCounter}_${Date.now()}`;
 
     console.log(`🔌 Creating Redis client: ${connectionId}`);
+    
+    // 📊 TELEMETRY: Record new connection
+    redisMonitor.recordConnection(connectionId);
 
     const client = createRedisClient({
       url: `redis://${this.config.host}:${this.config.port}`,
@@ -223,6 +228,12 @@ export class RedisConnectionManager {
       this.updateConnectionStatus(connectionId, false);
     });
 
+    // 🔥 CRITICAL FIX: Connect redis client automatically (redis package requires manual connect())
+    client.connect().catch((error: any) => {
+      console.error(`💥 Failed to connect Redis client ${connectionId}:`, error.message);
+      this.updateConnectionStatus(connectionId, false);
+    });
+
     return client;
   }
 
@@ -245,6 +256,9 @@ export class RedisConnectionManager {
     const connectionId = `${context}_${++this.connectionCounter}_${Date.now()}`;
 
     console.log(`🔌 Creating IORedis client: ${connectionId}`);
+    
+    // 📊 TELEMETRY: Record new connection
+    redisMonitor.recordConnection(connectionId);
 
     try {
       const client = new (Redis as any)({
@@ -252,7 +266,7 @@ export class RedisConnectionManager {
         port: this.config.port,
         password: this.config.password,
         db: this.config.db,
-        lazyConnect: true,
+        lazyConnect: false, // 🔥 FIX: Auto-connect (IORedis client)
         maxRetriesPerRequest: null, // Disable retries to avoid socket issues
         enableReadyCheck: false,
         autoResubscribe: false,
@@ -328,7 +342,7 @@ export class RedisConnectionManager {
         port: this.config.port,
         password: this.config.password,
         db: this.config.db,
-        lazyConnect: true,
+        lazyConnect: false, // 🔥 FIX: Auto-connect (IORedis subscriber)
         maxRetriesPerRequest: null, // Disable retries to avoid socket issues
         enableReadyCheck: false,
         autoResubscribe: false,
@@ -601,18 +615,31 @@ export class RedisConnectionManager {
             `🔌 Testing IORedis connection ${connectionId} (status: ${status})...`,
           );
 
-          // Add timeout to ping
+          // Add timeout to ping (5s for Windows stability under load)
+          const pingStart = Date.now();
           const pingPromise = client.ping();
           const timeoutPromise = new Promise<never>((_, _reject) =>
-            setTimeout(() => _reject(new Error("Ping timeout")), 2000),
+            setTimeout(() => _reject(new Error("Ping timeout")), 5000),
           );
 
           await Promise.race([pingPromise, timeoutPromise]);
+          const pingLatency = Date.now() - pingStart;
+          
+          // 📊 TELEMETRY: Record successful ping
+          redisMonitor.recordPing(pingLatency, true);
+          
           console.log(
             `✅ IORedis connection ${connectionId} is active (status: ${status})`,
           );
           return true;
         } catch (pingError) {
+          // 📊 TELEMETRY: Record failed ping
+          redisMonitor.recordPing(
+            5000, // Max timeout reached
+            false,
+            pingError instanceof Error ? pingError.message : String(pingError)
+          );
+          
           console.log(
             `🔌 Reconnecting IORedis client ${connectionId} due to ping failure...`,
           );
@@ -664,6 +691,16 @@ export class RedisConnectionManager {
         console.log(`🔌 Ensuring Redis client connection ${connectionId}...`);
 
         try {
+          // 🔥 CRITICAL CHECK: If client is closed, it cannot be reopened (redis package limitation)
+          if (!client.isOpen && !client.isReady) {
+            console.warn(`⚠️ Redis client is closed and cannot be reconnected (${connectionId}). Treating as failure.`);
+            // Mark as disconnected and return false (graceful degradation)
+            if (connectionId) {
+              this.updateConnectionStatus(connectionId, false);
+            }
+            return false;
+          }
+
           if (!client.isReady) {
             // 🔥 CRITICAL FIX: Wrap connect() to catch "Socket already opened" error
             try {
@@ -681,19 +718,38 @@ export class RedisConnectionManager {
               if (connectError.message && connectError.message.includes("Socket already opened")) {
                 console.log(`✅ Redis socket already opened for ${connectionId}, treating as successful connection`);
                 // Continue to ping test
+              } else if (connectError.message && connectError.message.includes("The client is closed")) {
+                console.warn(`⚠️ Redis client is closed (${connectionId}). Graceful degradation mode.`);
+                if (connectionId) {
+                  this.updateConnectionStatus(connectionId, false);
+                }
+                return false;
               } else {
                 throw connectError;
               }
             }
           }
 
+          const pingStart = Date.now();
           const pingPromise = client.ping();
           const pingTimeoutPromise = new Promise<never>((_, _reject) =>
-            setTimeout(() => _reject(new Error("Redis ping timeout")), 2000),
+            setTimeout(() => _reject(new Error("Redis ping timeout")), 5000),
           );
 
           await Promise.race([pingPromise, pingTimeoutPromise]);
+          const pingLatency = Date.now() - pingStart;
+          
+          // 📊 TELEMETRY: Record successful ping
+          redisMonitor.recordPing(pingLatency, true);
+          
         } catch (error) {
+          // 📊 TELEMETRY: Record failed ping
+          redisMonitor.recordPing(
+            5000, // Max timeout reached
+            false,
+            error instanceof Error ? error.message : String(error)
+          );
+          
           console.error(
             `💥 Redis client connection failed ${connectionId}:`,
             error,
