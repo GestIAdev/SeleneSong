@@ -1,5 +1,5 @@
 import { GraphQLContext } from "../graphql/types.js";
-
+import { appointmentMutations } from "../graphql/resolvers/Mutation/appointment.js"; // ✅ Import V3 mutations
 
 // V169 Schema Bridge: Resolver para Appointment con date/time mapping
 export const Appointment = {
@@ -214,14 +214,8 @@ export const AppointmentMutation = {
     updatedAt: new Date().toISOString(),
   }),
   deleteAppointment: async () => true,
-  createAppointmentV3: async (_: any, { input }: any, _ctx: GraphQLContext) =>
-    _ctx.database.createAppointment(input),
-  updateAppointmentV3: async (_: any, { id, input }: any) => ({
-    id,
-    ...input,
-    updatedAt: new Date().toISOString(),
-  }),
-  deleteAppointmentV3: async () => true,
+  // ✅ V3 MUTATIONS - Use proper resolvers from graphql/resolvers/Mutation/appointment.ts
+  ...appointmentMutations,
 };
 
 export const AppointmentSubscription = {

@@ -12,31 +12,28 @@ export const documentMutations = {
       console.log(`📝 CREATE DOCUMENT V3 mutation called with input:`, input);
       console.log(`📝 Context veritas available: ${!!context.veritas}`);
 
-      // Mock implementation - can be enhanced with real database integration later
-      const newDocument = {
-        id: `doc-${Date.now()}`,
+      // ✅ REAL DATABASE INSERT - No more mocks!
+      const newDocument = await context.database.createDocument({
         patientId: input.patientId,
-        uploaderId: input.uploaderId,
+        medicalRecordId: input.medicalRecordId,
+        appointmentId: input.appointmentId,
+        documentType: input.documentType,
+        title: input.fileName, // Use fileName as title if not provided
+        description: input.description,
         fileName: input.fileName,
         filePath: input.filePath,
-        fileHash: input.fileHash,
         fileSize: input.fileSize,
         mimeType: input.mimeType,
-        documentType: input.documentType,
-        category: input.category,
-        tags: input.tags || [],
-        description: input.description,
-        isEncrypted: input.isEncrypted || false,
-        encryptionKey: input.encryptionKey,
-        accessLevel: input.accessLevel,
-        expiresAt: input.expiresAt,
-        downloadCount: 0,
-        lastAccessedAt: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+        fileExtension: input.fileName?.split('.').pop(),
+        accessLevel: input.accessLevel || 'PRIVATE',
+        isConfidential: input.isEncrypted || false,
+        createdBy: input.uploaderId,
+        unifiedType: input.documentType,
+        legalCategory: input.category,
+        isActive: true
+      });
 
-      console.log(`📝 Created DocumentV3:`, newDocument);
+      console.log(`📝 Created DocumentV3 from database:`, newDocument);
 
       // Publish subscription event
       if (context.pubsub) {
@@ -141,6 +138,74 @@ export const documentMutations = {
       throw new Error("Failed to delete document");
     }
   },
+};
+
+// ============================================================================
+// V3 MUTATION RESOLVERS
+// ============================================================================
+
+export const createDocumentV3 = async (
+  _: unknown,
+  args: { input: any },
+  context: GraphQLContext
+): Promise<any> => {
+  try {
+    const document = await context.database.createDocumentV3(args.input);
+    
+    console.log(`✅ createDocumentV3 mutation created: ${document.file_name}`);
+    return document;
+  } catch (error) {
+    console.error("❌ createDocumentV3 mutation error:", error as Error);
+    throw error;
+  }
+};
+
+export const updateDocumentV3 = async (
+  _: unknown,
+  args: { id: string; input: any },
+  context: GraphQLContext
+): Promise<any> => {
+  try {
+    const document = await context.database.updateDocumentV3(args.id, args.input);
+    
+    console.log(`✅ updateDocumentV3 mutation updated: ${document.file_name}`);
+    return document;
+  } catch (error) {
+    console.error("❌ updateDocumentV3 mutation error:", error as Error);
+    throw error;
+  }
+};
+
+export const deleteDocumentV3 = async (
+  _: unknown,
+  args: { id: string },
+  context: GraphQLContext
+): Promise<boolean> => {
+  try {
+    await context.database.deleteDocumentV3(args.id);
+    
+    console.log(`✅ deleteDocumentV3 mutation deleted ID: ${args.id}`);
+    return true;
+  } catch (error) {
+    console.error("❌ deleteDocumentV3 mutation error:", error as Error);
+    throw error;
+  }
+};
+
+export const uploadUnifiedDocumentV3 = async (
+  _: unknown,
+  args: { input: any },
+  context: GraphQLContext
+): Promise<any> => {
+  try {
+    const document = await context.database.uploadUnifiedDocumentV3(args.input);
+    
+    console.log(`✅ uploadUnifiedDocumentV3 mutation created: ${document.title}`);
+    return document;
+  } catch (error) {
+    console.error("❌ uploadUnifiedDocumentV3 mutation error:", error as Error);
+    throw error;
+  }
 };
 
 

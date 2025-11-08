@@ -5,7 +5,7 @@
 
 import express from "express";
 import { SeleneNuclearGraphQL } from "./src/graphql/server-optimized";
-import { SeleneDatabase } from "./src/Database";
+import { SeleneDatabase } from "./src/core/Database";
 
 const app = express();
 const port = 8008;

@@ -23,7 +23,7 @@ import multer from "multer";
 import * as os from "os";
 import path from "path";
 import { SeleneDocumentLogger } from "../Utils/documentLogger.js";
-import { SeleneDatabase } from "../Database.js";
+import { SeleneDatabase } from "./Database.ts";
 import { SeleneCache } from "../Cache.js";
 import { SeleneQueue } from "../Queue.js";
 import { SeleneScheduler } from "../Scheduler.js";

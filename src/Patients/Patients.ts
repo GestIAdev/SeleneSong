@@ -4,7 +4,7 @@
  */
 
 import { SeleneServer } from "../core/Server.js";
-import { SeleneDatabase } from "../Database.js";
+import { SeleneDatabase } from "../core/Database.ts";
 import { SeleneCache } from "../Cache.js";
 import { SeleneMonitoring } from "../Monitoring.js";
 

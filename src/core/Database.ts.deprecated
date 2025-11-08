@@ -10,6 +10,27 @@ import { Pool } from "pg";
 import { RedisClientType } from "redis";
 import { redisManager } from "./RedisConnectionManager.js";
 
+/**
+ * 🔧 Helper: Convert PostgreSQL date to ISO string (YYYY-MM-DD)
+ * CRITICAL: Must return a string that Apollo Server won't auto-convert to Date
+ */
+function formatDateOfBirth(dateValue: any): string | null {
+  if (!dateValue) return null;
+  
+  // Handle Date objects
+  if (dateValue instanceof Date) {
+    return dateValue.toISOString().split('T')[0]; // YYYY-MM-DD
+  }
+  
+  // Handle ISO strings like "1990-01-01T02:00:00.000Z"
+  const dateStr = String(dateValue);
+  if (dateStr.includes('T')) {
+    return dateStr.split('T')[0]; // Extract YYYY-MM-DD
+  }
+  
+  // Already in YYYY-MM-DD format
+  return dateStr;
+}
 
 interface DatabaseConfig {
   host: string;
@@ -34,7 +55,7 @@ interface CacheConfig {
  */
 export class SeleneDatabase {
   private pool!: Pool;
-  private redis!: RedisClientType | null; // 🔥 SANITACIÓN-QUIRÚRGICA: Allow null for lazy init
+  private redis!: RedisClientType;
   private isConnected: boolean = false;
   private isRedisConnected: boolean = false;
   private lastRedisCheck: number = 0;
@@ -63,11 +84,9 @@ export class SeleneDatabase {
       db: parseInt(process.env.REDIS_DB || "0"),
     };
 
-    // 🔥 SANITACIÓN-QUIRÚRGICA: Lazy init - DON'T create Redis client here (Bug #2 race condition fix)
-    // 🔥 SANITACIÓN-QUIRÚRGICA FIX: REUSE client from waitForRedis() with unique node ID
-    this.redis = null; // Initialize as null
-
-    this.redisConnectionId = `selene-startup-${"selene-node"}`; // Unique per node: selene-startup-selene-node-1/2/3
+    // Get Redis client from manager
+    this.redis = redisManager.createRedisClient("apollo-database");
+    this.redisConnectionId = `apollo-database_${Date.now()}`;
 
     this.initializeConnections();
   }
@@ -108,35 +127,22 @@ export class SeleneDatabase {
       client.release();
       console.log("✅ PostgreSQL connected");
 
-      // 🔥 SANITACIÓN-QUIRÚRGICA FIX v2: REUSE existing client to avoid ECONNRESET
-      if (!this.redis) {
-        const existingClient = redisManager.getRedisClient(this.redisConnectionId);
-        
-        if (existingClient) {
-          this.redis = existingClient;
-          console.log(`🔌 Redis client REUSED from pool: ${this.redisConnectionId}`);
+      // Connect to Redis (don't fail if Redis is down)
+      try {
+        const isConnected = await redisManager.ensureConnection(
+          this.redis,
+          this.redisConnectionId,
+        );
+        if (isConnected) {
+          console.log("✅ Redis connected");
         } else {
-          this.redis = redisManager.createRedisClient(this.redisConnectionId);
-          console.log(`🔌 Redis client created (lazy init): ${this.redisConnectionId}`);
-          
-          // Connect explicitly
-          try {
-            const isConnected = await redisManager.ensureConnection(
-              this.redis,
-              this.redisConnectionId,
-            );
-            if (isConnected) {
-              console.log("✅ Redis connected via RedisConnectionManager");
-            } else {
-              console.warn("⚠️ Redis connection failed, continuing without cache");
-            }
-          } catch (redisError) {
-            console.warn(
-              "⚠️ Redis connection failed, continuing without cache:",
-              redisError instanceof Error ? redisError.message : String(redisError),
-            );
-          }
+          console.warn("⚠️ Redis connection failed, continuing without cache");
         }
+      } catch (redisError) {
+        console.warn(
+          "⚠️ Redis connection failed, continuing without cache:",
+          redisError instanceof Error ? redisError.message : String(redisError),
+        );
       }
 
       this.isConnected = true;
@@ -166,18 +172,13 @@ export class SeleneDatabase {
 
   /**
    * ⚡ Safe Redis operation wrapper
-   * 🔥 SANITACIÓN-QUIRÚRGICA: Updated for lazy initialization (Bug #2 fix)
    */
   private async safeRedisOperation(
     _operation: () => Promise<any>,
     fallback: any = null,
   ): Promise<any> {
     try {
-      // 🔥 Guard: If Redis not initialized yet, return fallback (cache miss)
-      if (!this.redis) {
-        console.warn("⚠️ Redis not initialized, skipping cache operation");
-        return fallback;
-      }
+      if (!this.redis) return fallback;
       return await _operation();
     } catch (error) {
       console.warn(
@@ -189,17 +190,6 @@ export class SeleneDatabase {
   }
 
   /**
-   * 🔥 Get Redis client (helper for null-safety)
-   * 🔥 SANITACIÓN-QUIRÚRGICA: Helper method for lazy initialization (Bug #2 fix)
-   */
-  private getRedis(): RedisClientType {
-    if (!this.redis) {
-      throw new Error("Redis client not initialized - call connect() first");
-    }
-    return this.redis;
-  }
-
-  /**
    * 👥 Get all patients with nuclear efficiency
    */
   public async getPatients(filters?: any): Promise<any[]> {
@@ -208,7 +198,7 @@ export class SeleneDatabase {
     try {
       // Try cache first
       const cached = await this.safeRedisOperation(() =>
-        this.getRedis().get(cacheKey),
+        this.redis.get(cacheKey),
       );
       if (cached) {
         console.log("⚡ Patients served from cache");
@@ -246,12 +236,11 @@ export class SeleneDatabase {
         id: dbPatient.id,
         firstName: dbPatient.first_name,
         lastName: dbPatient.last_name,
-        name: dbPatient.name || `${dbPatient.first_name || ''} ${dbPatient.last_name || ''}`.trim() || 'Unknown Patient', // 🔥 FIX: Use name from view directly
-        fullName: dbPatient.name || `${dbPatient.first_name} ${dbPatient.last_name}`,
+        fullName: `${dbPatient.first_name} ${dbPatient.last_name}`,
         email: dbPatient.email,
         phone: dbPatient.phone_primary,
         phoneSecondary: dbPatient.phone_secondary,
-        dateOfBirth: dbPatient.date_of_birth,
+        dateOfBirth: formatDateOfBirth(dbPatient.date_of_birth),
         age: null, // Will be calculated if needed
         gender: dbPatient.gender,
         addressStreet: dbPatient.address_street,
@@ -289,7 +278,7 @@ export class SeleneDatabase {
 
       // Cache results (don't fail if Redis is down)
       await this.safeRedisOperation(() =>
-        this.getRedis().setEx(cacheKey, 300, JSON.stringify(graphqlPatients)),
+        this.redis.setEx(cacheKey, 300, JSON.stringify(graphqlPatients)),
       );
 
       return graphqlPatients;
@@ -308,7 +297,7 @@ export class SeleneDatabase {
     try {
       // Try cache first
       const cached = await this.safeRedisOperation(() =>
-        this.getRedis().get(cacheKey),
+        this.redis.get(cacheKey),
       );
       if (cached) {
         return JSON.parse(cached);
@@ -334,7 +323,7 @@ export class SeleneDatabase {
         email: dbPatient.email,
         phone: dbPatient.phone_primary,
         phoneSecondary: dbPatient.phone_secondary,
-        dateOfBirth: dbPatient.date_of_birth,
+        dateOfBirth: formatDateOfBirth(dbPatient.date_of_birth),
         age: null, // Will be calculated if needed
         gender: dbPatient.gender,
         addressStreet: dbPatient.address_street,
@@ -372,7 +361,7 @@ export class SeleneDatabase {
 
       // Cache result (don't fail if Redis is down)
       await this.safeRedisOperation(() =>
-        this.getRedis().setEx(cacheKey, 600, JSON.stringify(patient)),
+        this.redis.setEx(cacheKey, 600, JSON.stringify(patient)),
       );
 
       return patient;
@@ -430,7 +419,7 @@ export class SeleneDatabase {
         email: dbPatient.email,
         phone: dbPatient.phone_primary,
         phoneSecondary: dbPatient.phone_secondary,
-        dateOfBirth: dbPatient.date_of_birth,
+        dateOfBirth: formatDateOfBirth(dbPatient.date_of_birth),
         age: null, // Will be calculated if needed
         gender: dbPatient.gender,
         addressStreet: dbPatient.address_street,
@@ -520,45 +509,7 @@ export class SeleneDatabase {
       // Emit real-time update
       await this.emitRealtimeUpdate("patients", "updated", patient);
 
-      // 🔥 MAP DATABASE FIELDS TO GRAPHQL FORMAT
-      return {
-        id: patient.id,
-        name: patient.name || `${patient.first_name || ''} ${patient.last_name || ''}`.trim() || 'Unknown Patient',
-        firstName: patient.first_name,
-        lastName: patient.last_name,
-        fullName: patient.name || `${patient.first_name} ${patient.last_name}`,
-        email: patient.email,
-        phone: patient.phone_primary,
-        phoneSecondary: patient.phone_secondary,
-        dateOfBirth: patient.date_of_birth,
-        age: null,
-        gender: patient.gender,
-        addressStreet: patient.address_street,
-        addressCity: patient.address_city,
-        addressState: patient.address_state,
-        addressPostalCode: patient.address_postal_code,
-        addressCountry: patient.address_country,
-        fullAddress: null,
-        emergencyContactName: patient.emergency_contact_name,
-        emergencyContactPhone: patient.emergency_contact_phone,
-        emergencyContact: patient.emergency_contact_name && patient.emergency_contact_phone
-          ? JSON.stringify({ name: patient.emergency_contact_name, phone: patient.emergency_contact_phone })
-          : null,
-        medicalConditions: patient.medical_conditions,
-        medicationsCurrent: patient.current_medications,
-        allergies: patient.allergies,
-        anxietyLevel: patient.anxiety_level,
-        insuranceProvider: patient.insurance_provider,
-        insuranceStatus: patient.insurance_provider ? 'active' : 'no_insurance',
-        policyNumber: patient.policy_number,
-        medicalHistory: patient.medical_history,
-        billingStatus: 'pending',
-        consentToTreatment: patient.consent_to_treatment || false,
-        consentToContact: patient.consent_to_contact !== false,
-        isActive: patient.is_active !== false,
-        createdAt: patient.created_at,
-        updatedAt: patient.updated_at
-      };
+      return patient;
     } catch (error) {
       await client.query("ROLLBACK");
       console.error("💥 Failed to update patient:", error as Error);
@@ -623,10 +574,11 @@ export class SeleneDatabase {
       "🔥 PUNK DEBUG: getAppointments() called with filters:",
       filters,
     );
+    const _cacheKey = `appointments:${JSON.stringify(filters || {})}`;
 
     try {
       // Skip cache for testing
-      // const cached = await this.getRedis().get(cacheKey);
+      // const cached = await this.redis.get(_cacheKey);
       // if (cached) {
       //   return JSON.parse(cached);
       // }
@@ -692,7 +644,7 @@ export class SeleneDatabase {
       }
 
       // Skip cache for debugging
-      // await this.safeRedisOperation(() => this.getRedis().setEx(cacheKey, 180, JSON.stringify(appointments)));
+      // await this.safeRedisOperation(() => this.redis.setEx(_cacheKey, 180, JSON.stringify(appointments)));
 
       return appointments;
     } catch (error) {
@@ -713,23 +665,40 @@ export class SeleneDatabase {
       const result = await client.query(
         `
         INSERT INTO appointments (
-          patient_id, date, time,
-          duration_minutes, type, notes, status, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+          id, patient_id, dentist_id, scheduled_date,
+          duration_minutes, appointment_type, status, priority,
+          title, notes, created_at, updated_at, created_by
+        ) VALUES (
+          gen_random_uuid(), 
+          $1, 
+          COALESCE($2::uuid, (SELECT id FROM users ORDER BY created_at ASC LIMIT 1)), 
+          $3, 
+          $4, 
+          $5::appointmenttype, 
+          $6::appointmentstatus,
+          $7::appointmentpriority,
+          $8,
+          $9, 
+          NOW(), 
+          NOW(),
+          COALESCE($2::uuid, (SELECT id FROM users ORDER BY created_at ASC LIMIT 1))
+        )
         RETURNING *
       `,
         [
           appointmentData.patientId,
-          appointmentData.date,
-          appointmentData.time,
+          appointmentData.practitionerId || null,
+          `${appointmentData.appointmentDate} ${appointmentData.appointmentTime}`,
           appointmentData.duration || 30,
-          appointmentData.type || "regular",
+          appointmentData.type || "CONSULTATION",
+          appointmentData.status || "SCHEDULED",
+          appointmentData.priority || "NORMAL",
+          appointmentData.title || `Appointment on ${appointmentData.appointmentDate}`,
           appointmentData.notes || "",
-          appointmentData.status || "scheduled",
         ],
       );
 
-      const appointment = result.rows[0];
+      const dbAppointment = result.rows[0];
 
       await client.query("COMMIT");
 
@@ -737,9 +706,30 @@ export class SeleneDatabase {
       await this.invalidateAppointmentCache();
 
       // Emit real-time update
-      await this.emitRealtimeUpdate("appointments", "created", appointment);
+      await this.emitRealtimeUpdate("appointments", "created", dbAppointment);
 
-      return appointment;
+      // Map database fields to GraphQL format
+      // Extract date and time from scheduled_date timestamp
+      const scheduledDate = new Date(dbAppointment.scheduled_date);
+      const appointmentDate = scheduledDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      const appointmentTime = scheduledDate.toTimeString().slice(0, 5); // HH:MM
+
+      const graphqlAppointment = {
+        id: dbAppointment.id,
+        patientId: dbAppointment.patient_id,
+        practitionerId: dbAppointment.dentist_id,
+        appointmentDate,
+        appointmentTime,
+        duration: dbAppointment.duration_minutes,
+        type: dbAppointment.appointment_type,
+        status: dbAppointment.status,
+        notes: dbAppointment.notes,
+        treatmentDetails: dbAppointment.description,
+        createdAt: dbAppointment.created_at,
+        updatedAt: dbAppointment.updated_at,
+      };
+
+      return graphqlAppointment;
     } catch (error) {
       await client.query("ROLLBACK");
       console.error("💥 Failed to create appointment:", error as Error);
@@ -762,7 +752,7 @@ export class SeleneDatabase {
     try {
       // Try cache first
       const cached = await this.safeRedisOperation(() =>
-        this.getRedis().get(cacheKey),
+        this.redis.get(cacheKey),
       );
       if (cached) {
         console.log("⚡ Treatments served from cache");
@@ -832,7 +822,7 @@ export class SeleneDatabase {
 
       // Cache results (don't fail if Redis is down)
       await this.safeRedisOperation(() =>
-        this.getRedis().setEx(cacheKey, 300, JSON.stringify(mappedTreatments)),
+        this.redis.setEx(cacheKey, 300, JSON.stringify(mappedTreatments)),
       );
 
       return mappedTreatments;
@@ -850,7 +840,7 @@ export class SeleneDatabase {
 
     try {
       // Try cache first
-      const cached = await this.getRedis().get(cacheKey);
+      const cached = await this.redis.get(cacheKey);
       if (cached) {
         return JSON.parse(cached);
       }
@@ -881,7 +871,7 @@ export class SeleneDatabase {
 
       // Cache results
       await this.safeRedisOperation(() =>
-        this.getRedis().setEx(cacheKey, 600, JSON.stringify(records)),
+        this.redis.setEx(cacheKey, 600, JSON.stringify(records)),
       );
 
       return records;
@@ -901,7 +891,7 @@ export class SeleneDatabase {
   private async invalidatePatientCache(patientId?: string): Promise<void> {
     try {
       const keys = await this.safeRedisOperation(
-        () => this.getRedis().keys("patients:*"),
+        () => this.redis.keys("patients:*"),
         [],
       );
       if (patientId) {
@@ -909,7 +899,7 @@ export class SeleneDatabase {
       }
 
       if (keys.length > 0) {
-        await this.safeRedisOperation(() => this.getRedis().del(keys));
+        await this.safeRedisOperation(() => this.redis.del(keys));
       }
     } catch (error) {
       console.warn(
@@ -924,9 +914,9 @@ export class SeleneDatabase {
    */
   private async invalidateAppointmentCache(): Promise<void> {
     try {
-      const keys = await this.getRedis().keys("appointments:*");
+      const keys = await this.redis.keys("appointments:*");
       if (keys.length > 0) {
-        await this.getRedis().del(keys);
+        await this.redis.del(keys);
       }
     } catch (error) {
       console.error("⚠️ Failed to invalidate appointment cache:", error as Error);
@@ -944,7 +934,7 @@ export class SeleneDatabase {
     try {
       // This will be connected to Socket.IO in the main server
       await this.safeRedisOperation(() =>
-        this.getRedis().publish(
+        this.redis.publish(
           `realtime:${_room}`,
           JSON.stringify({
             _event,
@@ -971,35 +961,39 @@ export class SeleneDatabase {
       await pgClient.query("SELECT 1");
       pgClient.release();
 
-      // Test Redis with throttling - don't spam console
+      // Test Redis with throttling - don't spam console or connections
       let redisStatus = "disconnected";
       const now = Date.now();
 
       if (now - this.lastRedisCheck > this.redisCheckInterval) {
         try {
-          // 🔥 SANITACIÓN-QUIRÚRGICA: DON'T try ensureConnection if Redis client doesn't exist yet
-          if (!this.redis) {
-            redisStatus = "initializing";
-            this.isRedisConnected = false;
-          } else {
-            // Ensure Redis connection before ping
+          // Only ensure connection if we suspect it's disconnected
+          if (!this.isRedisConnected) {
             const isConnected = await redisManager.ensureConnection(
               this.redis,
               this.redisConnectionId,
             );
-            if (isConnected) {
-              await this.getRedis().ping();
-              redisStatus = "connected";
-              this.isRedisConnected = true;
-            } else {
+            if (!isConnected) {
               redisStatus = "disconnected";
               this.isRedisConnected = false;
             }
           }
+
+          // Test connection with ping if we think it's connected
+          if (this.isRedisConnected) {
+            await this.redis.ping();
+            redisStatus = "connected";
+          } else {
+            // Try to connect and ping
+            await this.redis.ping();
+            redisStatus = "connected";
+            this.isRedisConnected = true;
+          }
         } catch (error) {
           this.isRedisConnected = false;
+          redisStatus = "disconnected";
           console.warn(
-            "⚠️ Redis ping failed:",
+            "⚠️ Redis status check failed:",
             error instanceof Error ? error.message : String(error),
           );
         }

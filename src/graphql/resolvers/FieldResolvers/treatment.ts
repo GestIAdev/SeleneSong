@@ -344,6 +344,65 @@ export const TreatmentV3 = {
       };
     }
   },
+
+  // ============================================================================
+  // NESTED FIELD RESOLVERS - Relations
+  // ============================================================================
+
+  patient: async (
+    parent: any,
+    _: any,
+    context: GraphQLContext,
+    _info: any,
+  ) => {
+    console.log(
+      `🔗 NESTED FIELD RESOLVER: patient called for treatment ${parent.id} (patientId: ${parent.patientId})`,
+    );
+
+    try {
+      const patient = await context.database.getPatientById(parent.patientId);
+      console.log(`✅ Patient resolved: ${patient ? patient.first_name + ' ' + patient.last_name : 'NOT FOUND'}`);
+      return patient;
+    } catch (error) {
+      console.error(
+        `❌ NESTED FIELD RESOLVER: patient resolution failed for treatment ${parent.id}:`,
+        error,
+      );
+      return null;
+    }
+  },
+
+  practitioner: async (
+    parent: any,
+    _: any,
+    context: GraphQLContext,
+    _info: any,
+  ) => {
+    console.log(
+      `🔗 NESTED FIELD RESOLVER: practitioner called for treatment ${parent.id} (practitionerId: ${parent.practitionerId})`,
+    );
+
+    try {
+      // TODO: Implement practitioner resolution when user management is available
+      // For now, return a mock practitioner object
+      const mockPractitioner = {
+        id: parent.practitionerId,
+        first_name: "Dr.",
+        last_name: "Practitioner",
+        email: `practitioner${parent.practitionerId}@dentiagest.com`,
+        role: "DENTIST"
+      };
+      
+      console.log(`✅ Practitioner resolved (mock): ${mockPractitioner.first_name} ${mockPractitioner.last_name}`);
+      return mockPractitioner;
+    } catch (error) {
+      console.error(
+        `❌ NESTED FIELD RESOLVER: practitioner resolution failed for treatment ${parent.id}:`,
+        error,
+      );
+      return null;
+    }
+  },
 };
 
 

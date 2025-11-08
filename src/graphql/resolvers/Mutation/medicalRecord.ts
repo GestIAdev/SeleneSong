@@ -3,67 +3,53 @@
 // Directiva V185.2 Phase B - Incremental Modular Migration
 // ============================================================================
 
-
+import type { GraphQLContext } from '../../types.js';
 
 export const createMedicalRecordV3 = async (
   _: any,
   { input }: any,
+  context: GraphQLContext,
 ) => {
   try {
-    console.log("➕ CREATE MEDICAL RECORD V3 called with input:", input);
-
-    const medicalRecord = {
-      id: `mr_${Date.now()}`,
-      ...input,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    console.log("✅ MedicalRecordV3 created:", medicalRecord.id);
+    const medicalRecord = await context.database.createMedicalRecordV3(input);
+    
+    console.log(`✅ createMedicalRecordV3 mutation created: ${medicalRecord.title}`);
     return medicalRecord;
   } catch (error) {
-    console.error("Create medicalRecordV3 error:", error as Error);
-    throw new Error("Failed to create medicalRecordV3");
+    console.error("❌ createMedicalRecordV3 mutation error:", error as Error);
+    throw error;
   }
 };
 
 export const updateMedicalRecordV3 = async (
   _: any,
   { id, input }: any,
+  context: GraphQLContext,
 ) => {
   try {
-    console.log(
-      `✏️ UPDATE MEDICAL RECORD V3 called with id: ${id}, input:`,
-      input,
-    );
-
-    const medicalRecord = {
-      id,
-      ...input,
-      updatedAt: new Date().toISOString(),
-    };
-
-    console.log("✅ MedicalRecordV3 updated:", medicalRecord.id);
+    const medicalRecord = await context.database.updateMedicalRecordV3(id, input);
+    
+    console.log(`✅ updateMedicalRecordV3 mutation updated: ${medicalRecord.title}`);
     return medicalRecord;
   } catch (error) {
-    console.error("Update medicalRecordV3 error:", error as Error);
-    throw new Error("Failed to update medicalRecordV3");
+    console.error("❌ updateMedicalRecordV3 mutation error:", error as Error);
+    throw error;
   }
 };
 
 export const deleteMedicalRecordV3 = async (
   _: any,
   { id }: any,
+  context: GraphQLContext,
 ) => {
   try {
-    console.log(`🗑️ DELETE MEDICAL RECORD V3 called with id: ${id}`);
-
-    // In a real implementation, this would delete from database
-    console.log("✅ MedicalRecordV3 deleted:", id);
+    await context.database.deleteMedicalRecordV3(id);
+    
+    console.log(`✅ deleteMedicalRecordV3 mutation deleted ID: ${id}`);
     return true;
   } catch (error) {
-    console.error("Delete medicalRecordV3 error:", error as Error);
-    throw new Error("Failed to delete medicalRecordV3");
+    console.error("❌ deleteMedicalRecordV3 mutation error:", error as Error);
+    throw error;
   }
 };
 

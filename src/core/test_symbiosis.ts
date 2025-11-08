@@ -3,7 +3,7 @@
  * Testing the symbiotic integration between GraphQL and Veritas
  */
 
-import { SeleneDatabase } from "../Database.js";
+import { SeleneDatabase } from "./Database.ts";
 import { SeleneCache } from "../Cache.js";
 import { SeleneMonitoring } from "../Monitoring.js";
 import { SeleneVeritas } from "../Veritas/Veritas.js";

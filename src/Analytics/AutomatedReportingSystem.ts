@@ -9,7 +9,7 @@
 import { GraphQLContext } from "../graphql/types.js";
 import { PredictiveAnalyticsDashboard } from "./PredictiveAnalyticsDashboard.js";
 import { SeleneVeritas } from "../Veritas/Veritas.js";
-import { SeleneDatabase } from "../Database.js";
+import { SeleneDatabase } from "../core/Database.ts";
 
 
 export interface AutomatedReport {

@@ -1,4 +1,5 @@
 import { deterministicRandom } from "../../../../shared/deterministic-utils.js";
+import { GraphQLContext } from "../../types.js";
 
 
 // ============================================================================
@@ -11,6 +12,11 @@ export const createTreatmentV3 = async (
 ) => {
   try {
     console.log("➕ CREATE TREATMENT V3 called with input:", input);
+
+    // 🛡️ VALIDATION: Cost must be positive
+    if (input.cost !== undefined && input.cost <= 0) {
+      throw new Error("Cost must be positive");
+    }
 
     const treatment = {
       id: `treatment_${Date.now()}`,
@@ -54,13 +60,13 @@ export const updateTreatmentV3 = async (
 export const deleteTreatmentV3 = async (
   _: any,
   { id }: any,
+  _context: GraphQLContext,
 ) => {
   try {
     console.log(`🗑️ DELETE TREATMENT V3 called with id: ${id}`);
-
-    // In a real implementation, this would delete from database
+    await _context.database.deleteTreatment(id);
     console.log("✅ TreatmentV3 deleted:", id);
-    return true;
+    return { success: true, message: "Treatment deleted successfully" };
   } catch (error) {
     console.error("Delete treatmentV3 error:", error as Error);
     throw new Error("Failed to delete treatmentV3");

@@ -136,6 +136,18 @@ export class SeleneCache {
       return;
     }
 
+    // 🔥 ADDITIONAL CHECK: If client properties indicate it's not usable, return
+    try {
+      if (!this.client.isOpen || !this.client.isReady) {
+        this.isConnected = false; // Update flag
+        return;
+      }
+    } catch (checkError) {
+      // If properties don't exist or throw, assume closed
+      this.isConnected = false;
+      return;
+    }
+
     try {
       const serializedValue = JSON.stringify(value);
       const actualTtl = _ttl || this.config.ttl;
@@ -155,10 +167,24 @@ export class SeleneCache {
       // Predictive caching
       this.predictiveLoad(key, value);
     } catch (error) {
-      // Don't log errors when Redis is not connected - this is expected
-      if (this.isConnected) {
-        console.error("💥 Cache set error:", error as Error);
+      const err = error as Error;
+      const errorMessage = err.message || "";
+      const errorName = err.name || "";
+      const errorConstructor = err.constructor?.name || "";
+      
+      // Silent degradation for "client is closed" errors (check message, name, and constructor)
+      if (
+        errorMessage.includes("The client is closed") ||
+        errorMessage.includes("Socket closed unexpectedly") ||
+        errorName.includes("ClientClosedError") ||
+        errorConstructor.includes("ClientClosedError")
+      ) {
+        this.isConnected = false; // Mark as disconnected
+        return; // Return WITHOUT logging
       }
+      
+      // Log other unexpected errors
+      console.error("💥 Cache set error:", error as Error);
     }
   }
 
@@ -166,8 +192,20 @@ export class SeleneCache {
    * 📖 Get cache entry
    */
   public async get<T = any>(key: string): Promise<T | null> {
-    // If not connected, return null without attempting operation
+    // If not connected, return null (silent degradation)
     if (!this.isConnected) {
+      return null;
+    }
+
+    // 🔥 ADDITIONAL CHECK: If client properties indicate it's not usable, return null
+    try {
+      if (!this.client.isOpen || !this.client.isReady) {
+        this.isConnected = false; // Update flag
+        return null;
+      }
+    } catch (checkError) {
+      // If properties don't exist or throw, assume closed
+      this.isConnected = false;
       return null;
     }
 
@@ -183,10 +221,33 @@ export class SeleneCache {
 
       return JSON.parse(value) as T;
     } catch (error) {
-      // Don't log errors when Redis is not connected - this is expected
-      if (this.isConnected) {
-        console.error("💥 Cache get error:", error as Error);
+      const err = error as any; // Use any to access all properties
+      
+      // 🔍 DEBUG: Log error details to understand ClientClosedError structure
+      console.error("🔍 Cache get error details:", {
+        message: err.message,
+        name: err.name,
+        constructor: err.constructor?.name,
+        code: err.code,
+        type: typeof err,
+        keys: Object.keys(err)
+      });
+      
+      // Silent degradation for "client is closed" errors
+      if (
+        err.message?.includes("The client is closed") ||
+        err.message?.includes("Socket closed unexpectedly") ||
+        err.name?.includes("ClientClosedError") ||
+        err.constructor?.name?.includes("ClientClosedError") ||
+        err.code === "ClientClosedError"
+      ) {
+        this.isConnected = false; // Mark as disconnected
+        console.error("✅ Detected ClientClosedError - degrading gracefully");
+        return null; // Return null WITHOUT the big error log
       }
+      
+      // Log other unexpected errors
+      console.error("💥 Cache get error:", error as Error);
       return null;
     }
   }
@@ -197,6 +258,18 @@ export class SeleneCache {
   public async delete(key: string): Promise<boolean> {
     // If not connected, return false
     if (!this.isConnected) {
+      return false;
+    }
+
+    // 🔥 ADDITIONAL CHECK: If client properties indicate it's not usable, return false
+    try {
+      if (!this.client.isOpen || !this.client.isReady) {
+        this.isConnected = false; // Update flag
+        return false;
+      }
+    } catch (checkError) {
+      // If properties don't exist or throw, assume closed
+      this.isConnected = false;
       return false;
     }
 
@@ -211,10 +284,24 @@ export class SeleneCache {
 
       return result > 0;
     } catch (error) {
-      // Don't log errors when Redis is not connected
-      if (this.isConnected) {
-        console.error("💥 Cache delete error:", error as Error);
+      const err = error as Error;
+      const errorMessage = err.message || "";
+      const errorName = err.name || "";
+      const errorConstructor = err.constructor?.name || "";
+      
+      // Silent degradation for "client is closed" errors (check message, name, and constructor)
+      if (
+        errorMessage.includes("The client is closed") ||
+        errorMessage.includes("Socket closed unexpectedly") ||
+        errorName.includes("ClientClosedError") ||
+        errorConstructor.includes("ClientClosedError")
+      ) {
+        this.isConnected = false; // Mark as disconnected
+        return false; // Return false WITHOUT logging
       }
+      
+      // Log other unexpected errors
+      console.error("💥 Cache delete error:", error as Error);
       return false;
     }
   }

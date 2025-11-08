@@ -191,6 +191,7 @@ async function runPerformanceTests() {
         treatmentPlan: "Performance test plan",
       },
     },
+    context,
   );
   monitor.end("CreateMedicalRecordV3 Mutation");
 

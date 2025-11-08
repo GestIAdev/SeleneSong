@@ -8,7 +8,7 @@
 
 import { GraphQLContext } from "../graphql/types.js";
 import { SeleneVeritas } from "../Veritas/Veritas.js";
-import { SeleneDatabase } from "../Database.js";
+import { SeleneDatabase } from "../core/Database.ts";
 import { QuantumSubscriptionEngine } from "../Quantum/QuantumSubscriptionEngine.js";
 
 

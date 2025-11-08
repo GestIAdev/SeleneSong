@@ -1,5 +1,41 @@
 import { GraphQLContext } from "../../types.js";
 
+// ============================================================================
+// 🩺 TREATMENT QUERIES - LEGACY (for GraphQL migration compatibility)
+// ============================================================================
+
+export const treatments = async (
+  _: any,
+  { patientId, limit = 50, offset = 0 }: any,
+  context: GraphQLContext,
+) => {
+  try {
+    const allTreatments = await context.database.getTreatments({ patientId, limit, offset });
+    console.log(`🔍 getTreatments returned ${allTreatments.length} treatments`);
+    if (allTreatments.length > 0) {
+      console.log(`🔍 First treatment sample:`, JSON.stringify(allTreatments[0], null, 2));
+    }
+    return allTreatments;
+  } catch (error) {
+    console.error("Treatments query error:", error as Error);
+    return [];
+  }
+};
+
+export const treatment = async (
+  _: any,
+  { id }: any,
+  context: GraphQLContext,
+) => {
+  try {
+    const allTreatments = await context.database.getTreatments();
+    const treatment = allTreatments.find((t: any) => t.id === id) || null;
+    return treatment;
+  } catch (error) {
+    console.error("Treatment query error:", error as Error);
+    return null;
+  }
+};
 
 // ============================================================================
 // 🩺 TREATMENT V3 QUERIES - VERITAS ENHANCED

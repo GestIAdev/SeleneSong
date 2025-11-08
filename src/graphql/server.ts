@@ -8,14 +8,16 @@
  */
 
 import { ApolloServer } from "@apollo/server";
+import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default";
 import { expressMiddleware } from "@as-integrations/express4";
 import express from "express";
 import * as v8 from "v8";
 import * as fs from "fs";
 import * as path from "path";
+import { createDocumentUploadRouter } from "../routes/documentRoutes.js";
 
 import { GraphQLContext } from "./types.js";
-import { SeleneDatabase } from "../Database.js";
+import { SeleneDatabase } from "../core/Database.ts";
 import { SeleneCache } from "../Cache.js";
 import { SeleneMonitoring } from "../Monitoring.js";
 import { SeleneReactor } from "../Reactor/Reactor.js";
@@ -91,9 +93,11 @@ export class SeleneNuclearGraphQL {
       this.server = new ApolloServer<GraphQLContext>({
         typeDefs,
         resolvers,
-        introspection: true, // Enable GraphQL playground in development
-        includeStacktraceInErrorResponses:
-          process.env.NODE_ENV !== "production",
+        introspection: true, // ✅ FORCE ENABLE - even in "production" mode
+        includeStacktraceInErrorResponses: true, // ✅ Always include for debugging
+        plugins: [
+          ApolloServerPluginLandingPageLocalDefault({ includeCookies: true }), // ✅ Enable Apollo Studio in all modes
+        ],
       });
       console.log("✅ Selene Server instance created");
 
@@ -436,6 +440,12 @@ export class SeleneNuclearGraphQL {
         });
       });
       console.log("✅ /graphql/health endpoint configured");
+
+      // 📤 REST Document Upload/Download endpoints (before GraphQL)
+      console.log("📤 Configuring REST document endpoints /api/documents...");
+      const documentRouter = createDocumentUploadRouter(this.database);
+      mainApp.use("/api/documents", documentRouter);
+      console.log("✅ /api/documents endpoints configured");
 
       // GraphQL endpoint
       console.log("🔧 Configuring GraphQL endpoint /graphql...");

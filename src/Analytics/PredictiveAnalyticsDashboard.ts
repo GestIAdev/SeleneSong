@@ -15,7 +15,7 @@ import {
   TreatmentRecommendation,
 } from "./MedicalMLEngine.js";
 import { SeleneVeritas } from "../Veritas/Veritas.js";
-import { SeleneDatabase } from "../Database.js";
+import { SeleneDatabase } from "../core/Database.ts";
 
 
 export interface DashboardMetrics {

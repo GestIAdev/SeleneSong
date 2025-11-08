@@ -12,7 +12,7 @@ import { SeleneOffline } from "../../Offline/Offline.js";
 import { SeleneHeal } from "../../Heal/Heal.js";
 import { SelenePredict } from "../../Predict/Predict.js";
 import { SeleneServer } from "../../core/Server.js";
-import { SeleneDatabase } from "../../Database.js";
+import { SeleneDatabase } from "../../core/Database.ts";
 import { TreatmentAI } from "../AI/TreatmentAI.js";
 // Logger instance
 

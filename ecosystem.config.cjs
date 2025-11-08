@@ -27,7 +27,7 @@ module.exports = {
       max_restarts: 10,
       min_uptime: '10s',
       env: {
-        NODE_ENV: 'production',
+        NODE_ENV: 'development', // ✅ Changed to enable GraphQL introspection for tests
         PORT: '8005',
         NODE_ID: 'selene-node-1',
         
@@ -77,7 +77,7 @@ module.exports = {
       max_restarts: 10,
       min_uptime: '10s',
       env: {
-        NODE_ENV: 'production',
+        NODE_ENV: 'development', // ✅ Changed to enable GraphQL introspection for tests
         PORT: '8006',
         NODE_ID: 'selene-node-2',
         
@@ -122,7 +122,7 @@ module.exports = {
       max_restarts: 10,
       min_uptime: '10s',
       env: {
-        NODE_ENV: 'production',
+        NODE_ENV: 'development', // ✅ Changed to enable GraphQL introspection for tests
         PORT: '8007',
         NODE_ID: 'selene-node-3',
         

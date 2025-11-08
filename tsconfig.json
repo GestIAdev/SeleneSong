@@ -28,7 +28,7 @@
   "include": [
     "src/**/*.ts",
     "index.ts"
-  ],
+, "src/core/Database.ts.deprecated"  ],
   "exclude": [
     "node_modules",
     "dist",

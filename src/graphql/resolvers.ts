@@ -3,7 +3,7 @@ import {
   PatientQuery,
   PatientMutation,
 } from "../Patients/resolvers.js";
-import { patientQueries } from "./resolvers/index.js"; // ✅ V3 Patient queries
+import { patientQueries, patientMutations } from "./resolvers/index.js"; // ✅ V3 Patient queries + mutations
 import {
   Appointment,
   AppointmentV3,
@@ -28,6 +28,7 @@ import {
   medicalRecords,
   medicalRecord,
 } from "./resolvers/Query/medicalRecord.js";
+import { DateString } from "./scalars/DateString.js";  // ✅ Custom scalar for YYYY-MM-DD dates
 import {
   MedicalRecord,
   MedicalRecordV3,
@@ -111,7 +112,8 @@ export const Query = {
 export const Mutation = {
   ...AuthMutation, // 🔥 V3 Authentication
   ...ReactorMutation,
-  ...PatientMutation,
+  ...PatientMutation, // Legacy patient mutations
+  ...patientMutations, // ✅ V3 patient mutations (createPatientV3, updatePatientV3, deletePatientV3)
   ...AppointmentMutation,
   ...TreatmentMutation,
   ...MedicalRecordMutation,
@@ -142,6 +144,7 @@ export const resolvers = {
   InventoryV3,
   BillingDataV3,
   ComplianceV3,
+  DateString,  // ✅ Custom scalar for YYYY-MM-DD dates
 };
 
 export default resolvers;
