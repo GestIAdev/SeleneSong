@@ -17,8 +17,9 @@ export const subscriptionPlansV3 = async (
   try {
     const { activeOnly = true } = args;
 
-    const plans = await context.database.getSubscriptionPlansV3({
-      activeOnly
+    // Use specialized SubscriptionsDatabase class
+    const plans = await context.database.subscriptions.getSubscriptionPlansV3({
+      isActive: activeOnly
     });
 
     console.log(`✅ subscriptionPlansV3 query returned ${plans.length} plans`);
@@ -35,7 +36,8 @@ export const subscriptionPlanV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const plan = await context.database.getSubscriptionPlanV3ById(args.id);
+    // Use specialized SubscriptionsDatabase class
+    const plan = await context.database.subscriptions.getSubscriptionPlanV3ById(args.id);
 
     if (!plan) {
       throw new Error(`Subscription plan not found: ${args.id}`);
@@ -63,10 +65,10 @@ export const subscriptionsV3 = async (
   try {
     const { patientId, status, planId, limit = 50, offset = 0 } = args;
 
-    const subscriptions = await context.database.getSubscriptionsV3({
-      patientId,
+    // Use specialized SubscriptionsDatabase class
+    const subscriptions = await context.database.subscriptions.getSubscriptionsV3({
+      userId: patientId, // Map patientId to userId for database method
       status,
-      planId,
       limit,
       offset
     });
@@ -85,7 +87,8 @@ export const subscriptionV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const subscription = await context.database.getSubscriptionV3ById(args.id);
+    // Use specialized SubscriptionsDatabase class
+    const subscription = await context.database.subscriptions.getSubscriptionV3ById(args.id);
 
     if (!subscription) {
       throw new Error(`Subscription not found: ${args.id}`);
@@ -114,11 +117,10 @@ export const billingCyclesV3 = async (
   try {
     const { subscriptionId, status, dateFrom, dateTo, limit = 50, offset = 0 } = args;
 
-    const cycles = await context.database.getBillingCyclesV3({
+    // Use specialized SubscriptionsDatabase class
+    const cycles = await context.database.subscriptions.getBillingCyclesV3({
       subscriptionId,
       status,
-      dateFrom,
-      dateTo,
       limit,
       offset
     });
@@ -145,10 +147,11 @@ export const usageTrackingV3 = async (
   try {
     const { subscriptionId, dateFrom, dateTo, limit = 50, offset = 0 } = args;
 
-    const usage = await context.database.getUsageTrackingV3({
+    // Use specialized SubscriptionsDatabase class
+    const usage = await context.database.subscriptions.getUsageTrackingV3({
       subscriptionId,
-      dateFrom,
-      dateTo,
+      startDate: dateFrom ? new Date(dateFrom) : undefined,
+      endDate: dateTo ? new Date(dateTo) : undefined,
       limit,
       offset
     });

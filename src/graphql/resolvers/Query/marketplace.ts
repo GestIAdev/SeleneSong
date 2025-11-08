@@ -35,7 +35,8 @@ export const marketplaceProductsV3 = async (
       offset = 0
     } = args;
 
-    const products = await context.database.getMarketplaceProductsV3({
+    // Use specialized MarketplaceDatabase class
+    const products = await context.database.marketplace.getMarketplaceProductsV3({
       supplierId,
       category,
       limit,
@@ -56,7 +57,8 @@ export const marketplaceProductV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const product = await context.database.getMarketplaceProductV3(args.id);
+    // Use specialized MarketplaceDatabase class
+    const product = await context.database.marketplace.getMarketplaceProductV3(args.id);
 
     if (!product) {
       throw new Error(`Marketplace product not found: ${args.id}`);
@@ -83,7 +85,10 @@ export const suppliersV3 = async (
   try {
     const { category, verifiedOnly = false, limit = 50, offset = 0 } = args;
 
-    const suppliers = await context.database.getSuppliersV3({
+    // Use specialized MarketplaceDatabase class
+    const suppliers = await context.database.marketplace.getSuppliersV3({
+      category,
+      status: verifiedOnly ? 'VERIFIED' : undefined,
       limit,
       offset
     });
@@ -102,7 +107,8 @@ export const supplierV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const supplier = await context.database.getSupplierV3ById(args.id);
+    // Use specialized MarketplaceDatabase class
+    const supplier = await context.database.marketplace.getSupplierV3ById(args.id);
 
     if (!supplier) {
       throw new Error(`Supplier not found: ${args.id}`);
@@ -131,9 +137,10 @@ export const purchaseOrdersV3 = async (
   try {
     const { status, supplierId, dateFrom, dateTo, limit = 50, offset = 0 } = args;
 
-    const orders = await context.database.getPurchaseOrdersV3({
-      status,
+    // Use specialized MarketplaceDatabase class
+    const orders = await context.database.marketplace.getPurchaseOrdersV3({
       supplierId,
+      status,
       limit,
       offset
     });
@@ -152,7 +159,8 @@ export const purchaseOrderV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const order = await context.database.getPurchaseOrderV3ById(args.id);
+    // Use specialized MarketplaceDatabase class
+    const order = await context.database.marketplace.getPurchaseOrderV3ById(args.id);
 
     if (!order) {
       throw new Error(`Purchase order not found: ${args.id}`);
@@ -172,7 +180,8 @@ export const cartItemsV3 = async (
   context: GraphQLContext
 ): Promise<any[]> => {
   try {
-    const cartItems = await context.database.getCartItemsV3({});
+    // Use specialized MarketplaceDatabase class
+    const cartItems = await context.database.marketplace.getCartItemsV3({});
 
     console.log(`✅ cartItemsV3 query returned ${cartItems.length} cart items for user ${args.userId}`);
     return cartItems;

@@ -10,7 +10,8 @@ export const treatments = async (
   context: GraphQLContext,
 ) => {
   try {
-    const allTreatments = await context.database.getTreatments({ patientId, limit, offset });
+    // Use specialized TreatmentsDatabase class
+    const allTreatments = await context.database.treatments.getTreatments({ patientId, limit, offset });
     console.log(`🔍 getTreatments returned ${allTreatments.length} treatments`);
     if (allTreatments.length > 0) {
       console.log(`🔍 First treatment sample:`, JSON.stringify(allTreatments[0], null, 2));
@@ -28,8 +29,9 @@ export const treatment = async (
   context: GraphQLContext,
 ) => {
   try {
-    const allTreatments = await context.database.getTreatments();
-    const treatment = allTreatments.find((t: any) => t.id === id) || null;
+    // Use specialized TreatmentsDatabase class - filter by ID
+    const treatments = await context.database.treatments.getTreatments({ id, limit: 1 });
+    const treatment = treatments.length > 0 ? treatments[0] : null;
     return treatment;
   } catch (error) {
     console.error("Treatment query error:", error as Error);
@@ -51,38 +53,8 @@ export const treatmentsV3 = async (
       `🔍 TREATMENTS V3 query called with patientId: ${patientId}, limit: ${limit}, offset: ${offset}`,
     );
 
-    // Query real treatments from medical_records table
-    let query = `
-      SELECT 
-        id,
-        patient_id as "patientId",
-        created_by as "practitionerId",
-        procedure_category as "treatmentType",
-        diagnosis as description,
-        treatment_status as status,
-        visit_date as "startDate",
-        follow_up_date as "endDate",
-        estimated_cost as cost,
-        clinical_notes as notes,
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-      FROM medical_records 
-      WHERE is_active = true AND deleted_at IS NULL
-    `;
-    const params: any[] = [];
-
-    if (patientId) {
-      query += " AND patient_id = $1";
-      params.push(patientId);
-    }
-
-    query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-    params.push(limit, offset);
-
-    const result = await _context.database.executeQuery(query, params);
-    console.log(`🔍 TREATMENTS V3 found ${result.rows.length} treatments`);
-
-    return result.rows || [];
+    // Use specialized TreatmentsDatabase class
+    return await _context.database.treatments.getTreatments({ patientId, limit, offset });
   } catch (error) {
     console.error("TreatmentsV3 query error:", error as Error);
     return [];
@@ -99,20 +71,8 @@ export const treatmentV3 = async (
     console.log(`🔍 TREATMENT V3 query called with id: ${id}`);
     console.log(`🔍 Context veritas available: ${!!context.veritas}`);
 
-    const result = await context.database.executeQuery(
-      "SELECT * FROM treatments WHERE id = $1 AND deleted_at IS NULL",
-      [id],
-    );
-
-    const treatment = result.rows?.[0] || null;
-    console.log(`🔍 TreatmentV3 found: ${!!treatment}`);
-
-    if (treatment) {
-      console.log(`🔍 TreatmentV3 data:`, treatment);
-      return treatment;
-    }
-
-    return null;
+    // Use specialized TreatmentsDatabase class
+    return await context.database.treatments.getTreatmentByIdV3(id);
   } catch (error) {
     console.error("TreatmentV3 query error:", error as Error);
     return null;

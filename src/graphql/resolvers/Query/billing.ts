@@ -17,7 +17,8 @@ export const billingDataV3 = async (
   try {
     const { patientId, limit = 50, offset = 0 } = args;
 
-    const billingData = await context.database.getBillingDataV3({
+    // Use specialized BillingDatabase class
+    const billingData = await context.database.billing.getBillingDataV3({
       patientId,
       limit,
       offset
@@ -37,7 +38,8 @@ export const billingDatumV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const billingData = await context.database.getBillingDatumV3ById(args.id);
+    // Use specialized BillingDatabase class
+    const billingData = await context.database.billing.getBillingDatumV3ById(args.id);
 
     if (!billingData) {
       throw new Error(`Billing data not found: ${args.id}`);

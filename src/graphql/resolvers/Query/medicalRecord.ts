@@ -12,21 +12,14 @@ export const medicalRecords = async (
   _context: GraphQLContext,
 ) => {
   try {
-    const allRecords = await _context.database.getMedicalRecords();
+    // Use specialized MedicalRecordsDatabase class
+    const allRecords = await _context.database.medicalRecords.getMedicalRecords({ patientId, limit, offset });
     console.log(`🔍 getMedicalRecords returned ${allRecords.length} records`);
     if (allRecords.length > 0) {
       console.log(`🔍 First record sample:`, JSON.stringify(allRecords[0], null, 2));
     }
     
-    let filtered = allRecords;
-
-    if (patientId) {
-      filtered = allRecords.filter((_r: any) => _r.patientId === patientId);
-    }
-
-    const result = filtered.slice(offset, offset + limit);
-    console.log(`🔍 Returning ${result.length} records after filter/slice`);
-    return result;
+    return allRecords;
   } catch (error) {
     console.error("Medical records query error:", error as Error);
     return [];
@@ -40,8 +33,9 @@ export const medicalRecord = async (
   _info: any,
 ) => {
   try {
-    const records = await context.database.getMedicalRecords();
-    const record = records.find((_r: any) => _r.patientId === patientId) || null;
+    // Use specialized MedicalRecordsDatabase class - get first record for patient
+    const records = await context.database.medicalRecords.getMedicalRecords({ patientId, limit: 1 });
+    const record = records.length > 0 ? records[0] : null;
 
     if (record) {
       // Apply Veritas verification for medical records (CRITICAL level)
@@ -67,7 +61,8 @@ export const medicalRecordsV3 = async (
   context: GraphQLContext,
 ) => {
   try {
-    const medicalRecords = await context.database.getMedicalRecordsV3({
+    // Use specialized MedicalRecordsDatabase class
+    const medicalRecords = await context.database.medicalRecords.getMedicalRecordsV3({
       patientId,
       limit,
       offset
@@ -87,7 +82,8 @@ export const medicalRecordV3 = async (
   context: GraphQLContext,
 ) => {
   try {
-    const medicalRecord = await context.database.getMedicalRecordV3ById(id);
+    // Use specialized MedicalRecordsDatabase class
+    const medicalRecord = await context.database.medicalRecords.getMedicalRecordV3ById(id);
     
     if (!medicalRecord) {
       throw new Error(`Medical record not found: ${id}`);

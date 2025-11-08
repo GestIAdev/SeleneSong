@@ -18,7 +18,8 @@ export const inventoriesV3 = async (
   try {
     const { limit = 50, offset = 0, category } = args;
 
-    const inventories = await context.database.getInventoriesV3({
+    // Use specialized InventoryDatabase class
+    const inventories = await context.database.inventory.getInventoriesV3({
       limit,
       offset,
       category
@@ -38,7 +39,8 @@ export const inventoryV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const inventory = await context.database.getInventoryV3ById(args.id);
+    // Use specialized InventoryDatabase class
+    const inventory = await context.database.inventory.getInventoryV3ById(args.id);
 
     if (!inventory) {
       throw new Error(`Inventory item not found: ${args.id}`);
@@ -64,7 +66,8 @@ export const materialsV3 = async (
   try {
     const { limit = 50, offset = 0, category, supplierId } = args;
 
-    const materials = await context.database.getMaterialsV3({
+    // Use specialized InventoryDatabase class
+    const materials = await context.database.inventory.getMaterialsV3({
       limit,
       offset,
       category,
@@ -85,7 +88,8 @@ export const materialV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const material = await context.database.getMaterialV3ById(args.id);
+    // Use specialized InventoryDatabase class
+    const material = await context.database.inventory.getMaterialV3ById(args.id);
 
     if (!material) {
       throw new Error(`Material not found: ${args.id}`);
@@ -109,7 +113,8 @@ export const inventoryDashboardV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const dashboard = await context.database.getInventoryDashboardV3();
+    // Use specialized InventoryDatabase class
+    const dashboard = await context.database.inventory.getInventoryDashboardV3();
 
     console.log(`✅ inventoryDashboardV3 query returned dashboard metrics`);
     return dashboard;
@@ -127,7 +132,8 @@ export const inventoryAlertsV3 = async (
   try {
     const { limit = 20 } = args;
 
-    const alerts = await context.database.getInventoryAlertsV3({ limit });
+    // Use specialized InventoryDatabase class
+    const alerts = await context.database.inventory.getInventoryAlertsV3({ limit });
 
     console.log(`✅ inventoryAlertsV3 query returned ${alerts.length} alerts`);
     return alerts;
@@ -149,7 +155,8 @@ export const equipmentsV3 = async (
   try {
     const { limit = 50, offset = 0, category, status } = args;
 
-    const equipments = await context.database.getEquipmentsV3({
+    // Use specialized InventoryDatabase class
+    const equipments = await context.database.inventory.getEquipmentsV3({
       limit,
       offset,
       category,
@@ -170,7 +177,8 @@ export const equipmentV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const equipment = await context.database.getEquipmentV3ById(args.id);
+    // Use specialized InventoryDatabase class
+    const equipment = await context.database.inventory.getEquipmentV3ById(args.id);
 
     if (!equipment) {
       throw new Error(`Equipment not found: ${args.id}`);
@@ -196,7 +204,8 @@ export const maintenancesV3 = async (
   try {
     const { equipmentId, limit = 50, offset = 0, status } = args;
 
-    const maintenances = await context.database.getMaintenancesV3({
+    // Use specialized InventoryDatabase class
+    const maintenances = await context.database.inventory.getMaintenancesV3({
       equipmentId,
       limit,
       offset,
@@ -217,7 +226,8 @@ export const maintenanceV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const maintenance = await context.database.getMaintenanceV3ById(args.id);
+    // Use specialized InventoryDatabase class
+    const maintenance = await context.database.inventory.getMaintenanceV3ById(args.id);
 
     if (!maintenance) {
       throw new Error(`Maintenance record not found: ${args.id}`);
@@ -237,7 +247,8 @@ export const equipmentMaintenanceScheduleV3 = async (
   context: GraphQLContext
 ): Promise<any[]> => {
   try {
-    const schedule = await context.database.getEquipmentMaintenanceScheduleV3(args.equipmentId);
+    // Use specialized InventoryDatabase class
+    const schedule = await context.database.inventory.getEquipmentMaintenanceScheduleV3(args.equipmentId);
 
     console.log(`✅ equipmentMaintenanceScheduleV3 query returned ${schedule.length} scheduled maintenances`);
     return schedule;
@@ -255,7 +266,8 @@ export const maintenanceHistoryV3 = async (
   try {
     const { limit = 20 } = args;
 
-    const history = await context.database.getMaintenanceHistoryV3({
+    // Use specialized InventoryDatabase class
+    const history = await context.database.inventory.getMaintenanceHistoryV3({
       equipmentId: args.equipmentId,
       limit
     });
@@ -280,7 +292,8 @@ export const suppliersV3 = async (
   try {
     const { limit = 50, offset = 0, category, status } = args;
 
-    const suppliers = await context.database.getSuppliersV3({
+    // Use specialized InventoryDatabase class
+    const suppliers = await context.database.inventory.getSuppliersV3({
       limit,
       offset,
       category,
@@ -301,7 +314,8 @@ export const supplierV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const supplier = await context.database.getSupplierV3ById(args.id);
+    // Use specialized InventoryDatabase class
+    const supplier = await context.database.inventory.getSupplierV3ById(args.id);
 
     if (!supplier) {
       throw new Error(`Supplier not found: ${args.id}`);
@@ -327,7 +341,8 @@ export const purchaseOrdersV3 = async (
   try {
     const { supplierId, limit = 50, offset = 0, status } = args;
 
-    const purchaseOrders = await context.database.getPurchaseOrdersV3({
+    // Use specialized InventoryDatabase class
+    const purchaseOrders = await context.database.inventory.getPurchaseOrdersV3({
       supplierId,
       limit,
       offset,
@@ -348,7 +363,8 @@ export const purchaseOrderV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const purchaseOrder = await context.database.getPurchaseOrderV3ById(args.id);
+    // Use specialized InventoryDatabase class
+    const purchaseOrder = await context.database.inventory.getPurchaseOrderV3ById(args.id);
 
     if (!purchaseOrder) {
       throw new Error(`Purchase order not found: ${args.id}`);
@@ -370,7 +386,8 @@ export const supplierPurchaseOrdersV3 = async (
   try {
     const { limit = 20 } = args;
 
-    const purchaseOrders = await context.database.getSupplierPurchaseOrdersV3({
+    // Use specialized InventoryDatabase class
+    const purchaseOrders = await context.database.inventory.getSupplierPurchaseOrdersV3({
       supplierId: args.supplierId,
       limit
     });
@@ -389,7 +406,8 @@ export const purchaseOrderItemsV3 = async (
   context: GraphQLContext
 ): Promise<any[]> => {
   try {
-    const items = await context.database.getPurchaseOrderItemsV3(args.purchaseOrderId);
+    // Use specialized InventoryDatabase class
+    const items = await context.database.inventory.getPurchaseOrderItemsV3(args.purchaseOrderId);
 
     console.log(`✅ purchaseOrderItemsV3 query returned ${items.length} items for purchase order`);
     return items;

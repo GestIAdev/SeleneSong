@@ -17,7 +17,8 @@ export const customCalendarViewsV3 = async (
   try {
     const { userId } = args;
 
-    const views = await context.database.getCustomCalendarViewsV3({
+    // Use specialized CustomCalendarDatabase class
+    const views = await context.database.customCalendar.getCustomCalendarViewsV3({
       userId: userId || context.auth?.userId
     });
 
@@ -35,7 +36,8 @@ export const customCalendarViewV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const view = await context.database.getCustomCalendarViewV3ById(args.id);
+    // Use specialized CustomCalendarDatabase class
+    const view = await context.database.customCalendar.getCustomCalendarViewV3ById(args.id);
 
     if (!view) {
       throw new Error(`Custom calendar view not found: ${args.id}`);
@@ -55,7 +57,8 @@ export const calendarSettingsV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const settings = await context.database.getCalendarSettingsV3(args.userId);
+    // Use specialized CustomCalendarDatabase class
+    const settings = await context.database.customCalendar.getCalendarSettingsV3(args.userId);
 
     console.log(`✅ calendarSettingsV3 query returned settings for user: ${args.userId}`);
     return settings;
@@ -73,7 +76,10 @@ export const calendarFiltersV3 = async (
   try {
     const { userId } = args;
 
-    const filters = await context.database.getCalendarFiltersV3(userId || context.auth?.userId);
+    // Use specialized CustomCalendarDatabase class
+    const filters = await context.database.customCalendar.getCalendarFiltersV3({
+      userId: userId || context.auth?.userId
+    });
 
     console.log(`✅ calendarFiltersV3 query returned ${filters.length} filters`);
     return filters;
@@ -89,7 +95,8 @@ export const calendarFilterV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const filter = await context.database.getCalendarFilterV3ById(args.id);
+    // Use specialized CustomCalendarDatabase class
+    const filter = await context.database.customCalendar.getCalendarFilterV3ById(args.id);
 
     if (!filter) {
       throw new Error(`Calendar filter not found: ${args.id}`);
@@ -111,10 +118,11 @@ export const calendarEventsV3 = async (
   try {
     const { userId, startDate, endDate } = args;
 
-    const events = await context.database.getCalendarEventsV3({
+    // Use specialized CustomCalendarDatabase class
+    const events = await context.database.customCalendar.getCalendarEventsV3({
       userId: userId || context.auth?.userId,
-      startDate,
-      endDate
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined
     });
 
     console.log(`✅ calendarEventsV3 query returned ${events.length} events`);
@@ -131,7 +139,8 @@ export const calendarEventV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const event = await context.database.getCalendarEventV3ById(args.id);
+    // Use specialized CustomCalendarDatabase class
+    const event = await context.database.customCalendar.getCalendarEventV3ById(args.id);
 
     if (!event) {
       throw new Error(`Calendar event not found: ${args.id}`);
@@ -151,7 +160,8 @@ export const calendarAvailabilityV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const availability = await context.database.getCalendarAvailabilityV3(args.userId, args.date);
+    // Use specialized CustomCalendarDatabase class
+    const availability = await context.database.customCalendar.getCalendarAvailabilityV3(args.userId, args.date);
 
     console.log(`✅ calendarAvailabilityV3 query returned availability for ${args.date}`);
     return availability;

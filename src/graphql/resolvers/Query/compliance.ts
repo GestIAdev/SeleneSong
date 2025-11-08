@@ -17,7 +17,8 @@ export const compliancesV3 = async (
   try {
     const { patientId, limit = 50, offset = 0 } = args;
 
-    const compliances = await context.database.getCompliancesV3({
+    // Use specialized ComplianceDatabase class
+    const compliances = await context.database.compliance.getCompliancesV3({
       patientId,
       limit,
       offset
@@ -37,7 +38,8 @@ export const complianceV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const compliance = await context.database.getComplianceV3ById(args.id);
+    // Use specialized ComplianceDatabase class
+    const compliance = await context.database.compliance.getComplianceV3ById(args.id);
 
     if (!compliance) {
       throw new Error(`Compliance record not found: ${args.id}`);

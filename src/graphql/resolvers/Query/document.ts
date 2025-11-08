@@ -17,7 +17,8 @@ export const documentsV3 = async (
   try {
     const { patientId, limit = 50, offset = 0 } = args;
 
-    const documents = await context.database.getDocumentsV3({
+    // Use specialized DocumentsDatabase class
+    const documents = await context.database.documents.getDocumentsV3({
       patientId,
       limit,
       offset
@@ -37,7 +38,8 @@ export const documentV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const document = await context.database.getDocumentV3ById(args.id);
+    // Use specialized DocumentsDatabase class
+    const document = await context.database.documents.getDocumentV3ById(args.id);
 
     if (!document) {
       throw new Error(`Document not found: ${args.id}`);
@@ -59,7 +61,8 @@ export const unifiedDocumentsV3 = async (
   try {
     const { patientId, limit = 50, offset = 0 } = args;
 
-    const documents = await context.database.getUnifiedDocumentsV3({
+    // Use specialized DocumentsDatabase class
+    const documents = await context.database.documents.getUnifiedDocumentsV3({
       patientId,
       limit,
       offset
@@ -79,7 +82,8 @@ export const unifiedDocumentV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const document = await context.database.getUnifiedDocumentV3ById(args.id);
+    // Use specialized DocumentsDatabase class
+    const document = await context.database.documents.getUnifiedDocumentV3ById(args.id);
 
     if (!document) {
       throw new Error(`Unified document not found: ${args.id}`);
