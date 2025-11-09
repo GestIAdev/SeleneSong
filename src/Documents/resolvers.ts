@@ -2,7 +2,18 @@ import { GraphQLContext } from "../graphql/types.js";
 
 export const DocumentV3 = {
   id: async (_p: any) => _p.id,
+  
+  // 🏥 MEDICAL DOMAIN fields
   patientId: async (_p: any) => _p.patientId,
+  appointmentId: async (_p: any) => _p.appointmentId,          // ✅ NEW
+  medicalRecordId: async (_p: any) => _p.medicalRecordId,      // ✅ NEW
+  
+  // 💰 ADMINISTRATIVE DOMAIN fields
+  treatmentId: async (_p: any) => _p.treatmentId,              // ✅ NEW
+  purchaseOrderId: async (_p: any) => _p.purchaseOrderId,      // ✅ NEW
+  subscriptionId: async (_p: any) => _p.subscriptionId,        // ✅ NEW
+  
+  // Core document fields
   uploaderId: async (_p: any) => _p.uploaderId,
   fileSize: async (_p: any) => _p.fileSize,
   mimeType: async (_p: any) => _p.mimeType,
@@ -58,7 +69,19 @@ export const DocumentV3 = {
 };
 
 export const DocumentQuery = {
-  documentsV3: async (_: any, { patientId, limit = 50, offset = 0 }: any) => {
+  documentsV3: async (
+    _: any, 
+    { 
+      patientId, 
+      appointmentId,      // ✅ NEW - filter by appointment
+      medicalRecordId,    // ✅ NEW - filter by medical record
+      treatmentId,        // ✅ NEW - filter by treatment/billing
+      purchaseOrderId,    // ✅ NEW - filter by purchase order
+      subscriptionId,     // ✅ NEW - filter by subscription
+      limit = 50, 
+      offset = 0 
+    }: any
+  ) => {
     const list = [
       {
         id: "doc-001",
@@ -105,9 +128,29 @@ export const DocumentQuery = {
         updatedAt: "2024-01-20T14:00:00Z",
       },
     ];
-    const filtered = patientId
-      ? list.filter((_d: any) => _d.patientId === patientId)
-      : list;
+    
+    // 🎯 MULTI-FILTER LOGIC - Support all relationship types
+    let filtered = list;
+    
+    if (patientId) {
+      filtered = filtered.filter((_d: any) => _d.patientId === patientId);
+    }
+    if (appointmentId) {
+      filtered = filtered.filter((_d: any) => _d.appointmentId === appointmentId);
+    }
+    if (medicalRecordId) {
+      filtered = filtered.filter((_d: any) => _d.medicalRecordId === medicalRecordId);
+    }
+    if (treatmentId) {
+      filtered = filtered.filter((_d: any) => _d.treatmentId === treatmentId);
+    }
+    if (purchaseOrderId) {
+      filtered = filtered.filter((_d: any) => _d.purchaseOrderId === purchaseOrderId);
+    }
+    if (subscriptionId) {
+      filtered = filtered.filter((_d: any) => _d.subscriptionId === subscriptionId);
+    }
+    
     return filtered.slice(offset, offset + limit);
   },
   documentV3: async (_: any, { id }: any) => {

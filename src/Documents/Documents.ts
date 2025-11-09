@@ -12,8 +12,18 @@ import { SeleneMonitoring } from "../Monitoring.js";
 
 export interface Document {
   id: string;
+  
+  // 🏥 MEDICAL DOMAIN - Patient-centric relationships
   patient_id?: string;
   patient_name?: string;
+  appointment_id?: string;      // ✅ Link to appointment (medical)
+  medical_record_id?: string;   // ✅ Link to medical record (clinical files)
+  
+  // 💰 ADMINISTRATIVE DOMAIN - Clinic operations
+  treatment_id?: string;        // ✅ Link to billing/treatment (invoices, receipts)
+  purchase_order_id?: string;   // ✅ Link to marketplace purchase (supplier invoices)
+  subscription_id?: string;     // ✅ Link to patient portal subscription (Netflix Dental)
+  
   document_type:
     | "medical_report"
     | "prescription"
@@ -36,7 +46,17 @@ export interface Document {
 }
 
 export interface DocumentSearchCriteria {
+  // 🏥 MEDICAL DOMAIN filters
   patient_id?: string;
+  appointment_id?: string;      // ✅ Filter by appointment
+  medical_record_id?: string;   // ✅ Filter by medical record
+  
+  // 💰 ADMINISTRATIVE DOMAIN filters
+  treatment_id?: string;        // ✅ Filter by treatment/billing
+  purchase_order_id?: string;   // ✅ Filter by purchase order
+  subscription_id?: string;     // ✅ Filter by subscription
+  
+  // General filters
   document_type?: string;
   tags?: string[];
   uploaded_by?: string;

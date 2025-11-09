@@ -299,7 +299,18 @@ export const typeDefs = `#graphql
   # 📄 DOCUMENTS V3 - VERITAS CRITICAL PROTECTION (Biblioteca Prohibida)
   type DocumentV3 {
     id: ID!
+    
+    # 🏥 MEDICAL DOMAIN - Patient-centric relationships
     patientId: ID! @veritas(level: CRITICAL)
+    appointmentId: ID @veritas(level: HIGH)
+    medicalRecordId: ID @veritas(level: HIGH)
+    
+    # 💰 ADMINISTRATIVE DOMAIN - Clinic operations
+    treatmentId: ID @veritas(level: MEDIUM)
+    purchaseOrderId: ID @veritas(level: MEDIUM)
+    subscriptionId: ID @veritas(level: MEDIUM)
+    
+    # Core document fields
     uploaderId: ID! @veritas(level: CRITICAL)
     fileName: String! @veritas(level: CRITICAL)
     filePath: String! @veritas(level: CRITICAL)
@@ -333,9 +344,18 @@ export const typeDefs = `#graphql
   # 📄 UNIFIED DOCUMENTS V3 - FULL SCHEMA with AI & Medical Fields
   type UnifiedDocumentV3 {
     id: ID!
+    
+    # 🏥 MEDICAL DOMAIN - Patient-centric relationships
     patient_id: ID
     medical_record_id: ID
     appointment_id: ID
+    
+    # 💰 ADMINISTRATIVE DOMAIN - Clinic operations
+    treatment_id: ID
+    purchase_order_id: ID
+    subscription_id: ID
+    
+    # Core document fields
     document_type: String
     title: String!
     description: String
@@ -479,7 +499,17 @@ export const typeDefs = `#graphql
   }
 
   input DocumentV3Input {
+    # 🏥 MEDICAL DOMAIN - Patient-centric relationships
     patientId: ID!
+    appointmentId: ID
+    medicalRecordId: ID
+    
+    # 💰 ADMINISTRATIVE DOMAIN - Clinic operations
+    treatmentId: ID
+    purchaseOrderId: ID
+    subscriptionId: ID
+    
+    # Core document fields
     uploaderId: ID!
     fileName: String!
     filePath: String!
@@ -497,7 +527,17 @@ export const typeDefs = `#graphql
   }
 
   input UpdateDocumentV3Input {
+    # 🏥 MEDICAL DOMAIN - Patient-centric relationships
     patientId: ID
+    appointmentId: ID
+    medicalRecordId: ID
+    
+    # 💰 ADMINISTRATIVE DOMAIN - Clinic operations
+    treatmentId: ID
+    purchaseOrderId: ID
+    subscriptionId: ID
+    
+    # Core document fields
     uploaderId: ID
     fileName: String
     filePath: String
@@ -958,7 +998,16 @@ export const typeDefs = `#graphql
     medicalRecordV3(id: ID!): MedicalRecordV3
     
     # Documents V3 - Veritas Critical Protection
-    documentsV3(patientId: ID, limit: Int, offset: Int): [DocumentV3!]!
+    documentsV3(
+      patientId: ID
+      appointmentId: ID
+      medicalRecordId: ID
+      treatmentId: ID
+      purchaseOrderId: ID
+      subscriptionId: ID
+      limit: Int
+      offset: Int
+    ): [DocumentV3!]!
     documentV3(id: ID!): DocumentV3
     
     # Unified Documents V3 - Full Schema with AI & @veritas
