@@ -2740,7 +2740,11 @@ export class SeleneServer {
     const { expressMiddleware } = await import("@as-integrations/express4");
     const { makeExecutableSchema } = await import("@graphql-tools/schema");
     const { createServer: createHttpServer } = await import("http");
-    const { makeServer } = await import("graphql-ws");
+    const { WebSocketServer } = await import("ws");
+    
+    // 🔥 Import useServer from graphql-ws (protocol implementation)
+    // Fixed: graphql-ws v6+ exports from ./use/ws (not ./lib/use/ws)
+    const { useServer } = await import("graphql-ws/use/ws");
 
     // 🛡️ USE REAL SCHEMA WITH @VERITAS DIRECTIVE
     console.log("🛡️ Loading REAL schema with @veritas directive...");
@@ -2767,62 +2771,103 @@ export class SeleneServer {
       await server.start();
       console.log("✅ ✅ ✅ Selene Server started successfully");
 
-      // 🔥 PHASE D: Configure WebSocket server for subscriptions
+      // 🔥 PHASE D: Configure WebSocket server for subscriptions with graphql-ws protocol
       console.log(
         "🔌 🔥 PHASE D: Configuring WebSocket server for GraphQL subscriptions...",
       );
 
-      makeServer({
-        schema,
-        context: async (ctx: any) => {
-          console.log("🔌 WebSocket context building...");
-          // Get authentication context
-          const authContext = await this.websocketAuth.authenticateConnection(
-            ctx.connectionParams,
-          );
-          return {
-            database: this.database,
-            cache: this.cache,
-            veritas: this.veritas,
-            pubsub: this.pubsub,
-            auth: authContext,
-            quantumEngine: this.quantumEngine, // ⚛️ PHASE E: Add quantum engine to WebSocket context
-            req: ctx.extra.request,
-          };
-        },
-        onConnect: async (_ctx: any) => {
-          console.log("🔌 WebSocket client connecting...");
-
-          // Authenticate the connection
-          const authContext = await this.websocketAuth.authenticateConnection(
-            _ctx.connectionParams,
-          );
-
-          if (!authContext.isAuthenticated) {
-            console.warn("❌ WebSocket connection rejected - not authenticated");
-            throw new Error(
-              "Authentication required for WebSocket connections",
-            );
-          }
-
-          console.log(
-            `✅ WebSocket client authenticated and connected: ${authContext.connectionId}`,
-          );
-          this.pubsub.trackConnection(true);
-
-          return { auth: authContext };
-        },
-        onDisconnect: (_ctx: any) => {
-          console.log("🔌 WebSocket client disconnected");
-          const connectionId = _ctx?.extra?.auth?.connectionId;
-          if (connectionId) {
-            this.websocketAuth.handleDisconnect(connectionId);
-          }
-          this.pubsub.trackConnection(false);
-        },
+      // 🔧 Create WebSocket server using 'ws' library attached to HTTP server
+      const wsServer = new WebSocketServer({
+        server: this.server!,
+        path: '/graphql',
       });
 
-      console.log("✅ ✅ ✅ WebSocket server configured for subscriptions");
+      // 🔥 Use graphql-ws protocol implementation (connection_init, subscribe, next, complete)
+      const serverCleanup = useServer(
+        {
+          schema,
+          
+          // 🚀 INTEGRATION: Authentication on WebSocket connection
+          onConnect: async (ctx: any) => {
+            console.log("🔌 graphql-ws protocol: Received connection_init...");
+            
+            try {
+              // Extract auth token from connection params
+              // Client must send: { "authorization": "Bearer <token>" }
+              const connectionParams = ctx.connectionParams || {};
+              
+              // Authenticate using existing WebSocketAuth module
+              const authContext = await this.websocketAuth.authenticateConnection(
+                connectionParams,
+              );
+
+              if (!authContext.isAuthenticated) {
+                console.warn("❌ WebSocket connection rejected - not authenticated");
+                return false; // Reject connection
+              }
+
+              console.log(
+                `✅ graphql-ws protocol: Authentication successful (${authContext.connectionId})`,
+              );
+              
+              // Track connection in PubSub
+              this.pubsub.trackConnection(true);
+
+              // Return context for this WebSocket connection
+              return { auth: authContext };
+              
+            } catch (error) {
+              console.error("💥 WebSocket onConnect error:", error);
+              return false; // Reject connection
+            }
+          },
+
+          // 🚀 INTEGRATION: Context builder for each GraphQL operation over WebSocket
+          context: async (ctx: any) => {
+            console.log("🔌 graphql-ws: Building context for subscription operation...");
+            
+            // Get auth from connection context (set in onConnect)
+            const auth = ctx.extra?.auth || ctx.connectionParams;
+            
+            return {
+              database: this.database,
+              cache: this.cache,
+              veritas: this.veritas,
+              pubsub: this.pubsub,
+              auth,
+              quantumEngine: this.quantumEngine,
+              req: ctx.extra?.request,
+            };
+          },
+
+          // 🚀 INTEGRATION: Handle subscription start
+          onSubscribe: (ctx: any) => {
+            console.log("🔌 graphql-ws protocol: Client subscribed to GraphQL operation");
+            // You can add custom logic here if needed
+          },
+
+          // 🚀 INTEGRATION: Handle WebSocket disconnect
+          onDisconnect: (ctx: any) => {
+            console.log("🔌 graphql-ws protocol: Client disconnected");
+            
+            // Get connection ID from context
+            const connectionId = ctx?.extra?.auth?.connectionId;
+            if (connectionId) {
+              this.websocketAuth.handleDisconnect(connectionId);
+            }
+            
+            // Track disconnection in PubSub
+            this.pubsub.trackConnection(false);
+          },
+        },
+        wsServer, // Attach protocol to the raw WebSocket server
+      );
+
+      console.log("✅ ✅ ✅ WebSocket server configured with graphql-ws protocol on port " + this.port + "/graphql");
+      console.log("✅ graphql-ws protocol: connection_init, subscribe, next, complete messages ready");
+      
+      // Store cleanup function for graceful shutdown
+      (this as any).wsCleanup = serverCleanup;
 
       // Apply GraphQL middleware to Express app
       console.log("� � � Applying GraphQL middleware to /graphql...");

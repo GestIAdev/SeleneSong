@@ -276,4 +276,159 @@ export class TreatmentsDatabase extends BaseDatabase {
 
     return this.getOne(query, [id]);
   }
+
+  // ============================================================================
+  // 🦷💀 ODONTOGRAM 3D V3 METHODS - QUANTUM DENTAL VISUALIZATION
+  // ============================================================================
+
+  /**
+   * Get or create odontogram data for patient (stored as JSON in medical_records)
+   */
+  async getOdontogramData(patientId: string): Promise<any> {
+    const query = `
+      SELECT id, clinical_notes, created_at, updated_at
+      FROM medical_records
+      WHERE patient_id = $1 AND procedure_category = 'ODONTOGRAM_DATA'
+        AND is_active = true AND deleted_at IS NULL
+      ORDER BY created_at DESC LIMIT 1
+    `;
+    const result = await this.pool.query(query, [patientId]);
+
+    if (result.rows.length > 0) {
+      const row = result.rows[0];
+      let teeth = [];
+      try {
+        teeth = row.clinical_notes ? JSON.parse(row.clinical_notes) : [];
+      } catch (e) {
+        console.warn('⚠️ Failed to parse odontogram, creating new');
+        teeth = [];
+      }
+      if (teeth.length === 0) {
+        teeth = this.createDefaultTeeth();
+      }
+      return {
+        id: row.id,
+        patientId,
+        teeth,
+        lastUpdated: row.updated_at,
+        createdAt: row.created_at,
+      };
+    }
+
+    // Create new odontogram
+    const teeth = this.createDefaultTeeth();
+    const insertQuery = `
+      INSERT INTO medical_records (
+        id, patient_id, created_by, procedure_category, diagnosis,
+        treatment_status, visit_date, clinical_notes, is_active,
+        created_at, updated_at
+      ) VALUES (
+        gen_random_uuid(), $1, 'system', 'ODONTOGRAM_DATA',
+        'Odontograma Digital 3D', 'active', CURRENT_TIMESTAMP, $2,
+        true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      ) RETURNING id, created_at, updated_at
+    `;
+    const insertResult = await this.pool.query(insertQuery, [
+      patientId,
+      JSON.stringify(teeth),
+    ]);
+
+    return {
+      id: insertResult.rows[0].id,
+      patientId,
+      teeth,
+      lastUpdated: insertResult.rows[0].updated_at,
+      createdAt: insertResult.rows[0].created_at,
+    };
+  }
+
+  /**
+   * Update specific tooth status in odontogram
+   */
+  async updateToothStatus(
+    patientId: string,
+    toothNumber: number,
+    status: string,
+    condition: string | null,
+    notes: string | null
+  ): Promise<any> {
+    const odontogram = await this.getOdontogramData(patientId);
+    const teeth = odontogram.teeth.map((tooth: any) => {
+      if (tooth.toothNumber === toothNumber) {
+        return {
+          ...tooth,
+          status,
+          condition: condition || tooth.condition,
+          notes: notes || tooth.notes,
+          lastTreatmentDate: new Date().toISOString(),
+          color: this.getToothColor(status),
+        };
+      }
+      return tooth;
+    });
+
+    const query = `
+      UPDATE medical_records
+      SET clinical_notes = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+    `;
+    await this.pool.query(query, [JSON.stringify(teeth), odontogram.id]);
+
+    return teeth.find((t: any) => t.toothNumber === toothNumber);
+  }
+
+  /**
+   * Create 32 default healthy teeth
+   */
+  private createDefaultTeeth(): any[] {
+    const teeth = [];
+    for (let i = 1; i <= 32; i++) {
+      teeth.push({
+        id: `tooth-${i}`,
+        toothNumber: i,
+        status: 'HEALTHY',
+        condition: null,
+        surfaces: [],
+        notes: null,
+        lastTreatmentDate: null,
+        color: '#10B981',
+        position: this.calculateToothPosition(i),
+      });
+    }
+    return teeth;
+  }
+
+  /**
+   * Calculate 3D position for tooth (simplified grid)
+   */
+  private calculateToothPosition(toothNumber: number): { x: number; y: number; z: number } {
+    const isUpper = toothNumber <= 16;
+    const posInJaw = isUpper ? toothNumber : toothNumber - 16;
+    const isLeft = posInJaw <= 8;
+    const posInSide = isLeft ? posInJaw : 17 - posInJaw;
+    return {
+      x: (posInSide - 4.5) * 0.8,
+      y: isUpper ? 0.5 : -0.5,
+      z: 0,
+    };
+  }
+
+  /**
+   * Get color for tooth status (matches frontend CYBERPUNK_COLORS)
+   */
+  private getToothColor(status: string): string {
+    const colors: Record<string, string> = {
+      HEALTHY: '#10B981',
+      CAVITY: '#EF4444',
+      FILLING: '#3B82F6',
+      CROWN: '#8B5CF6',
+      EXTRACTED: '#6B7280',
+      IMPLANT: '#00FFFF',
+      ROOT_CANAL: '#EC4899',
+      CHIPPED: '#F59E0B',
+      CRACKED: '#F59E0B',
+      MISSING: '#1F2937',
+    };
+    return colors[status] || '#10B981';
+  }
 }

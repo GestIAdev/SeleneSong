@@ -25,6 +25,13 @@ import {
   TreatmentV3,
 } from "./resolvers/index.js";
 import {
+  ToothDataV3,
+  ToothSurfaceV3,
+  odontogramQueryResolvers,
+  odontogramMutationResolvers,
+  odontogramSubscriptionResolvers,
+} from "../Treatments/odontogramResolvers.js";
+import {
   medicalRecords,
   medicalRecord,
 } from "./resolvers/Query/medicalRecord.js";
@@ -79,6 +86,7 @@ const TreatmentQuery = {
   treatmentsV3,
   treatmentV3,
   treatmentRecommendationsV3,
+  ...odontogramQueryResolvers, // 🦷💀 Odontogram 3D V3
 };
 
 const TreatmentMutation = {
@@ -86,11 +94,13 @@ const TreatmentMutation = {
   updateTreatmentV3,
   deleteTreatmentV3,
   generateTreatmentPlanV3,
+  ...odontogramMutationResolvers, // 🦷💀 Odontogram 3D V3
 };
 
 const TreatmentSubscription = {
   treatmentV3Created,
   treatmentV3Updated,
+  ...odontogramSubscriptionResolvers, // 🦷💀 Odontogram 3D V3
 };
 
 export const Query = {
@@ -138,6 +148,8 @@ export const resolvers = {
   Appointment, // V169 Schema Bridge resolver
   AppointmentV3,
   TreatmentV3,
+  ToothDataV3, // 🦷💀 Odontogram 3D V3
+  ToothSurfaceV3, // 🦷💀 Odontogram 3D V3
   MedicalRecord, // V169 Schema Bridge resolver
   MedicalRecordV3,
   DocumentV3,

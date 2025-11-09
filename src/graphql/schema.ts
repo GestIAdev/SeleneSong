@@ -704,6 +704,71 @@ export const typeDefs = `#graphql
     recommendedDate: String!
   }
 
+  # 🦷💀 ODONTOGRAM 3D V3 - QUANTUM DENTAL VISUALIZATION
+  type OdontogramDataV3 {
+    id: ID!
+    patientId: ID!
+    patient: Patient
+    teeth: [ToothDataV3!]!
+    lastUpdated: String!
+    createdAt: String!
+  }
+
+  type ToothDataV3 {
+    id: ID!
+    toothNumber: Int! @veritas(level: HIGH)
+    toothNumber_veritas: VeritasMetadata
+    status: ToothStatus! @veritas(level: HIGH)
+    status_veritas: VeritasMetadata
+    condition: String @veritas(level: MEDIUM)
+    condition_veritas: VeritasMetadata
+    surfaces: [ToothSurfaceV3!]
+    notes: String
+    lastTreatmentDate: String
+    color: String
+    position: ToothPositionV3
+  }
+
+  type ToothSurfaceV3 {
+    surface: String!
+    status: String! @veritas(level: MEDIUM)
+    status_veritas: VeritasMetadata
+    notes: String
+  }
+
+  type ToothPositionV3 {
+    x: Float!
+    y: Float!
+    z: Float!
+  }
+
+  enum ToothStatus {
+    HEALTHY
+    CAVITY
+    FILLING
+    CROWN
+    EXTRACTED
+    IMPLANT
+    ROOT_CANAL
+    CHIPPED
+    CRACKED
+    MISSING
+  }
+
+  input UpdateToothStatusV3Input {
+    toothNumber: Int!
+    status: ToothStatus!
+    condition: String
+    notes: String
+    surfaces: [ToothSurfaceInput!]
+  }
+
+  input ToothSurfaceInput {
+    surface: String!
+    status: String!
+    notes: String
+  }
+
   # 🏥 CLINIC RESOURCE V3 - VERITAS ENHANCED (Nueva Era)
   type ClinicResourceV3 {
     # Treatment Rooms
@@ -1035,6 +1100,9 @@ export const typeDefs = `#graphql
     treatmentV3(id: ID!): TreatmentV3
     treatmentRecommendationsV3(patientId: ID!): [TreatmentRecommendationV3!]!
     
+    # Odontogram 3D V3 - Quantum Dental Visualization
+    odontogramDataV3(patientId: ID!): OdontogramDataV3
+    
     # Users
     users(limit: Int, offset: Int): [User!]!
     user(id: ID!): User
@@ -1122,6 +1190,9 @@ export const typeDefs = `#graphql
     deleteTreatmentV3(id: ID!): DeleteResult!
     generateTreatmentPlanV3(patientId: ID!, conditions: [String!]!): [TreatmentRecommendationV3!]!
     
+    # Odontogram 3D V3 - Quantum Dental Visualization
+    updateToothStatusV3(patientId: ID!, input: UpdateToothStatusV3Input!): ToothDataV3!
+    
     # Clinic Resources V3 - Veritas Enhanced
     createTreatmentRoomV3(input: TreatmentRoomInputV3!): TreatmentRoomV3!
     updateTreatmentRoomV3(id: ID!, input: UpdateTreatmentRoomInputV3!): TreatmentRoomV3!
@@ -1160,6 +1231,9 @@ export const typeDefs = `#graphql
     medicalRecordV3Updated: MedicalRecordV3!
     medicalRecordV3Deleted: MedicalRecordV3!
     treatmentCreated: Treatment!
+    
+    # Odontogram 3D V3 - Real-time Updates
+    odontogramUpdatedV3(patientId: ID!): OdontogramDataV3!
     
     # Documents V3 - Veritas Critical Protection
     documentV3Created: DocumentV3!
