@@ -182,20 +182,20 @@ export class SeleneDatabase {
   private initializeSpecializedDatabases(): void {
     console.log("🏗️ Initializing specialized database classes...");
 
-    // Create instances of all specialized databases
-    this.appointments = new AppointmentsDatabase(this.pool);
-    this.patients = new PatientsDatabase(this.pool);
-    this.medicalRecords = new MedicalRecordsDatabase(this.pool);
-    this.treatments = new TreatmentsDatabase(this.pool);
-    this.documents = new DocumentsDatabase(this.pool);
-    this.billing = new BillingDatabase(this.pool);
-    this.inventory = new InventoryDatabase(this.pool);
-    this.compliance = new ComplianceDatabase(this.pool);
-    this.marketplace = new MarketplaceDatabase(this.pool);
-    this.subscriptions = new SubscriptionsDatabase(this.pool);
-    this.customCalendar = new CustomCalendarDatabase(this.pool);
+    // Create instances of all specialized databases - NOW WITH REDIS! 🔥
+    this.appointments = new AppointmentsDatabase(this.pool, this.redis);
+    this.patients = new PatientsDatabase(this.pool, this.redis);
+    this.medicalRecords = new MedicalRecordsDatabase(this.pool, this.redis);
+    this.treatments = new TreatmentsDatabase(this.pool, this.redis);
+    this.documents = new DocumentsDatabase(this.pool, this.redis);
+    this.billing = new BillingDatabase(this.pool, this.redis);
+    this.inventory = new InventoryDatabase(this.pool, this.redis);
+    this.compliance = new ComplianceDatabase(this.pool, this.redis);
+    this.marketplace = new MarketplaceDatabase(this.pool, this.redis);
+    this.subscriptions = new SubscriptionsDatabase(this.pool, this.redis);
+    this.customCalendar = new CustomCalendarDatabase(this.pool, this.redis);
 
-    console.log("✅ All specialized database classes initialized");
+    console.log("✅ All specialized database classes initialized WITH REDIS");
   }
 
   /**

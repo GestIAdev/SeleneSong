@@ -1,9 +1,10 @@
 import { BaseDatabase } from './BaseDatabase.js';
 import { Pool } from 'pg';
+import { RedisClientType } from 'redis';
 
 export class TreatmentsDatabase extends BaseDatabase {
-  constructor(pool: Pool) {
-    super(pool);
+  constructor(pool: Pool, redis?: RedisClientType, redisConnectionId?: string) {
+    super(pool, redis, redisConnectionId);
   }
   /**
    * 🩺 GET TREATMENTS - GraphQL Migration v1.0

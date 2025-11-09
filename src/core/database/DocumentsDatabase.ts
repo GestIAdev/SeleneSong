@@ -1,9 +1,10 @@
 import { BaseDatabase } from './BaseDatabase.js';
 import { Pool } from 'pg';
+import { RedisClientType } from 'redis';
 
 export class DocumentsDatabase extends BaseDatabase {
-  constructor(pool: Pool) {
-    super(pool);
+  constructor(pool: Pool, redis?: RedisClientType, redisConnectionId?: string) {
+    super(pool, redis, redisConnectionId);
   }
 
   /**
