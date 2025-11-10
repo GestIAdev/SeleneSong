@@ -15,12 +15,88 @@ export const createInventoryV3 = async (
   args: { input: any },
   context: GraphQLContext
 ): Promise<any> => {
-  try {
-    const inventory = await context.database.createInventoryV3(args.input);
+  const { input } = args;
+  const { database, verificationEngine, auditLogger, user, ip } = context;
+  const startTime = Date.now();
+  let verificationFailed = false;
 
-    console.log(`✅ createInventoryV3 mutation created: ${inventory.name}`);
-    return inventory;
+  try {
+    // --------------------------------------------------------------------------
+    // 🔥 PUERTA 1: VERIFICACIÓN (El Guardián - VerificationEngine)
+    // --------------------------------------------------------------------------
+    // Verificar el input contra las reglas de 'integrity_checks'
+    const verification = await verificationEngine.verifyBatch(
+      'InventoryV3',
+      input
+    );
+
+    if (!verification.valid) {
+      // Si la verificación falla, registramos la violación y paramos
+      await auditLogger.logIntegrityViolation(
+        'InventoryV3',
+        'N/A (CREATE)',
+        verification.criticalFields[0] || 'batch',
+        input,
+        verification.errors[0] || verification.errors.join(', '),
+        (verification.severity || 'CRITICAL') as 'WARNING' | 'ERROR' | 'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+      verificationFailed = true;
+      throw new Error(`Error de validación: ${verification.errors.join(', ')}`);
+    }
+
+    // --------------------------------------------------------------------------
+    // 🎯 PUERTA 2: LÓGICA DE NEGOCIO (El Arquitecto)
+    // --------------------------------------------------------------------------
+    // Para CREATE de inventario, la Puerta 1 es suficiente
+    // La mayoría de validaciones de negocio están en integrity_checks
+
+    // --------------------------------------------------------------------------
+    // 💾 PUERTA 3: TRANSACCIÓN DB (El Ejecutor)
+    // --------------------------------------------------------------------------
+    const newRecord = await database.inventory.createInventoryV3(input);
+
+    // --------------------------------------------------------------------------
+    // 📝 PUERTA 4: AUDITORÍA (El Cronista - AuditLogger)
+    // --------------------------------------------------------------------------
+    const duration = Date.now() - startTime;
+    
+    await auditLogger.logCreate(
+      'InventoryV3',
+      newRecord.id,
+      newRecord,
+      user?.id,
+      user?.email,
+      ip
+    );
+
+    // (Opcional: Publicar evento de WebSocket si tienes PubSub configurado)
+    if (context.pubsub) {
+      context.pubsub.publish('INVENTORY_CREATED', {
+        inventoryCreated: newRecord
+      });
+    }
+
+    console.log(`✅ createInventoryV3 mutation created: ${newRecord.name} (${duration}ms)`);
+    return newRecord;
   } catch (error) {
+    // Registrar error como violación de integridad (solo si no fue registrado en GATE 1)
+    if (auditLogger && !verificationFailed) {
+      await auditLogger.logIntegrityViolation(
+        'InventoryV3',
+        'N/A (CREATE)',
+        'unknown',
+        input,
+        (error as Error).message,
+        'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+    }
+
     console.error("❌ createInventoryV3 mutation error:", error as Error);
     throw error;
   }
@@ -146,12 +222,72 @@ export const deleteInventoryV3 = async (
   args: { id: string },
   context: GraphQLContext
 ): Promise<boolean> => {
-  try {
-    await context.database.deleteInventoryV3(args.id);
+  const { id } = args;
+  const { database, auditLogger, user, ip } = context;
+  const startTime = Date.now();
 
-    console.log(`✅ deleteInventoryV3 mutation deleted ID: ${args.id}`);
+  try {
+    // --------------------------------------------------------------------------
+    // 🔥 PUERTA 1: VERIFICACIÓN (El Guardián)
+    // --------------------------------------------------------------------------
+    // Obtener el registro actual ANTES de eliminarlo (para auditoría)
+    const oldRecord = await database.inventory.getInventoryV3ById(id);
+    if (!oldRecord) {
+      throw new Error(`Registro de inventario no encontrado: ${id}`);
+    }
+
+    // --------------------------------------------------------------------------
+    // 🎯 PUERTA 2: LÓGICA DE NEGOCIO (El Arquitecto)
+    // --------------------------------------------------------------------------
+    // Validaciones de negocio para DELETE:
+    // - No eliminar si hay órdenes de compra pendientes
+    // - No eliminar si hay transacciones recientes de stock
+    // Por ahora mantenemos simple, se puede expandir
+
+    // --------------------------------------------------------------------------
+    // 💾 PUERTA 3: TRANSACCIÓN DB (El Ejecutor)
+    // --------------------------------------------------------------------------
+    await database.inventory.deleteInventoryV3(id);
+
+    // --------------------------------------------------------------------------
+    // 📝 PUERTA 4: AUDITORÍA (El Cronista - AuditLogger)
+    // --------------------------------------------------------------------------
+    const duration = Date.now() - startTime;
+    
+    await auditLogger.logDelete(
+      'InventoryV3',
+      id,
+      oldRecord,
+      user?.id,
+      user?.email,
+      ip
+    );
+
+    // (Opcional: Publicar evento de WebSocket si tienes PubSub configurado)
+    if (context.pubsub) {
+      context.pubsub.publish('INVENTORY_DELETED', {
+        inventoryDeleted: { id, name: oldRecord.name }
+      });
+    }
+
+    console.log(`✅ deleteInventoryV3 mutation deleted ID: ${id} (${duration}ms)`);
     return true;
   } catch (error) {
+    // Registrar error como violación de integridad
+    if (auditLogger) {
+      await auditLogger.logIntegrityViolation(
+        'InventoryV3',
+        id,
+        'unknown',
+        { id },
+        (error as Error).message,
+        'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+    }
+
     console.error("❌ deleteInventoryV3 mutation error:", error as Error);
     throw error;
   }
