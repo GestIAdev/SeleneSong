@@ -1,72 +1,18 @@
 import { GraphQLContext } from "../graphql/types.js";
 
-export const DocumentV3 = {
-  id: async (_p: any) => _p.id,
-  
-  // 🏥 MEDICAL DOMAIN fields
-  patientId: async (_p: any) => _p.patientId,
-  appointmentId: async (_p: any) => _p.appointmentId,          // ✅ NEW
-  medicalRecordId: async (_p: any) => _p.medicalRecordId,      // ✅ NEW
-  
-  // 💰 ADMINISTRATIVE DOMAIN fields
-  treatmentId: async (_p: any) => _p.treatmentId,              // ✅ NEW
-  purchaseOrderId: async (_p: any) => _p.purchaseOrderId,      // ✅ NEW
-  subscriptionId: async (_p: any) => _p.subscriptionId,        // ✅ NEW
-  
-  // Core document fields
-  uploaderId: async (_p: any) => _p.uploaderId,
-  fileSize: async (_p: any) => _p.fileSize,
-  mimeType: async (_p: any) => _p.mimeType,
-  documentType: async (_p: any) => _p.documentType,
-  category: async (_p: any) => _p.category,
-  tags: async (_p: any) => _p.tags || [],
-  description: async (_p: any) => _p.description,
-  isEncrypted: async (_p: any) => _p.isEncrypted,
-  encryptionKey: async (_p: any) => _p.encryptionKey,
-  accessLevel: async (_p: any) => _p.accessLevel,
-  expiresAt: async (_p: any) => _p.expiresAt,
-  downloadCount: async (_p: any) => _p.downloadCount,
-  lastAccessedAt: async (_p: any) => _p.lastAccessedAt,
-  createdAt: async (_p: any) => _p.createdAt,
-  updatedAt: async (_p: any) => _p.updatedAt,
-  _veritas: async (p: any, _: any, _ctx: GraphQLContext) => {
-    const verify = async (v: any, _name: string) => {
-      if (!v)
-        return {
-          verified: false,
-          confidence: 0,
-          level: "CRITICAL",
-          certificate: null,
-          error: "Field is null/undefined",
-          verifiedAt: new Date().toISOString(),
-          algorithm: "CRITICAL_VERIFICATION_V3",
-        };
-      const r = await _ctx.veritas.verifyDataIntegrity(
-        typeof v === "string" ? v : JSON.stringify(v),
-        "document",
-        p.id,
-      );
-      return {
-        verified: r.verified,
-        confidence: r.confidence,
-        level: "CRITICAL",
-        certificate: r.certificate?.dataHash,
-        error: null,
-        verifiedAt: new Date().toISOString(),
-        algorithm: "CRITICAL_VERIFICATION_V3",
-      };
-    };
-    const [fileName, filePath, fileHash, uploaderId, patientId] =
-      await Promise.all([
-        verify(p.fileName, "fileName"),
-        verify(p.filePath, "filePath"),
-        verify(p.fileHash, "fileHash"),
-        verify(p.uploaderId, "uploaderId"),
-        verify(p.patientId, "patientId"),
-      ]);
-    return { fileName, filePath, fileHash, uploaderId, patientId };
-  },
-};
+/**
+ * ⚠️ DEPRECATED FIELD RESOLVER
+ *
+ * La Fuente Única de Verdad (SSoT) para field resolvers está en:
+ * /graphql/resolvers/FieldResolvers/document.ts
+ *
+ * Este archivo SOLO mantiene las QUERIES/MUTATIONS/SUBSCRIPTIONS de negocio.
+ * Los field resolvers (DocumentV3, etc.) se importan desde SSoT.
+ *
+ * PHASE 2 PURGA: Eliminada definición duplicada de DocumentV3
+ */
+
+// NOTE: DocumentV3 field resolver MOVED to /graphql/resolvers/FieldResolvers/document.ts
 
 export const DocumentQuery = {
   documentsV3: async (

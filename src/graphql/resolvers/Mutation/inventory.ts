@@ -34,6 +34,7 @@ export const updateInventoryV3 = async (
   const { id, input } = args;
   const { database, verificationEngine, auditLogger, user, ip } = context;
   const startTime = Date.now();
+  let verificationFailed = false;
 
   try {
     // --------------------------------------------------------------------------
@@ -58,12 +59,13 @@ export const updateInventoryV3 = async (
         id,
         verification.criticalFields[0] || 'batch',
         input,
-        verification.errors.join(', '),
-        verification.overallSeverity as 'WARNING' | 'ERROR' | 'CRITICAL',
+        verification.errors[0] || verification.errors.join(', '),
+        (verification.severity || 'CRITICAL') as 'WARNING' | 'ERROR' | 'CRITICAL',
         user?.id,
         user?.email,
         ip
       );
+      verificationFailed = true;
       throw new Error(`Error de validación: ${verification.errors.join(', ')}`);
     }
 
@@ -119,8 +121,8 @@ export const updateInventoryV3 = async (
     console.log(`✅ updateInventoryV3 mutation updated: ${updatedRecord.name} (${duration}ms)`);
     return updatedRecord;
   } catch (error) {
-    // Registrar error como violación de integridad
-    if (auditLogger) {
+    // Registrar error como violación de integridad (solo si no fue registrado en GATE 1)
+    if (auditLogger && !verificationFailed) {
       await auditLogger.logIntegrityViolation(
         'InventoryV3',
         id,

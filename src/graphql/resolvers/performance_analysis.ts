@@ -210,24 +210,26 @@ async function runPerformanceTests() {
   };
 
   // Medical Record V3 Field Resolver (_veritas - CRITICAL)
-  monitor.start("MedicalRecordV3._veritas Field Resolver");
-  await AllResolvers.MedicalRecordV3._veritas(
-    testRecord,
-    {},
-    context,
-    mockInfo,
-  );
-  monitor.end("MedicalRecordV3._veritas Field Resolver");
+  // REMOVED: _veritas field resolvers eliminated from schema
+  // monitor.start("MedicalRecordV3._veritas Field Resolver");
+  // await AllResolvers.MedicalRecordV3._veritas(
+  //   testRecord,
+  //   {},
+  //   context,
+  //   mockInfo,
+  // );
+  // monitor.end("MedicalRecordV3._veritas Field Resolver");
 
   // Document V3 Field Resolver (_veritas - HIGH)
-  monitor.start("DocumentV3._veritas Field Resolver");
-  await AllResolvers.DocumentV3._veritas(
-    { id: "doc-1", patientId: "pat-1" },
-    {},
-    context,
-    mockInfo,
-  );
-  monitor.end("DocumentV3._veritas Field Resolver");
+  // REMOVED: _veritas field resolvers eliminated from schema
+  // monitor.start("DocumentV3._veritas Field Resolver");
+  // await AllResolvers.DocumentV3._veritas(
+  //   { id: "doc-1", patientId: "pat-1" },
+  //   {},
+  //   context,
+  //   mockInfo,
+  // );
+  // monitor.end("DocumentV3._veritas Field Resolver");
 
   // Test 4: Bulk Operations Performance
   console.log("\n📊 Testing Bulk Operations Performance");
@@ -273,18 +275,18 @@ async function runPerformanceTests() {
   }));
 
   // Process large dataset through resolvers
-  for (const record of largeDataset.slice(0, 100)) {
-    await AllResolvers.MedicalRecordV3._veritas(
-      {
-        ...record,
-        diagnosis: "Memory test",
-        treatmentPlan: "Memory test plan",
-      },
-      {},
-      context,
-      mockInfo,
-    );
-  }
+  // for (const record of largeDataset.slice(0, 100)) {
+  //   await AllResolvers.MedicalRecordV3._veritas(
+  //     {
+  //       ...record,
+  //       diagnosis: "Memory test",
+  //       treatmentPlan: "Memory test plan",
+  //     },
+  //     {},
+  //     context,
+  //     mockInfo,
+  //   );
+  // }
 
   monitor.end("Memory Intensive Operation");
   const finalMemory = process.memoryUsage();

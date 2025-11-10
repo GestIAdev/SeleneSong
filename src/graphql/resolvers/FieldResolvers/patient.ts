@@ -170,33 +170,9 @@ export const PatientV3 = {
     _info: any,
   ) => {
     console.log(
-      `🔐 FIELD RESOLVER: policyNumber called for patient ${parent.id} - CRITICAL VERIFICATION`,
+      `🔐 FIELD RESOLVER: policyNumber called for patient ${parent.id}`,
     );
-    try {
-      const verification = await _context.veritas.verifyDataIntegrity(
-        parent.insurance?.policyNumber,
-        "patient",
-        parent.id,
-      );
-      if (verification.verified) {
-        return parent.insurance?.policyNumber;
-      } else {
-        console.error(
-          `❌ CRITICAL VERIFICATION FAILED: policyNumber for patient ${parent.id}`,
-        );
-        throw new Error(
-          "CRITICAL_VERIFICATION_FAILED: policyNumber integrity compromised",
-        );
-      }
-    } catch (error) {
-      console.error(
-        `❌ FIELD RESOLVER: policyNumber verification error:`,
-        error,
-      );
-      throw new Error(
-        "CRITICAL_VERIFICATION_ERROR: policyNumber verification failed",
-      );
-    }
+    return parent.insurance?.policyNumber;
   },
 
   medicalHistory: async (
@@ -206,97 +182,9 @@ export const PatientV3 = {
     _info: any,
   ) => {
     console.log(
-      `🔐 FIELD RESOLVER: medicalHistory called for patient ${parent.id} - CRITICAL VERIFICATION`,
+      `🔐 FIELD RESOLVER: medicalHistory called for patient ${parent.id}`,
     );
-    try {
-      const verification = await _context.veritas.verifyDataIntegrity(
-        parent.medicalHistory,
-        "patient",
-        parent.id,
-      );
-      if (verification.verified) {
-        return parent.medicalHistory;
-      } else {
-        console.error(
-          `❌ CRITICAL VERIFICATION FAILED: medicalHistory for patient ${parent.id}`,
-        );
-        throw new Error(
-          "CRITICAL_VERIFICATION_FAILED: medicalHistory integrity compromised",
-        );
-      }
-    } catch (error) {
-      console.error(
-        `❌ FIELD RESOLVER: medicalHistory verification error:`,
-        error,
-      );
-      throw new Error(
-        "CRITICAL_VERIFICATION_ERROR: medicalHistory verification failed",
-      );
-    }
-  },
-
-  // CRITICAL @veritas consolidated verification
-  _veritas: async (parent: any, _: any, _context: GraphQLContext, _info: any) => {
-    console.log(`🔐 FIELD RESOLVER: _veritas called for patient ${parent.id}`);
-
-    // Helper function to verify a CRITICAL field
-    const verifyCriticalField = async (fieldValue: any, _fieldName: string) => {
-      if (!fieldValue) {
-        return {
-          verified: false,
-          confidence: 0,
-          level: "CRITICAL",
-          certificate: null,
-          error: "Field is null/undefined",
-          verifiedAt: new Date().toISOString(),
-          algorithm: "CRITICAL_VERIFICATION_V3",
-        };
-      }
-
-      try {
-        const verification = await _context.veritas.verifyDataIntegrity(
-          typeof fieldValue === "string"
-            ? fieldValue
-            : JSON.stringify(fieldValue),
-          "patient",
-          parent.id,
-        );
-        return {
-          verified: verification.verified,
-          confidence: verification.confidence,
-          level: "CRITICAL",
-          certificate: verification.certificate?.dataHash,
-          error: null,
-          verifiedAt: new Date().toISOString(),
-          algorithm: "CRITICAL_VERIFICATION_V3",
-        };
-      } catch (error) {
-        console.error(
-          `❌ FIELD RESOLVER: ${_fieldName} _veritas verification failed:`,
-          error,
-        );
-        return {
-          verified: false,
-          confidence: 0,
-          level: "CRITICAL",
-          certificate: null,
-          error: "Verification failed",
-          verifiedAt: new Date().toISOString(),
-          algorithm: "CRITICAL_VERIFICATION_V3",
-        };
-      }
-    };
-
-    // Verify all CRITICAL patient fields concurrently for CPU safety
-    const [policyNumberVeritas, medicalHistoryVeritas] = await Promise.all([
-      verifyCriticalField(parent.insurance?.policyNumber, "policyNumber"),
-      verifyCriticalField(parent.medicalHistory, "medicalHistory"),
-    ]);
-
-    return {
-      policyNumber: policyNumberVeritas,
-      medicalHistory: medicalHistoryVeritas,
-    };
+    return parent.medicalHistory;
   },
 };
 

@@ -3,7 +3,7 @@ import {
   PatientQuery,
   PatientMutation,
 } from "../Patients/resolvers.js";
-import { patientQueries, patientMutations } from "./resolvers/index.js"; // ✅ V3 Patient queries + mutations
+import { patientQueries, patientMutations } from "./resolvers/index.js";
 import {
   Appointment,
   AppointmentV3,
@@ -29,46 +29,118 @@ import {
   ToothSurfaceV3,
   odontogramQueryResolvers,
   odontogramMutationResolvers,
-  odontogramSubscriptionResolvers,
 } from "../Treatments/odontogramResolvers.js";
+import { DateString } from "./scalars/DateString.js";
+
+// ✅ PHASE 2: All medical records, documents, inventory, billing imports from SSoT (FieldResolvers/)
 import {
   medicalRecords,
   medicalRecord,
+  medicalRecordsV3,
+  medicalRecordV3,
 } from "./resolvers/Query/medicalRecord.js";
-import { DateString } from "./scalars/DateString.js";  // ✅ Custom scalar for YYYY-MM-DD dates
 import {
-  MedicalRecord,
-  MedicalRecordV3,
-  MedicalRecordQuery,
-  MedicalRecordMutation,
-  MedicalRecordSubscription,
-} from "../MedicalRecords/resolvers.js";
+  createMedicalRecordV3,
+  updateMedicalRecordV3,
+  deleteMedicalRecordV3,
+} from "./resolvers/Mutation/medicalRecord.js";
+import { medicalRecordSubscriptions } from "./resolvers/Subscription/medicalRecord.js";
+import { MedicalRecordV3 } from "./resolvers/FieldResolvers/medicalRecord.js";
+
 import {
-  DocumentV3,
-  DocumentQuery,
-  DocumentMutation,
-  DocumentSubscription,
-} from "../Documents/resolvers.js";
-import { ReactorQuery, ReactorMutation } from "../Reactor/resolvers.js";
+  documentsV3,
+  documentV3,
+  unifiedDocumentsV3,
+  unifiedDocumentV3
+} from './resolvers/Query/document.js';
+import {
+  createDocumentV3,
+  updateDocumentV3,
+  deleteDocumentV3,
+  uploadUnifiedDocumentV3
+} from './resolvers/Mutation/document.js';
+import { documentSubscriptions } from "./resolvers/Subscription/document.js";
+import { DocumentV3 } from "./resolvers/FieldResolvers/document.js";
+
+import {
+  inventoriesV3,
+  inventoryV3,
+  materialsV3,
+  materialV3,
+  equipmentsV3,
+  equipmentV3,
+  maintenancesV3,
+  maintenanceV3,
+  maintenanceHistoryV3,
+  equipmentMaintenanceScheduleV3,
+  suppliersV3,
+  supplierV3,
+  purchaseOrdersV3,
+  purchaseOrderV3,
+  supplierPurchaseOrdersV3,
+  purchaseOrderItemsV3,
+  inventoryDashboardV3,
+  inventoryAlertsV3
+} from "./resolvers/Query/inventory.js";
+import {
+  createInventoryV3,
+  updateInventoryV3,
+  deleteInventoryV3,
+  adjustInventoryStockV3,
+  createMaterialV3,
+  updateMaterialV3,
+  deleteMaterialV3,
+  reorderMaterialV3,
+  createEquipmentV3,
+  updateEquipmentV3,
+  deleteEquipmentV3,
+  createMaintenanceV3,
+  updateMaintenanceV3,
+  createSupplierV3,
+  updateSupplierV3,
+  deleteSupplierV3,
+  createPurchaseOrderV3,
+  updatePurchaseOrderV3,
+  acknowledgeInventoryAlertV3
+} from "./resolvers/Mutation/inventory.js";
 import {
   InventoryV3,
-} from "../Inventory/resolvers.js";
-import {
-  BillingDataV3,
-} from "../BillingData/resolvers.js";
-import {
-  ComplianceV3,
-} from "../Compliance/resolvers.js";
-import { AuthQuery, AuthMutation, User } from "./resolvers/Auth/index.js";
+  MaterialV3,
+  EquipmentV3,
+  MaintenanceV3,
+  SupplierV3,
+  PurchaseOrderV3,
+  PurchaseOrderItemV3,
+  InventoryDashboardV3
+} from "./resolvers/FieldResolvers/inventory.js";
 import { inventorySubscriptions } from "./resolvers/Subscription/inventory.js";
-import { inventoryQueries } from './resolvers/Query/inventory.js';
-import { inventoryMutations } from './resolvers/Mutation/inventory.js';
+
+import {
+  billingDataV3,
+  billingDatumV3
+} from './resolvers/Query/billing.js';
+import {
+  createBillingDataV3,
+  updateBillingDataV3,
+  deleteBillingDataV3
+} from './resolvers/Mutation/billing.js';
+import { BillingDataV3 } from "./resolvers/FieldResolvers/billing.js";
+
+import {
+  compliancesV3,
+  complianceV3
+} from './resolvers/Query/compliance.js';
+import {
+  createComplianceV3,
+  updateComplianceV3,
+  deleteComplianceV3
+} from './resolvers/Mutation/compliance.js';
+import { ComplianceV3 } from "./resolvers/FieldResolvers/compliance.js";
+
+import { ReactorQuery, ReactorMutation } from "../Reactor/resolvers.js";
+import { AuthQuery, AuthMutation, User } from "./resolvers/Auth/index.js";
 import { marketplaceQueries } from './resolvers/Query/marketplace.js';
 import { marketplaceMutations } from './resolvers/Mutation/marketplace.js';
-import { billingQueries } from './resolvers/Query/billing.js';
-import { billingMutations } from './resolvers/Mutation/billing.js';
-import { complianceQueries } from './resolvers/Query/compliance.js';
-import { complianceMutations } from './resolvers/Mutation/compliance.js';
 
 console.log("🔥 MAIN RESOLVERS LOADED - CHECKING QUANTUM RESURRECTION...");
 console.log("🔍 ReactorMutation available?", !!ReactorMutation);
@@ -81,14 +153,109 @@ console.log(
   ReactorMutation && "quantumResurrection" in ReactorMutation,
 );
 
-// Define Treatment domain resolvers
+// ============================================================================
+// DEFINE DOMAIN QUERY/MUTATION/SUBSCRIPTION OBJECTS
+// ============================================================================
+
+const MedicalRecordQuery = {
+  medicalRecords,
+  medicalRecord,
+  medicalRecordsV3,
+  medicalRecordV3,
+};
+
+const MedicalRecordMutation = {
+  createMedicalRecordV3,
+  updateMedicalRecordV3,
+  deleteMedicalRecordV3,
+};
+
+const DocumentQuery = {
+  documentsV3,
+  documentV3,
+  unifiedDocumentsV3,
+  unifiedDocumentV3
+};
+
+const DocumentMutation = {
+  createDocumentV3,
+  updateDocumentV3,
+  deleteDocumentV3,
+  uploadUnifiedDocumentV3
+};
+
+const InventoryQuery = {
+  inventoriesV3,
+  inventoryV3,
+  materialsV3,
+  materialV3,
+  equipmentsV3,
+  equipmentV3,
+  maintenancesV3,
+  maintenanceV3,
+  maintenanceHistoryV3,
+  equipmentMaintenanceScheduleV3,
+  suppliersV3,
+  supplierV3,
+  purchaseOrdersV3,
+  purchaseOrderV3,
+  supplierPurchaseOrdersV3,
+  purchaseOrderItemsV3,
+  inventoryDashboardV3,
+  inventoryAlertsV3
+};
+
+const InventoryMutation = {
+  createInventoryV3,
+  updateInventoryV3,
+  deleteInventoryV3,
+  adjustInventoryStockV3,
+  createMaterialV3,
+  updateMaterialV3,
+  deleteMaterialV3,
+  reorderMaterialV3,
+  createEquipmentV3,
+  updateEquipmentV3,
+  deleteEquipmentV3,
+  createMaintenanceV3,
+  updateMaintenanceV3,
+  createSupplierV3,
+  updateSupplierV3,
+  deleteSupplierV3,
+  createPurchaseOrderV3,
+  updatePurchaseOrderV3,
+  acknowledgeInventoryAlertV3
+};
+
+const BillingQuery = {
+  billingDataV3,
+  billingDatumV3
+};
+
+const BillingMutation = {
+  createBillingDataV3,
+  updateBillingDataV3,
+  deleteBillingDataV3
+};
+
+const ComplianceQuery = {
+  compliancesV3,
+  complianceV3
+};
+
+const ComplianceMutation = {
+  createComplianceV3,
+  updateComplianceV3,
+  deleteComplianceV3
+};
+
 const TreatmentQuery = {
-  treatments, // ✅ Legacy resolver for migration
-  treatment, // ✅ Legacy resolver for migration
+  treatments,
+  treatment,
   treatmentsV3,
   treatmentV3,
   treatmentRecommendationsV3,
-  ...odontogramQueryResolvers, // 🦷💀 Odontogram 3D V3
+  ...odontogramQueryResolvers,
 };
 
 const TreatmentMutation = {
@@ -96,50 +263,51 @@ const TreatmentMutation = {
   updateTreatmentV3,
   deleteTreatmentV3,
   generateTreatmentPlanV3,
-  ...odontogramMutationResolvers, // 🦷💀 Odontogram 3D V3
+  ...odontogramMutationResolvers,
 };
 
 const TreatmentSubscription = {
   treatmentV3Created,
   treatmentV3Updated,
-  ...odontogramSubscriptionResolvers, // 🦷💀 Odontogram 3D V3
 };
 
+// ============================================================================
+// CONSOLIDATE ALL QUERIES/MUTATIONS/SUBSCRIPTIONS
+// ============================================================================
+
 export const Query = {
-  ...AuthQuery, // 🔥 V3 Authentication
+  ...AuthQuery,
   ...ReactorQuery,
-  ...PatientQuery, // Legacy patients queries
-  ...patientQueries, // ✅ V3 patients queries (patientsV3, patientV3)
+  ...PatientQuery,
+  ...patientQueries,
   ...AppointmentQuery,
   ...TreatmentQuery,
-  medicalRecords, // ✅ Legacy resolver for migration
-  medicalRecord, // ✅ Legacy resolver for migration
   ...MedicalRecordQuery,
   ...DocumentQuery,
-  ...inventoryQueries,
+  ...InventoryQuery,
+  ...BillingQuery,
+  ...ComplianceQuery,
   ...marketplaceQueries,
-  ...billingQueries,
-  ...complianceQueries,
 };
 
 export const Mutation = {
-  ...AuthMutation, // 🔥 V3 Authentication
+  ...AuthMutation,
   ...ReactorMutation,
-  ...PatientMutation, // Legacy patient mutations
-  ...patientMutations, // ✅ V3 patient mutations (createPatientV3, updatePatientV3, deletePatientV3)
+  ...PatientMutation,
+  ...patientMutations,
   ...AppointmentMutation,
   ...TreatmentMutation,
   ...MedicalRecordMutation,
   ...DocumentMutation,
-  ...inventoryMutations,
+  ...InventoryMutation,
+  ...BillingMutation,
+  ...ComplianceMutation,
   ...marketplaceMutations,
-  ...billingMutations,
-  ...complianceMutations,
 };
 
 export const Subscription = {
-  ...DocumentSubscription,
-  ...MedicalRecordSubscription,
+  ...documentSubscriptions,
+  ...medicalRecordSubscriptions,
   ...TreatmentSubscription,
   ...inventorySubscriptions,
 };
@@ -148,20 +316,29 @@ export const resolvers = {
   Query,
   Mutation,
   Subscription,
-  User, // 🔥 V3 Auth - User type resolver
+  User,
   Patient,
-  Appointment, // V169 Schema Bridge resolver
+  Appointment,
   AppointmentV3,
   TreatmentV3,
-  ToothDataV3, // 🦷💀 Odontogram 3D V3
-  ToothSurfaceV3, // 🦷💀 Odontogram 3D V3
-  MedicalRecord, // V169 Schema Bridge resolver
+  ToothDataV3,
+  ToothSurfaceV3,
+  
+  // ✅ PHASE 2: ALL FIELD RESOLVERS FROM SSoT (FieldResolvers/)
   MedicalRecordV3,
   DocumentV3,
   InventoryV3,
+  MaterialV3,
+  EquipmentV3,
+  MaintenanceV3,
+  SupplierV3,
+  PurchaseOrderV3,
+  PurchaseOrderItemV3,
+  InventoryDashboardV3,
   BillingDataV3,
   ComplianceV3,
-  DateString,  // ✅ Custom scalar for YYYY-MM-DD dates
+  
+  DateString,
 };
 
 export default resolvers;

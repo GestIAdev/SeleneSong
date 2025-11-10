@@ -12,67 +12,8 @@ export const Patient = {
         ? `${parent.firstName} ${parent.lastName}`.trim()
         : "Unknown Patient";
   },
-  policyNumber: async (_parent: any, _: any, _context: GraphQLContext) =>
-    _parent.policyNumber,
-  policyNumber_veritas: async (
-    parent: any,
-    _: any,
-    _context: GraphQLContext,
-  ) => {
-    if (!parent.policyNumber) {
-      return {
-        verified: false,
-        confidence: 0,
-        level: "CRITICAL",
-        certificate: null,
-        error: "Field is null/undefined",
-        verifiedAt: new Date().toISOString(),
-        algorithm: "CRITICAL_VERIFICATION_V3",
-      };
-    }
-    const v = await _context.veritas.verifyDataIntegrity(
-      parent.policyNumber,
-      "patient",
-      parent.id,
-    );
-    return {
-      verified: v.verified,
-      confidence: v.confidence,
-      level: "CRITICAL",
-      certificate: v.certificate?.dataHash,
-      error: null,
-      verifiedAt: new Date().toISOString(),
-      algorithm: "CRITICAL_VERIFICATION_V3",
-    };
-  },
+  policyNumber: async (_parent: any) => _parent.policyNumber,
   medicalHistory: async (_p: any) => _p.medicalHistory,
-  medicalHistory_veritas: async (p: any, _: any, _context: GraphQLContext) => {
-    if (!p.medicalHistory) {
-      return {
-        verified: false,
-        confidence: 0,
-        level: "CRITICAL",
-        certificate: null,
-        error: "Field is null/undefined",
-        verifiedAt: new Date().toISOString(),
-        algorithm: "CRITICAL_VERIFICATION_V3",
-      };
-    }
-    const v = await _context.veritas.verifyDataIntegrity(
-      p.medicalHistory,
-      "patient",
-      p.id,
-    );
-    return {
-      verified: v.verified,
-      confidence: v.confidence,
-      level: "CRITICAL",
-      certificate: v.certificate?.dataHash,
-      error: null,
-      verifiedAt: new Date().toISOString(),
-      algorithm: "CRITICAL_VERIFICATION_V3",
-    };
-  },
 };
 
 export const PatientQuery = {

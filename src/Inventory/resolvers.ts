@@ -1,49 +1,17 @@
 import { GraphQLContext } from "../graphql/types.js";
 
-export const InventoryV3 = {
-  id: async (_p: any) => _p.id,
-  category: async (_p: any) => _p.category,
-  quantity: async (_p: any) => _p.quantity,
-  unitPrice: async (_p: any) => _p.unitPrice,
-  description: async (_p: any) => _p.description,
-  isActive: async (_p: any) => _p.isActive,
-  createdAt: async (_p: any) => _p.createdAt,
-  updatedAt: async (_p: any) => _p.updatedAt,
-  _veritas: async (p: any, _: any, _ctx: GraphQLContext) => {
-    const verify = async (v: any, _name: string) => {
-      if (!v)
-        return {
-          verified: false,
-          confidence: 0,
-          level: "CRITICAL",
-          certificate: null,
-          error: "Field is null/undefined",
-          verifiedAt: new Date().toISOString(),
-          algorithm: "CRITICAL_VERIFICATION_V3",
-        };
-      const r = await _ctx.veritas.verifyDataIntegrity(
-        typeof v === "string" ? v : JSON.stringify(v),
-        "inventory",
-        p.id,
-      );
-      return {
-        verified: r.verified,
-        confidence: r.confidence,
-        level: "CRITICAL",
-        certificate: r.certificate?.dataHash,
-        error: null,
-        verifiedAt: new Date().toISOString(),
-        algorithm: "CRITICAL_VERIFICATION_V3",
-      };
-    };
-    const [itemName, itemCode, supplierId] = await Promise.all([
-      verify(p.itemName, "itemName"),
-      verify(p.itemCode, "itemCode"),
-      verify(p.supplierId, "supplierId"),
-    ]);
-    return { itemName, itemCode, supplierId };
-  },
-};
+/**
+ * ⚠️ DEPRECATED FIELD RESOLVER
+ *
+ * La Fuente Única de Verdad (SSoT) para field resolvers está en:
+ * /graphql/resolvers/FieldResolvers/inventory.ts
+ *
+ * Este archivo SOLO mantiene las QUERIES/MUTATIONS/SUBSCRIPTIONS de negocio.
+ * Los field resolvers (InventoryV3, MaterialV3, etc.) se importan desde SSoT.
+ */
+
+// NOTE: InventoryV3 field resolver MOVED to /graphql/resolvers/FieldResolvers/inventory.ts
+// This prevents duplicate type definitions that cause GraphQL schema validation errors
 
 export const InventoryQuery = {
   inventoriesV3: async (_: any, { category, limit = 50, offset = 0 }: any, ctx: GraphQLContext) => {

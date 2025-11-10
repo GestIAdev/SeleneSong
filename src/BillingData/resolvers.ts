@@ -1,47 +1,18 @@
 import { GraphQLContext } from "../graphql/types.js";
 
-export const BillingDataV3 = {
-  id: async (_p: any) => _p.id,
-  billingDate: async (_p: any) => _p.billingDate,
-  status: async (_p: any) => _p.status,
-  description: async (_p: any) => _p.description,
-  paymentMethod: async (_p: any) => _p.paymentMethod,
-  createdAt: async (_p: any) => _p.createdAt,
-  updatedAt: async (_p: any) => _p.updatedAt,
-  _veritas: async (p: any, _: any, _ctx: GraphQLContext) => {
-    const verify = async (v: any, _name: string) => {
-      if (!v)
-        return {
-          verified: false,
-          confidence: 0,
-          level: "CRITICAL",
-          certificate: null,
-          error: "Field is null/undefined",
-          verifiedAt: new Date().toISOString(),
-          algorithm: "CRITICAL_VERIFICATION_V3",
-        };
-      const r = await _ctx.veritas.verifyDataIntegrity(
-        typeof v === "string" ? v : JSON.stringify(v),
-        "billing",
-        p.id,
-      );
-      return {
-        verified: r.verified,
-        confidence: r.confidence,
-        level: "CRITICAL",
-        certificate: r.certificate?.dataHash,
-        error: null,
-        verifiedAt: new Date().toISOString(),
-        algorithm: "CRITICAL_VERIFICATION_V3",
-      };
-    };
-    const [patientId, amount] = await Promise.all([
-      verify(p.patientId, "patientId"),
-      verify(p.amount, "amount"),
-    ]);
-    return { patientId, amount };
-  },
-};
+/**
+ * ⚠️ DEPRECATED FIELD RESOLVER
+ *
+ * La Fuente Única de Verdad (SSoT) para field resolvers está en:
+ * /graphql/resolvers/FieldResolvers/billingData.ts (o equivalente)
+ *
+ * Este archivo SOLO mantiene las QUERIES/MUTATIONS/SUBSCRIPTIONS de negocio.
+ * Los field resolvers (BillingDataV3, etc.) se importan desde SSoT.
+ *
+ * PHASE 2 PURGA: Eliminada definición duplicada de BillingDataV3
+ */
+
+// NOTE: BillingDataV3 field resolver MOVED to /graphql/resolvers/FieldResolvers/
 
 export const BillingDataQuery = {
   billingDataV3: async (_: any, { patientId, limit = 50, offset = 0 }: any) => {

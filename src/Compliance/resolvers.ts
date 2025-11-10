@@ -8,39 +8,7 @@ export const ComplianceV3 = {
   nextCheck: async (_p: any) => _p.nextCheck,
   createdAt: async (_p: any) => _p.createdAt,
   updatedAt: async (_p: any) => _p.updatedAt,
-  _veritas: async (p: any, _: any, _ctx: GraphQLContext) => {
-    const verify = async (v: any, _name: string) => {
-      if (!v)
-        return {
-          verified: false,
-          confidence: 0,
-          level: "CRITICAL",
-          certificate: null,
-          error: "Field is null/undefined",
-          verifiedAt: new Date().toISOString(),
-          algorithm: "CRITICAL_VERIFICATION_V3",
-        };
-      const r = await _ctx.veritas.verifyDataIntegrity(
-        typeof v === "string" ? v : JSON.stringify(v),
-        "compliance",
-        p.id,
-      );
-      return {
-        verified: r.verified,
-        confidence: r.confidence,
-        level: "CRITICAL",
-        certificate: r.certificate?.dataHash,
-        error: null,
-        verifiedAt: new Date().toISOString(),
-        algorithm: "CRITICAL_VERIFICATION_V3",
-      };
-    };
-    const [regulationId, complianceStatus] = await Promise.all([
-      verify(p.regulationId, "regulationId"),
-      verify(p.complianceStatus, "complianceStatus"),
-    ]);
-    return { regulationId, complianceStatus };
-  },
+  // _veritas field resolver REMOVED - not in schema
 };
 
 export const ComplianceQuery = {

@@ -850,6 +850,7 @@ export const AllResolvers = {
   },
   DocumentV3,
   PatientV3,
+  Patient: PatientV3,
   AppointmentV3,
   TreatmentV3,
   MedicalRecordV3,
