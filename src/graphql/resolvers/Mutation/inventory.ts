@@ -298,8 +298,76 @@ export const adjustInventoryStockV3 = async (
   args: { id: string; adjustment: number; reason: string },
   context: GraphQLContext
 ): Promise<any> => {
+  const { id, adjustment, reason } = args;
+  const { database, verificationEngine, auditLogger, user, ip } = context;
+  const startTime = Date.now();
+  let verificationFailed = false;
+
   try {
-    const inventory = await context.database.adjustInventoryStockV3(args.id, args.adjustment, args.reason);
+    // --------------------------------------------------------------------------
+    // 🔥 PUERTA 1: VERIFICACIÓN (El Guardián)
+    // --------------------------------------------------------------------------
+    // Obtener inventario actual
+    const oldRecord = await database.inventory.getInventoryV3ById(id);
+    if (!oldRecord) {
+      throw new Error(`Registro de inventario no encontrado: ${id}`);
+    }
+
+    // Verificar el ajuste (validar que adjustment sea numérico y válido)
+    const adjustmentInput = { adjustment, reason, id };
+    const verification = await verificationEngine.verifyBatch(
+      'InventoryAdjustment',
+      adjustmentInput
+    );
+
+    if (!verification.valid) {
+      await auditLogger.logIntegrityViolation(
+        'InventoryAdjustment',
+        id,
+        verification.criticalFields[0] || 'adjustment',
+        adjustmentInput,
+        verification.errors[0] || verification.errors.join(', '),
+        (verification.severity || 'CRITICAL') as 'WARNING' | 'ERROR' | 'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+      verificationFailed = true;
+      throw new Error(`Error de validación: ${verification.errors.join(', ')}`);
+    }
+
+    // --------------------------------------------------------------------------
+    // 🎯 PUERTA 2: LÓGICA DE NEGOCIO (El Arquitecto)
+    // --------------------------------------------------------------------------
+    // Validar que la cantidad no vaya a negativo (si la política lo requiere)
+    const projectedStock = oldRecord.current_stock + adjustment;
+    if (projectedStock < 0) {
+      throw new Error(`Ajuste resultaría en stock negativo. Actual: ${oldRecord.current_stock}, Ajuste: ${adjustment}`);
+    }
+
+    // --------------------------------------------------------------------------
+    // 💾 PUERTA 3: TRANSACCIÓN DB (El Ejecutor)
+    // --------------------------------------------------------------------------
+    const inventory = await database.adjustInventoryStockV3(id, adjustment, reason);
+
+    // --------------------------------------------------------------------------
+    // 📝 PUERTA 4: AUDITORÍA (El Cronista)
+    // --------------------------------------------------------------------------
+    const duration = Date.now() - startTime;
+    
+    await auditLogger.logStateTransition(
+      'InventoryV3',
+      id,
+      {
+        field: 'current_stock',
+        oldValue: oldRecord.current_stock,
+        newValue: inventory.current_stock,
+        reason: reason
+      },
+      user?.id,
+      user?.email,
+      ip
+    );
 
     // 🔥 DIRECTIVA 3.2: AUTO-PEDIDO CUANDO STOCK BAJO
     // Verificar si el stock está por debajo del mínimo después del ajuste
@@ -320,9 +388,8 @@ export const adjustInventoryStockV3 = async (
 
       // 2. Crear automáticamente una orden de compra
       try {
-        // Usar el método existente createPurchaseOrderV3
-        const reorderQuantity = inventory.minimum_stock * 2; // Pedir el doble del stock mínimo
-        const po = await context.database.createPurchaseOrderV3({
+        const reorderQuantity = inventory.minimum_stock * 2;
+        const po = await database.createPurchaseOrderV3({
           supplierId: inventory.supplier_id,
           items: [{
             materialId: inventory.id,
@@ -334,20 +401,33 @@ export const adjustInventoryStockV3 = async (
 
         console.log(`✅ Orden de compra automática (PO-${po.id}) creada para ${inventory.name}.`);
 
-        // Publicar evento de orden de compra creada
         context.pubsub?.publish('PURCHASE_ORDER_V3_CREATED', {
           purchaseOrderV3Created: po
         });
 
       } catch (error) {
         console.error(`Error al crear orden de compra automática:`, error);
-        // No detener el ajuste de inventario, solo loggear el error
       }
     }
 
-    console.log(`✅ adjustInventoryStockV3 mutation adjusted stock for: ${inventory.name}`);
+    console.log(`✅ adjustInventoryStockV3 mutation adjusted stock for: ${inventory.name} (${duration}ms)`);
     return inventory;
   } catch (error) {
+    // Registrar error como violación de integridad (solo si no fue registrado en GATE 1)
+    if (auditLogger && !verificationFailed) {
+      await auditLogger.logIntegrityViolation(
+        'InventoryAdjustment',
+        id,
+        'unknown',
+        { id, adjustment, reason },
+        (error as Error).message,
+        'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+    }
+
     console.error("❌ adjustInventoryStockV3 mutation error:", error as Error);
     throw error;
   }
@@ -362,12 +442,48 @@ export const createMaterialV3 = async (
   args: { input: any },
   context: GraphQLContext
 ): Promise<any> => {
-  try {
-    const material = await context.database.createMaterialV3(args.input);
+  const { input } = args;
+  const { database, verificationEngine, auditLogger, user, ip } = context;
+  const startTime = Date.now();
+  let verificationFailed = false;
 
-    console.log(`✅ createMaterialV3 mutation created: ${material.name}`);
+  try {
+    // PUERTA 1: VERIFICACIÓN
+    const verification = await verificationEngine.verifyBatch('MaterialV3', input);
+    
+    if (!verification.valid) {
+      await auditLogger.logIntegrityViolation(
+        'MaterialV3',
+        'N/A (CREATE)',
+        verification.criticalFields[0] || 'batch',
+        input,
+        verification.errors[0] || verification.errors.join(', '),
+        (verification.severity || 'CRITICAL') as 'WARNING' | 'ERROR' | 'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+      verificationFailed = true;
+      throw new Error(`Error de validación: ${verification.errors.join(', ')}`);
+    }
+
+    // PUERTA 3: TRANSACCIÓN DB
+    const material = await database.createMaterialV3(input);
+
+    // PUERTA 4: AUDITORÍA
+    const duration = Date.now() - startTime;
+    await auditLogger.logCreate('MaterialV3', material.id, material, user?.id, user?.email, ip);
+    
+    if (context.pubsub) {
+      context.pubsub.publish('MATERIAL_CREATED', { materialCreated: material });
+    }
+
+    console.log(`✅ createMaterialV3 mutation created: ${material.name} (${duration}ms)`);
     return material;
   } catch (error) {
+    if (auditLogger && !verificationFailed) {
+      await auditLogger.logIntegrityViolation('MaterialV3', 'N/A (CREATE)', 'unknown', input, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ createMaterialV3 mutation error:", error as Error);
     throw error;
   }
@@ -378,12 +494,41 @@ export const updateMaterialV3 = async (
   args: { id: string; input: any },
   context: GraphQLContext
 ): Promise<any> => {
-  try {
-    const material = await context.database.updateMaterialV3(args.id, args.input);
+  const { id, input } = args;
+  const { database, verificationEngine, auditLogger, user, ip } = context;
+  const startTime = Date.now();
+  let verificationFailed = false;
 
-    console.log(`✅ updateMaterialV3 mutation updated: ${material.name}`);
+  try {
+    // PUERTA 1: VERIFICACIÓN
+    const oldRecord = await database.inventory.getMaterialV3ById(id);
+    if (!oldRecord) throw new Error(`Material no encontrado: ${id}`);
+    
+    const verification = await verificationEngine.verifyBatch('MaterialV3', input);
+    
+    if (!verification.valid) {
+      await auditLogger.logIntegrityViolation('MaterialV3', id, verification.criticalFields[0] || 'batch', input, verification.errors[0] || verification.errors.join(', '), (verification.severity || 'CRITICAL') as 'WARNING' | 'ERROR' | 'CRITICAL', user?.id, user?.email, ip);
+      verificationFailed = true;
+      throw new Error(`Error de validación: ${verification.errors.join(', ')}`);
+    }
+
+    // PUERTA 3: TRANSACCIÓN DB
+    const material = await database.updateMaterialV3(id, input);
+
+    // PUERTA 4: AUDITORÍA
+    const duration = Date.now() - startTime;
+    await auditLogger.logUpdate('MaterialV3', id, oldRecord, material, user?.id, user?.email, ip);
+    
+    if (context.pubsub) {
+      context.pubsub.publish('MATERIAL_UPDATED', { materialUpdated: material });
+    }
+
+    console.log(`✅ updateMaterialV3 mutation updated: ${material.name} (${duration}ms)`);
     return material;
   } catch (error) {
+    if (auditLogger && !verificationFailed) {
+      await auditLogger.logIntegrityViolation('MaterialV3', id, 'unknown', input, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ updateMaterialV3 mutation error:", error as Error);
     throw error;
   }
@@ -394,12 +539,32 @@ export const deleteMaterialV3 = async (
   args: { id: string },
   context: GraphQLContext
 ): Promise<boolean> => {
-  try {
-    await context.database.deleteMaterialV3(args.id);
+  const { id } = args;
+  const { database, auditLogger, user, ip } = context;
+  const startTime = Date.now();
 
-    console.log(`✅ deleteMaterialV3 mutation deleted ID: ${args.id}`);
+  try {
+    // PUERTA 1: VERIFICACIÓN
+    const oldRecord = await database.inventory.getMaterialV3ById(id);
+    if (!oldRecord) throw new Error(`Material no encontrado: ${id}`);
+
+    // PUERTA 3: TRANSACCIÓN DB
+    await database.deleteMaterialV3(id);
+
+    // PUERTA 4: AUDITORÍA
+    const duration = Date.now() - startTime;
+    await auditLogger.logDelete('MaterialV3', id, oldRecord, user?.id, user?.email, ip);
+    
+    if (context.pubsub) {
+      context.pubsub.publish('MATERIAL_DELETED', { materialDeleted: { id, name: oldRecord.name } });
+    }
+
+    console.log(`✅ deleteMaterialV3 mutation deleted ID: ${id} (${duration}ms)`);
     return true;
   } catch (error) {
+    if (auditLogger) {
+      await auditLogger.logIntegrityViolation('MaterialV3', id, 'unknown', { id }, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ deleteMaterialV3 mutation error:", error as Error);
     throw error;
   }
