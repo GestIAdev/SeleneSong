@@ -988,6 +988,7 @@ export const typeDefs = `#graphql
     
     # Unified Documents V3 - Full Schema with AI & @veritas
     unifiedDocumentsV3(patientId: ID, limit: Int, offset: Int): [UnifiedDocumentV3!]!
+    unifiedDocumentV3(id: ID!): UnifiedDocumentV3
     
     # Inventory V3 - Veritas Critical Protection
     inventoriesV3(category: String, limit: Int, offset: Int): [InventoryV3!]!
@@ -1115,6 +1116,9 @@ export const typeDefs = `#graphql
     
     scheduleMaintenanceV3(input: MaintenanceScheduleInputV3!): MaintenanceScheduleV3!
     completeMaintenanceV3(id: ID!, input: MaintenanceCompletionInputV3!): MaintenanceScheduleV3!
+    cancelMaintenanceV3(id: ID!, reason: String): Boolean!
+    createMaintenanceV3(input: CreateMaintenanceInputV3!): EquipmentMaintenanceV3!
+    updateMaintenanceV3(id: ID!, input: UpdateMaintenanceInputV3!): EquipmentMaintenanceV3!
     
     scheduleRoomCleaningV3(input: RoomCleaningScheduleInputV3!): RoomCleaningScheduleV3!
     completeRoomCleaningV3(id: ID!, input: RoomCleaningCompletionInputV3!): RoomCleaningScheduleV3!
@@ -1149,6 +1153,7 @@ export const typeDefs = `#graphql
     # Documents V3 - Veritas Critical Protection
     documentV3Created: DocumentV3!
     documentV3Updated: DocumentV3!
+    documentUploaded: DocumentV3!
     
     # Inventory V3 - Veritas Critical Protection
     inventoryV3Created: InventoryV3!
@@ -1605,13 +1610,6 @@ export const typeDefs = `#graphql
     reorderMaterialV3(materialId: ID!, quantity: Float!): DentalMaterialV3!
     acknowledgeInventoryAlertV3(alertId: ID!): Boolean!
     
-    # Inventory V3 - Equipment Maintenance
-    createMaintenanceV3(input: CreateMaintenanceInputV3!): EquipmentMaintenanceV3!
-    updateMaintenanceV3(id: ID!, input: UpdateMaintenanceInputV3!): EquipmentMaintenanceV3!
-    scheduleMaintenanceV3(equipmentId: ID!, scheduledDate: String!): EquipmentMaintenanceV3!
-    completeMaintenanceV3(maintenanceId: ID!, completedDate: String): EquipmentMaintenanceV3!
-    cancelMaintenanceV3(maintenanceId: ID!, reason: String): EquipmentMaintenanceV3!
-    
     # Inventory V3 - Suppliers Management
     createSupplierV3(input: CreateSupplierInputV3!): SupplierV3!
     updateSupplierV3(id: ID!, input: UpdateSupplierInputV3!): SupplierV3!
@@ -1620,6 +1618,7 @@ export const typeDefs = `#graphql
     # Inventory V3 - Purchase Orders Management
     createPurchaseOrderV3(input: CreatePurchaseOrderInputV3!): PurchaseOrderV3!
     updatePurchaseOrderV3(id: ID!, input: UpdatePurchaseOrderInputV3!): PurchaseOrderV3!
+    deletePurchaseOrderV3(id: ID!): Boolean!
     cancelPurchaseOrderV3(id: ID!, reason: String): PurchaseOrderV3!
     receivePurchaseOrderV3(id: ID!, receivedBy: String!): PurchaseOrderV3!
     
@@ -1629,10 +1628,6 @@ export const typeDefs = `#graphql
     removePurchaseOrderItemV3(id: ID!): Boolean!
     
     # Marketplace V3 - B2B Dental Supply System
-    createPurchaseOrderV3(input: CreatePurchaseOrderInputV3!): PurchaseOrderV3!
-    updatePurchaseOrderV3(id: ID!, input: UpdatePurchaseOrderInputV3!): PurchaseOrderV3!
-    deletePurchaseOrderV3(id: ID!): Boolean!
-    
     addToCartV3(input: AddToCartInputV3!): CartItemV3!
     updateCartItemV3(id: ID!, quantity: Int!): CartItemV3!
     removeFromCartV3(id: ID!): Boolean!
@@ -1797,39 +1792,6 @@ export const typeDefs = `#graphql
     productId: ID!
     quantity: Int!
     notes: String
-  }
-
-  input CreateSupplierInputV3 {
-    name: String!
-    email: String!
-    phone: String!
-    address: AddressInputV3!
-    categories: [String!]!
-    paymentTerms: String
-    minimumOrderValue: Float
-    shippingMethods: [String!]
-    certifications: [String!]
-  }
-
-  input UpdateSupplierInputV3 {
-    name: String
-    email: String
-    phone: String
-    address: AddressInputV3
-    categories: [String!]
-    paymentTerms: String
-    minimumOrderValue: Float
-    shippingMethods: [String!]
-    certifications: [String!]
-    active: Boolean
-  }
-
-  input AddressInputV3 {
-    street: String!
-    city: String!
-    state: String!
-    zipCode: String!
-    country: String!
   }
 
   # Marketplace V3 Subscriptions
