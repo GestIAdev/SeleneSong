@@ -695,4 +695,15 @@ export class MarketplaceDatabase extends BaseDatabase {
     `;
     return await this.getAll(query, [limit, offset]);
   }
+
+  async getCartItemById(id: string): Promise<any> {
+    const query = `
+      SELECT
+        id, marketplace_product_id as materialId, quantity, unit_price,
+        total_price, added_at, created_at, updated_at
+      FROM cart_items
+      WHERE id = $1
+    `;
+    return await this.getOne(query, [id]);
+  }
 }
