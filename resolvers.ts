@@ -555,30 +555,6 @@ export const resolvers = {
         throw error;
       }
     },
-          accessToken,
-          refreshToken,
-          expiresIn: 900, // 15 minutes in seconds
-          user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            role: user.role,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            fullName: `${user.firstName} ${user.lastName}`,
-            isActive: user.isActive,
-            lastLoginAt: new Date().toISOString()
-          }
-        };
-
-        console.log(`✅ Login successful: ${user.email} (${user.role})`);
-        return authResponse;
-
-      } catch (error) {
-        console.error('❌ Login error:', error);
-        throw error;
-      }
-    },
 
     logout: async (): Promise<boolean> => {
       try {

@@ -66,6 +66,50 @@ export const adjustInventoryStockV3 = async (
   try {
     const inventory = await context.database.adjustInventoryStockV3(args.id, args.adjustment, args.reason);
 
+    // 🔥 DIRECTIVA 3.2: AUTO-PEDIDO CUANDO STOCK BAJO
+    // Verificar si el stock está por debajo del mínimo después del ajuste
+    if (inventory.current_stock <= inventory.minimum_stock) {
+      console.log(`🔥 ALERTA DE STOCK BAJO: ${inventory.name}. Disparando auto-pedido.`);
+
+      // 1. Publicar alerta de WebSocket (para el hook del frontend)
+      context.pubsub?.publish('LOW_STOCK_ALERT_V3', {
+        lowStockAlertV3: {
+          id: inventory.id,
+          name: inventory.name,
+          currentStock: inventory.current_stock,
+          minimumStock: inventory.minimum_stock,
+          supplierId: inventory.supplier_id,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      // 2. Crear automáticamente una orden de compra
+      try {
+        // Usar el método existente createPurchaseOrderV3
+        const reorderQuantity = inventory.minimum_stock * 2; // Pedir el doble del stock mínimo
+        const po = await context.database.createPurchaseOrderV3({
+          supplierId: inventory.supplier_id,
+          items: [{
+            materialId: inventory.id,
+            quantity: reorderQuantity,
+            unitPrice: inventory.unit_cost || 0
+          }],
+          notes: `Auto-reorder triggered by low stock alert for ${inventory.name}`
+        });
+
+        console.log(`✅ Orden de compra automática (PO-${po.id}) creada para ${inventory.name}.`);
+
+        // Publicar evento de orden de compra creada
+        context.pubsub?.publish('PURCHASE_ORDER_V3_CREATED', {
+          purchaseOrderV3Created: po
+        });
+
+      } catch (error) {
+        console.error(`Error al crear orden de compra automática:`, error);
+        // No detener el ajuste de inventario, solo loggear el error
+      }
+    }
+
     console.log(`✅ adjustInventoryStockV3 mutation adjusted stock for: ${inventory.name}`);
     return inventory;
   } catch (error) {

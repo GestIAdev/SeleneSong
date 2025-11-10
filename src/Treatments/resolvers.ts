@@ -250,15 +250,140 @@ export const TreatmentQuery = {
 };
 
 export const TreatmentMutation = {
-  createTreatmentV3: async (_: any, { input }: any) => ({
-    id: `treatment_${Date.now()}`,
-    ...input,
-    status: input.status || "SCHEDULED",
-    aiRecommendations: [],
-    veritasScore: 0.95,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }),
+  createTreatmentV3: async (_: any, { input }: any, ctx: GraphQLContext) => {
+    try {
+      // ============================================================================
+      // BUSINESS LOGIC: Deduce materials needed based on treatment type
+      // ============================================================================
+      const materialDeductions: Record<string, { itemName: string; quantity: number }[]> = {
+        'FILLING': [
+          { itemName: 'Composite Resin', quantity: 2 },
+          { itemName: 'Anesthetic', quantity: 1 }
+        ],
+        'ROOT_CANAL': [
+          { itemName: 'Gutta-percha', quantity: 3 },
+          { itemName: 'Anesthetic', quantity: 2 },
+          { itemName: 'Endodontic Files', quantity: 1 }
+        ],
+        'CROWN': [
+          { itemName: 'Crown Material', quantity: 1 },
+          { itemName: 'Cement', quantity: 1 },
+          { itemName: 'Anesthetic', quantity: 1 }
+        ],
+        'EXTRACTION': [
+          { itemName: 'Anesthetic', quantity: 2 },
+          { itemName: 'Suture Material', quantity: 1 }
+        ],
+        'CLEANING': [
+          { itemName: 'Polishing Paste', quantity: 1 },
+          { itemName: 'Fluoride', quantity: 1 }
+        ]
+      };
+
+      // Get materials needed for this treatment type
+      const materialsNeeded = materialDeductions[input.treatmentType as string] || [];
+
+      // ============================================================================
+      // CRITICAL: Decrement inventory stock for each material
+      // ============================================================================
+      for (const material of materialsNeeded) {
+        try {
+          // Find material in inventory by name
+          const inventoryItems = await ctx.database.inventory.getInventoriesV3({
+            limit: 100,
+            offset: 0
+          });
+
+          const inventoryItem = inventoryItems.find((item: any) => 
+            item.name?.toLowerCase().includes(material.itemName.toLowerCase())
+          );
+
+          if (inventoryItem) {
+            const newQuantity = inventoryItem.current_stock - material.quantity;
+
+            // Update inventory stock
+            await ctx.database.inventory.updateInventoryV3(inventoryItem.id, {
+              currentStock: newQuantity
+            });
+
+            console.log(`✅ Decremented ${material.itemName}: ${inventoryItem.current_stock} → ${newQuantity}`);
+
+            // ============================================================================
+            // TRIGGER LOW STOCK ALERT if below minimum
+            // ============================================================================
+            if (newQuantity <= inventoryItem.minimum_stock) {
+              if (ctx.pubsub) {
+                ctx.pubsub.publish('STOCK_LEVEL_CHANGED', {
+                  stockLevelChanged: {
+                    id: inventoryItem.id,
+                    itemName: inventoryItem.name,
+                    itemCode: inventoryItem.id,
+                    quantity: newQuantity,
+                    category: inventoryItem.category,
+                    unitPrice: 0,
+                    isActive: true,
+                    createdAt: inventoryItem.created_at,
+                    updatedAt: new Date().toISOString()
+                  }
+                });
+
+                console.log(`⚠️ LOW STOCK ALERT: ${material.itemName} (${newQuantity} units left)`);
+              }
+            }
+
+            // Publish inventory updated event
+            if (ctx.pubsub) {
+              ctx.pubsub.publish('INVENTORY_V3_UPDATED', {
+                inventoryV3Updated: {
+                  id: inventoryItem.id,
+                  itemName: inventoryItem.name,
+                  itemCode: inventoryItem.id,
+                  supplierId: inventoryItem.supplier_id || '',
+                  category: inventoryItem.category,
+                  quantity: newQuantity,
+                  unitPrice: 0,
+                  description: inventoryItem.description || '',
+                  isActive: true,
+                  createdAt: inventoryItem.created_at,
+                  updatedAt: new Date().toISOString()
+                }
+              });
+            }
+          } else {
+            console.warn(`⚠️ Material not found in inventory: ${material.itemName}`);
+          }
+        } catch (error) {
+          console.error(`❌ Error decrementing material ${material.itemName}:`, error);
+          // Continue with other materials even if one fails
+        }
+      }
+
+      // ============================================================================
+      // Create the treatment record
+      // ============================================================================
+      const treatment = {
+        id: `treatment_${Date.now()}`,
+        ...input,
+        status: input.status || "SCHEDULED",
+        materialsUsed: materialsNeeded.map(m => ({
+          name: m.itemName,
+          quantity: m.quantity,
+          decremented: true
+        })),
+        aiRecommendations: [],
+        veritasScore: 0.95,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      console.log(`✅ Treatment created with material deductions:`, treatment);
+
+      return treatment;
+    } catch (error) {
+      console.error('❌ createTreatmentV3 error:', error);
+      throw error;
+    }
+  },
   updateTreatmentV3: async (_: any, { id, input }: any) => ({
     id,
     ...input,

@@ -324,6 +324,18 @@ export {
   deleteMedicalRecordV3,
 } from "./Mutation/medicalRecord.js";
 export { medicalRecordSubscriptions } from "./Subscription/medicalRecord.js";
+export { marketplaceSubscriptionResolvers } from "./Subscription/marketplace.js";
+
+// Temporary inline definition to avoid import issues
+const marketplaceSubscriptionResolversInline = {
+  Subscription: {
+    PO_STATUS_UPDATED_V3: {
+      subscribe: (_: unknown, __: unknown, context: any) => {
+        return context.pubsub?.asyncIterator(['PO_STATUS_UPDATED_V3']);
+      },
+    },
+  },
+};
 
 // Consolidated Inventory domain exports - SUBMODULE 2A
 export {
@@ -841,6 +853,7 @@ export const AllResolvers = {
     ...patientSubscriptions,
     ...appointmentSubscriptions,
     ...medicalRecordSubscriptions,
+    ...marketplaceSubscriptionResolversInline,
     ...quantumSubscriptionResolvers, // ⚛️ PHASE E: Add quantum subscription resolvers
     treatmentV3Created,
     treatmentV3Updated,

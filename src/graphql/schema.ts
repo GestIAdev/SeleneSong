@@ -1621,10 +1621,16 @@ export const typeDefs = `#graphql
     purchaseOrderV3Created: PurchaseOrderV3!
     purchaseOrderV3Updated: PurchaseOrderV3!
     purchaseOrderV3StatusChanged(orderId: ID!, newStatus: PurchaseOrderStatus!): PurchaseOrderV3!
+    PO_STATUS_UPDATED_V3(orderId: ID!): PurchaseOrderV3!
     cartItemV3Added: CartItemV3!
     cartItemV3Updated: CartItemV3!
     supplierV3Created: SupplierV3!
     supplierV3Updated: SupplierV3!
+    
+    # Inventory V3 - Real-time inventory updates
+    inventoryUpdatedV3(productId: ID): InventoryItemV3!
+    lowStockAlertV3(productId: ID): InventoryItemV3!
+    purchaseOrderStatusV3(orderId: ID): PurchaseOrderV3!
   }
 
   # 🎬 SUBSCRIPTIONS V3 - NETFLIX-DENTAL SYSTEM

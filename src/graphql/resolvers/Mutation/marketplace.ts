@@ -33,6 +33,45 @@ export const updatePurchaseOrderV3 = async (
   try {
     const order = await context.database.updatePurchaseOrderV3(args.id, args.input);
 
+    // 🔥 DIRECTIVA 3.3: GENERACIÓN DE FACTURA DE GASTO AL COMPLETAR ORDEN DE COMPRA
+    if (args.input.status === 'COMPLETED' && order.status === 'COMPLETED') {
+      console.log(`🔥 ORDEN RECIBIDA: Generando entrada de gasto para PO-${order.id}...`);
+
+      try {
+        // Crear entrada de gasto usando el método existente de billing
+        await context.database.billing.createBillingDataV3({
+          patientId: null, // Indica que es un gasto de la clínica, no de paciente
+          description: `Orden de Compra ${order.order_number || order.id} - Gasto de Inventario`,
+          amount: order.total_amount || order.totalAmount || 0,
+          billingDate: new Date().toISOString(),
+          category: 'INVENTORY_PURCHASE',
+          purchaseOrderId: order.id,
+          paymentStatus: 'PENDING',
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Vence en 30 días
+          status: 'PENDING'
+        });
+
+        console.log(`✅ Entrada de gasto creada para la orden ${order.id}.`);
+
+        // Publicar evento de gasto creado
+        context.pubsub?.publish('EXPENSE_CREATED_V3', {
+          expenseCreatedV3: {
+            id: `expense-${Date.now()}`,
+            description: `Orden de Compra ${order.order_number || order.id}`,
+            amount: order.total_amount || order.totalAmount || 0,
+            category: 'INVENTORY_PURCHASE',
+            purchaseOrderId: order.id,
+            status: 'PENDING',
+            createdAt: new Date().toISOString()
+          }
+        });
+
+      } catch (error) {
+        console.error(`Error al crear entrada de gasto:`, error);
+        // No detener la actualización de la orden de compra, solo loggear el error
+      }
+    }
+
     console.log(`✅ updatePurchaseOrderV3 mutation updated order: ${order.orderNumber}`);
     return order;
   } catch (error) {

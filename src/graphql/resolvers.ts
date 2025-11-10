@@ -67,6 +67,7 @@ import {
   ComplianceMutation,
 } from "../Compliance/resolvers.js";
 import { AuthQuery, AuthMutation, User } from "./resolvers/Auth/index.js";
+import { inventorySubscriptions } from "./resolvers/Subscription/inventory.js";
 
 console.log("🔥 MAIN RESOLVERS LOADED - CHECKING QUANTUM RESURRECTION...");
 console.log("🔍 ReactorMutation available?", !!ReactorMutation);
@@ -137,6 +138,7 @@ export const Subscription = {
   ...DocumentSubscription,
   ...MedicalRecordSubscription,
   ...TreatmentSubscription,
+  ...inventorySubscriptions,
 };
 
 export const resolvers = {

@@ -39,6 +39,7 @@ export const createTreatmentV3 = async (
 export const updateTreatmentV3 = async (
   _: any,
   { id, input }: any,
+  ctx: GraphQLContext,
 ) => {
   try {
     console.log(`✏️ UPDATE TREATMENT V3 called with id: ${id}, input:`, input);
@@ -48,6 +49,56 @@ export const updateTreatmentV3 = async (
       ...input,
       updatedAt: new Date().toISOString(),
     };
+
+    // 🔥 DIRECTIVA 2.4.1: DEDUCCIÓN DE INVENTARIO AL COMPLETAR TRATAMIENTO
+    if (input.status === 'COMPLETED' && input.materialsUsed && input.materialsUsed.length > 0) {
+      console.log('🔥 DEDUCCIÓN DE INVENTARIO: Procesando materiales...');
+
+      for (const material of input.materialsUsed) {
+        try {
+          // Obtener el item actual del inventario usando el método correcto
+          const currentItem = await ctx.database.inventory.getInventoryV3ById(material.inventoryItemId);
+
+          if (!currentItem) {
+            console.error(`Item de inventario no encontrado: ${material.inventoryItemId}`);
+            continue;
+          }
+
+          // Verificar si hay suficiente stock
+          if (currentItem.current_stock < material.quantity) {
+            console.warn(`⚠️ Stock insuficiente para ${currentItem.name}: solicitado ${material.quantity}, disponible ${currentItem.current_stock}`);
+            // Continuar de todos modos (permitir stock negativo si es necesario)
+          }
+
+          // Deducir stock usando el método de ajuste (ajuste negativo para deducción)
+          const updatedItem = await ctx.database.inventory.adjustInventoryStockV3(
+            material.inventoryItemId,
+            -material.quantity, // Ajuste negativo para deducción
+            `USED_IN_TREATMENT:${id}`
+          );
+
+          // Publicar evento de WebSocket
+          ctx.pubsub?.publish('INVENTORY_UPDATED_V3', {
+            inventoryUpdatedV3: {
+              id: updatedItem.id,
+              itemName: updatedItem.name,
+              previousStock: currentItem.current_stock,
+              newStock: updatedItem.current_stock,
+              adjustment: -material.quantity,
+              reason: 'USED_IN_TREATMENT',
+              treatmentId: id,
+              timestamp: new Date().toISOString()
+            }
+          });
+
+          console.log(`✅ Stock deducido para ${material.inventoryItemId}: ${currentItem.current_stock} → ${updatedItem.current_stock}`);
+
+        } catch (error) {
+          console.error(`Error al deducir stock para ${material.inventoryItemId}:`, error);
+          // No detener la actualización del tratamiento, solo loggear el error de inventario
+        }
+      }
+    }
 
     console.log("✅ TreatmentV3 updated:", treatment.id);
     return treatment;
