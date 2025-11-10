@@ -367,6 +367,26 @@ export const typeDefs = `#graphql
     isActive: Boolean!
     createdAt: String!
     updatedAt: String!
+    # Anidado
+    supplier: SupplierV3
+  }
+
+  # 🧪 MATERIAL V3 - Dental Materials from Suppliers
+  type MaterialV3 {
+    id: ID!
+    name: String
+    description: String
+    category: String
+    unitCost: Float
+    unit: String
+    quantityInStock: Int
+    reorderPoint: Int
+    supplierId: ID
+    createdAt: String
+    updatedAt: String
+    # Anidados
+    supplier: SupplierV3
+    suppliers: [SupplierV3!]
   }
 
   # 💰 BILLING DATA V3 - VERITAS CRITICAL PROTECTION
@@ -1344,6 +1364,26 @@ export const typeDefs = `#graphql
     updatedAt: String
   }
 
+  # 🔧 MAINTENANCE V3 - Equipment Maintenance Records
+  type MaintenanceV3 {
+    id: ID!
+    equipmentId: ID
+    maintenanceType: String
+    description: String
+    performedBy: String
+    cost: Float
+    scheduledDate: String
+    completedDate: String
+    nextMaintenanceDate: String
+    status: String
+    findings: String
+    recommendations: String
+    createdAt: String
+    updatedAt: String
+    # Anidado
+    equipment: EquipmentV3
+  }
+
   # ========================================
   # MARKETPLACE V3 - Suppliers & Orders
   # ========================================
@@ -1363,6 +1403,9 @@ export const typeDefs = `#graphql
     notes: String
     createdAt: String
     updatedAt: String
+    # Anidados
+    materials: [MaterialV3!]
+    purchaseOrders: [PurchaseOrderV3!]
   }
 
   type PurchaseOrderV3 {
@@ -1382,6 +1425,8 @@ export const typeDefs = `#graphql
     receivedBy: String
     createdAt: String
     updatedAt: String
+    # Anidado
+    items: [PurchaseOrderItemV3!]
   }
 
   type EquipmentMaintenanceV3 {
@@ -1428,13 +1473,13 @@ export const typeDefs = `#graphql
     id: ID!
     purchaseOrderId: ID!
     productId: ID!
-    product: MarketplaceProductV3!
     quantity: Int!
     unitPrice: Float!
     totalPrice: Float!
     deliveredQuantity: Int
     notes: String
-    
+    # Anidado
+    product: MaterialV3
   }
 
   type CartItemV3 {
@@ -1514,13 +1559,13 @@ export const typeDefs = `#graphql
       status: String
       limit: Int
       offset: Int
-    ): [EquipmentMaintenanceV3!]!
+    ): [MaintenanceV3!]!
     
-    maintenanceV3(id: ID!): EquipmentMaintenanceV3
+    maintenanceV3(id: ID!): MaintenanceV3
     
-    maintenanceHistoryV3(equipmentId: ID!): [EquipmentMaintenanceV3!]!
+    maintenanceHistoryV3(equipmentId: ID!): [MaintenanceV3!]!
     
-    equipmentMaintenanceScheduleV3(equipmentId: ID!): [EquipmentMaintenanceV3!]!
+    equipmentMaintenanceScheduleV3(equipmentId: ID!): [MaintenanceV3!]!
     
     # Inventory V3 - Suppliers Management
     suppliersV3(
