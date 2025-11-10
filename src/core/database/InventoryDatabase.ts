@@ -1065,6 +1065,17 @@ export class InventoryDatabase extends BaseDatabase {
     return this.getAll(query, [purchaseOrderId]);
   }
 
+  async getPurchaseOrderItemById(id: string): Promise<any> {
+    const query = `
+      SELECT poi.*, i.name as material_name, i.unit
+      FROM purchase_order_items poi
+      LEFT JOIN inventory i ON poi.material_id = i.id
+      WHERE poi.id = $1
+    `;
+
+    return this.getOne(query, [id]);
+  }
+
   async addPurchaseOrderItem(purchaseOrderId: string, input: any): Promise<any> {
     const { materialId, quantity, unitPrice } = input;
 
@@ -1252,6 +1263,10 @@ export class InventoryDatabase extends BaseDatabase {
 
   async getPurchaseOrderItemsV3(purchaseOrderId: string): Promise<any[]> {
     return this.getPurchaseOrderItems(purchaseOrderId);
+  }
+
+  async getPurchaseOrderItemV3ById(id: string): Promise<any> {
+    return this.getPurchaseOrderItemById(id);
   }
 
   async addPurchaseOrderItemV3(purchaseOrderId: string, input: any): Promise<any> {

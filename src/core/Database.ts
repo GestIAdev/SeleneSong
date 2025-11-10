@@ -964,6 +964,10 @@ export class SeleneDatabase {
     return this.inventory.getPurchaseOrderItemsV3(purchaseOrderId);
   }
 
+  async getPurchaseOrderItemV3ById(id: string): Promise<any> {
+    return this.inventory.getPurchaseOrderItemV3ById(id);
+  }
+
   async addPurchaseOrderItemV3(purchaseOrderId: string, input: any): Promise<any> {
     return this.inventory.addPurchaseOrderItemV3(purchaseOrderId, input);
   }

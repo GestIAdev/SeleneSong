@@ -335,6 +335,17 @@ export class MarketplaceDatabase extends BaseDatabase {
     return await this.getAll(query, [purchaseOrderId]);
   }
 
+  async getPurchaseOrderItemV3ById(id: string): Promise<any> {
+    const query = `
+      SELECT
+        id, purchase_order_id, material_id, quantity,
+        unit_price, total_price, received_quantity, created_at, updated_at
+      FROM purchase_order_items
+      WHERE id = $1
+    `;
+    return await this.getOne(query, [id]);
+  }
+
   async addPurchaseOrderItemV3(purchaseOrderId: string, input: any): Promise<any> {
     const { materialId, quantity, unitPrice } = input;
     const totalPrice = quantity * unitPrice;

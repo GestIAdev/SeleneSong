@@ -622,12 +622,21 @@ export const acknowledgeInventoryAlertV3 = async (
   args: { alertId: string },
   context: GraphQLContext
 ): Promise<boolean> => {
-  try {
-    await context.database.acknowledgeInventoryAlertV3(args.alertId);
+  const { alertId } = args;
+  const { database, auditLogger, user, ip } = context;
+  const startTime = Date.now();
 
-    console.log(`✅ acknowledgeInventoryAlertV3 mutation acknowledged alert: ${args.alertId}`);
+  try {
+    await database.acknowledgeInventoryAlertV3(alertId);
+    const duration = Date.now() - startTime;
+    await auditLogger.logFieldAccess('InventoryAlert', alertId, 'acknowledged', user?.id, user?.email, ip);
+    if (context.pubsub) context.pubsub.publish('INVENTORY_ALERT_ACKNOWLEDGED', { alertId });
+    console.log(`✅ acknowledgeInventoryAlertV3 mutation acknowledged alert: ${alertId} (${duration}ms)`);
     return true;
   } catch (error) {
+    if (auditLogger) {
+      await auditLogger.logIntegrityViolation('InventoryAlert', alertId, 'unknown', { alertId }, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ acknowledgeInventoryAlertV3 mutation error:", error as Error);
     throw error;
   }
@@ -739,12 +748,28 @@ export const createMaintenanceV3 = async (
   args: { input: any },
   context: GraphQLContext
 ): Promise<any> => {
-  try {
-    const maintenance = await context.database.createMaintenanceV3(args.input);
+  const { input } = args;
+  const { database, verificationEngine, auditLogger, user, ip } = context;
+  const startTime = Date.now();
+  let verificationFailed = false;
 
-    console.log(`✅ createMaintenanceV3 mutation created maintenance for equipment: ${args.input.equipmentId}`);
+  try {
+    const verification = await verificationEngine.verifyBatch('MaintenanceV3', input);
+    if (!verification.valid) {
+      await auditLogger.logIntegrityViolation('MaintenanceV3', 'N/A (CREATE)', verification.criticalFields[0] || 'batch', input, verification.errors[0] || verification.errors.join(', '), (verification.severity || 'CRITICAL') as 'WARNING' | 'ERROR' | 'CRITICAL', user?.id, user?.email, ip);
+      verificationFailed = true;
+      throw new Error(`Error de validación: ${verification.errors.join(', ')}`);
+    }
+    const maintenance = await database.createMaintenanceV3(input);
+    const duration = Date.now() - startTime;
+    await auditLogger.logCreate('MaintenanceV3', maintenance.id, maintenance, user?.id, user?.email, ip);
+    if (context.pubsub) context.pubsub.publish('MAINTENANCE_CREATED', { maintenanceCreated: maintenance });
+    console.log(`✅ createMaintenanceV3 mutation created maintenance for equipment: ${input.equipmentId} (${duration}ms)`);
     return maintenance;
   } catch (error) {
+    if (auditLogger && !verificationFailed) {
+      await auditLogger.logIntegrityViolation('MaintenanceV3', 'N/A (CREATE)', 'unknown', input, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ createMaintenanceV3 mutation error:", error as Error);
     throw error;
   }
@@ -755,12 +780,30 @@ export const updateMaintenanceV3 = async (
   args: { id: string; input: any },
   context: GraphQLContext
 ): Promise<any> => {
-  try {
-    const maintenance = await context.database.updateMaintenanceV3(args.id, args.input);
+  const { id, input } = args;
+  const { database, verificationEngine, auditLogger, user, ip } = context;
+  const startTime = Date.now();
+  let verificationFailed = false;
 
-    console.log(`✅ updateMaintenanceV3 mutation updated maintenance ID: ${maintenance.id}`);
+  try {
+    const oldRecord = await database.getMaintenanceV3ById(id);
+    if (!oldRecord) throw new Error(`Mantenimiento no encontrado: ${id}`);
+    const verification = await verificationEngine.verifyBatch('MaintenanceV3', input);
+    if (!verification.valid) {
+      await auditLogger.logIntegrityViolation('MaintenanceV3', id, verification.criticalFields[0] || 'batch', input, verification.errors[0] || verification.errors.join(', '), (verification.severity || 'CRITICAL') as 'WARNING' | 'ERROR' | 'CRITICAL', user?.id, user?.email, ip);
+      verificationFailed = true;
+      throw new Error(`Error de validación: ${verification.errors.join(', ')}`);
+    }
+    const maintenance = await database.updateMaintenanceV3(id, input);
+    const duration = Date.now() - startTime;
+    await auditLogger.logUpdate('MaintenanceV3', id, oldRecord, maintenance, user?.id, user?.email, ip);
+    if (context.pubsub) context.pubsub.publish('MAINTENANCE_UPDATED', { maintenanceUpdated: maintenance });
+    console.log(`✅ updateMaintenanceV3 mutation updated maintenance ID: ${maintenance.id} (${duration}ms)`);
     return maintenance;
   } catch (error) {
+    if (auditLogger && !verificationFailed) {
+      await auditLogger.logIntegrityViolation('MaintenanceV3', id, 'unknown', input, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ updateMaintenanceV3 mutation error:", error as Error);
     throw error;
   }
@@ -771,12 +814,23 @@ export const completeMaintenanceV3 = async (
   args: { id: string; completionNotes?: string },
   context: GraphQLContext
 ): Promise<any> => {
-  try {
-    const maintenance = await context.database.completeMaintenanceV3(args.id, args.completionNotes);
+  const { id, completionNotes } = args;
+  const { database, auditLogger, user, ip } = context;
+  const startTime = Date.now();
 
-    console.log(`✅ completeMaintenanceV3 mutation completed maintenance ID: ${maintenance.id}`);
+  try {
+    const oldRecord = await database.getMaintenanceV3ById(id);
+    if (!oldRecord) throw new Error(`Mantenimiento no encontrado: ${id}`);
+    const maintenance = await database.completeMaintenanceV3(id, completionNotes);
+    const duration = Date.now() - startTime;
+    await auditLogger.logStateTransition('MaintenanceV3', id, { field: 'status', oldValue: oldRecord.status, newValue: 'COMPLETED', reason: 'Manual completion' }, user?.id, user?.email, ip);
+    if (context.pubsub) context.pubsub.publish('MAINTENANCE_COMPLETED', { maintenanceCompleted: maintenance });
+    console.log(`✅ completeMaintenanceV3 mutation completed maintenance ID: ${maintenance.id} (${duration}ms)`);
     return maintenance;
   } catch (error) {
+    if (auditLogger) {
+      await auditLogger.logIntegrityViolation('MaintenanceV3', id, 'unknown', { id, completionNotes }, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ completeMaintenanceV3 mutation error:", error as Error);
     throw error;
   }
@@ -787,12 +841,29 @@ export const scheduleMaintenanceV3 = async (
   args: { equipmentId: string; scheduledDate: string; maintenanceType: string; description?: string },
   context: GraphQLContext
 ): Promise<any> => {
-  try {
-    const maintenance = await context.database.scheduleMaintenanceV3(args.equipmentId, args.scheduledDate, args.maintenanceType, args.description);
+  const { equipmentId, scheduledDate, maintenanceType, description } = args;
+  const { database, verificationEngine, auditLogger, user, ip } = context;
+  const startTime = Date.now();
+  let verificationFailed = false;
 
-    console.log(`✅ scheduleMaintenanceV3 mutation scheduled maintenance for equipment: ${args.equipmentId}`);
+  try {
+    const input = { equipmentId, scheduledDate, maintenanceType, description };
+    const verification = await verificationEngine.verifyBatch('MaintenanceSchedule', input);
+    if (!verification.valid) {
+      await auditLogger.logIntegrityViolation('MaintenanceSchedule', equipmentId, verification.criticalFields[0] || 'scheduledDate', input, verification.errors[0] || verification.errors.join(', '), (verification.severity || 'CRITICAL') as 'WARNING' | 'ERROR' | 'CRITICAL', user?.id, user?.email, ip);
+      verificationFailed = true;
+      throw new Error(`Error de validación: ${verification.errors.join(', ')}`);
+    }
+    const maintenance = await database.scheduleMaintenanceV3(equipmentId, scheduledDate, maintenanceType, description);
+    const duration = Date.now() - startTime;
+    await auditLogger.logCreate('MaintenanceV3', maintenance.id, maintenance, user?.id, user?.email, ip);
+    if (context.pubsub) context.pubsub.publish('MAINTENANCE_SCHEDULED', { maintenanceScheduled: maintenance });
+    console.log(`✅ scheduleMaintenanceV3 mutation scheduled maintenance for equipment: ${equipmentId} (${duration}ms)`);
     return maintenance;
   } catch (error) {
+    if (auditLogger && !verificationFailed) {
+      await auditLogger.logIntegrityViolation('MaintenanceSchedule', equipmentId, 'unknown', args, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ scheduleMaintenanceV3 mutation error:", error as Error);
     throw error;
   }
@@ -803,12 +874,23 @@ export const cancelMaintenanceV3 = async (
   args: { id: string; reason?: string },
   context: GraphQLContext
 ): Promise<boolean> => {
-  try {
-    await context.database.cancelMaintenanceV3(args.id, args.reason);
+  const { id, reason } = args;
+  const { database, auditLogger, user, ip } = context;
+  const startTime = Date.now();
 
-    console.log(`✅ cancelMaintenanceV3 mutation cancelled maintenance ID: ${args.id}`);
+  try {
+    const oldRecord = await database.getMaintenanceV3ById(id);
+    if (!oldRecord) throw new Error(`Mantenimiento no encontrado: ${id}`);
+    await database.cancelMaintenanceV3(id, reason);
+    const duration = Date.now() - startTime;
+    await auditLogger.logStateTransition('MaintenanceV3', id, { field: 'status', oldValue: oldRecord.status, newValue: 'CANCELLED', reason: reason || 'User cancellation' }, user?.id, user?.email, ip);
+    if (context.pubsub) context.pubsub.publish('MAINTENANCE_CANCELLED', { maintenanceCancelled: { id, reason } });
+    console.log(`✅ cancelMaintenanceV3 mutation cancelled maintenance ID: ${id} (${duration}ms)`);
     return true;
   } catch (error) {
+    if (auditLogger) {
+      await auditLogger.logIntegrityViolation('MaintenanceV3', id, 'unknown', { id, reason }, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ cancelMaintenanceV3 mutation error:", error as Error);
     throw error;
   }
@@ -920,12 +1002,28 @@ export const createPurchaseOrderV3 = async (
   args: { input: any },
   context: GraphQLContext
 ): Promise<any> => {
-  try {
-    const purchaseOrder = await context.database.createPurchaseOrderV3(args.input);
+  const { input } = args;
+  const { database, verificationEngine, auditLogger, user, ip } = context;
+  const startTime = Date.now();
+  let verificationFailed = false;
 
-    console.log(`✅ createPurchaseOrderV3 mutation created order: ${purchaseOrder.order_number}`);
+  try {
+    const verification = await verificationEngine.verifyBatch('PurchaseOrderV3', input);
+    if (!verification.valid) {
+      await auditLogger.logIntegrityViolation('PurchaseOrderV3', 'N/A (CREATE)', verification.criticalFields[0] || 'batch', input, verification.errors[0] || verification.errors.join(', '), (verification.severity || 'CRITICAL') as 'WARNING' | 'ERROR' | 'CRITICAL', user?.id, user?.email, ip);
+      verificationFailed = true;
+      throw new Error(`Error de validación: ${verification.errors.join(', ')}`);
+    }
+    const purchaseOrder = await database.createPurchaseOrderV3(input);
+    const duration = Date.now() - startTime;
+    await auditLogger.logCreate('PurchaseOrderV3', purchaseOrder.id, purchaseOrder, user?.id, user?.email, ip);
+    if (context.pubsub) context.pubsub.publish('PURCHASE_ORDER_CREATED', { purchaseOrderCreated: purchaseOrder });
+    console.log(`✅ createPurchaseOrderV3 mutation created order: ${purchaseOrder.order_number} (${duration}ms)`);
     return purchaseOrder;
   } catch (error) {
+    if (auditLogger && !verificationFailed) {
+      await auditLogger.logIntegrityViolation('PurchaseOrderV3', 'N/A (CREATE)', 'unknown', input, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ createPurchaseOrderV3 mutation error:", error as Error);
     throw error;
   }
@@ -936,12 +1034,30 @@ export const updatePurchaseOrderV3 = async (
   args: { id: string; input: any },
   context: GraphQLContext
 ): Promise<any> => {
-  try {
-    const purchaseOrder = await context.database.updatePurchaseOrderV3(args.id, args.input);
+  const { id, input } = args;
+  const { database, verificationEngine, auditLogger, user, ip } = context;
+  const startTime = Date.now();
+  let verificationFailed = false;
 
-    console.log(`✅ updatePurchaseOrderV3 mutation updated order: ${purchaseOrder.order_number}`);
+  try {
+    const oldRecord = await database.getPurchaseOrderV3ById(id);
+    if (!oldRecord) throw new Error(`Orden de compra no encontrada: ${id}`);
+    const verification = await verificationEngine.verifyBatch('PurchaseOrderV3', input);
+    if (!verification.valid) {
+      await auditLogger.logIntegrityViolation('PurchaseOrderV3', id, verification.criticalFields[0] || 'batch', input, verification.errors[0] || verification.errors.join(', '), (verification.severity || 'CRITICAL') as 'WARNING' | 'ERROR' | 'CRITICAL', user?.id, user?.email, ip);
+      verificationFailed = true;
+      throw new Error(`Error de validación: ${verification.errors.join(', ')}`);
+    }
+    const purchaseOrder = await database.updatePurchaseOrderV3(id, input);
+    const duration = Date.now() - startTime;
+    await auditLogger.logUpdate('PurchaseOrderV3', id, oldRecord, purchaseOrder, user?.id, user?.email, ip);
+    if (context.pubsub) context.pubsub.publish('PURCHASE_ORDER_UPDATED', { purchaseOrderUpdated: purchaseOrder });
+    console.log(`✅ updatePurchaseOrderV3 mutation updated order: ${purchaseOrder.order_number} (${duration}ms)`);
     return purchaseOrder;
   } catch (error) {
+    if (auditLogger && !verificationFailed) {
+      await auditLogger.logIntegrityViolation('PurchaseOrderV3', id, 'unknown', input, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ updatePurchaseOrderV3 mutation error:", error as Error);
     throw error;
   }
@@ -952,12 +1068,23 @@ export const cancelPurchaseOrderV3 = async (
   args: { id: string; reason?: string },
   context: GraphQLContext
 ): Promise<any> => {
-  try {
-    const purchaseOrder = await context.database.cancelPurchaseOrderV3(args.id, args.reason);
+  const { id, reason } = args;
+  const { database, auditLogger, user, ip } = context;
+  const startTime = Date.now();
 
-    console.log(`✅ cancelPurchaseOrderV3 mutation cancelled order: ${purchaseOrder.order_number}`);
+  try {
+    const oldRecord = await database.getPurchaseOrderV3ById(id);
+    if (!oldRecord) throw new Error(`Orden de compra no encontrada: ${id}`);
+    const purchaseOrder = await database.cancelPurchaseOrderV3(id, reason);
+    const duration = Date.now() - startTime;
+    await auditLogger.logStateTransition('PurchaseOrderV3', id, { field: 'status', oldValue: oldRecord.status, newValue: 'CANCELLED', reason: reason || 'User cancellation' }, user?.id, user?.email, ip);
+    if (context.pubsub) context.pubsub.publish('PURCHASE_ORDER_CANCELLED', { purchaseOrderCancelled: purchaseOrder });
+    console.log(`✅ cancelPurchaseOrderV3 mutation cancelled order: ${purchaseOrder.order_number} (${duration}ms)`);
     return purchaseOrder;
   } catch (error) {
+    if (auditLogger) {
+      await auditLogger.logIntegrityViolation('PurchaseOrderV3', id, 'unknown', { id, reason }, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ cancelPurchaseOrderV3 mutation error:", error as Error);
     throw error;
   }
@@ -968,12 +1095,23 @@ export const receivePurchaseOrderV3 = async (
   args: { id: string; receivedBy: string },
   context: GraphQLContext
 ): Promise<any> => {
-  try {
-    const purchaseOrder = await context.database.receivePurchaseOrderV3(args.id, args.receivedBy);
+  const { id, receivedBy } = args;
+  const { database, auditLogger, user, ip } = context;
+  const startTime = Date.now();
 
-    console.log(`✅ receivePurchaseOrderV3 mutation received order: ${purchaseOrder.order_number}`);
+  try {
+    const oldRecord = await database.getPurchaseOrderV3ById(id);
+    if (!oldRecord) throw new Error(`Orden de compra no encontrada: ${id}`);
+    const purchaseOrder = await database.receivePurchaseOrderV3(id, receivedBy);
+    const duration = Date.now() - startTime;
+    await auditLogger.logStateTransition('PurchaseOrderV3', id, { field: 'status', oldValue: oldRecord.status, newValue: 'RECEIVED', reason: `Received by ${receivedBy}` }, user?.id, user?.email, ip);
+    if (context.pubsub) context.pubsub.publish('PURCHASE_ORDER_RECEIVED', { purchaseOrderReceived: purchaseOrder });
+    console.log(`✅ receivePurchaseOrderV3 mutation received order: ${purchaseOrder.order_number} (${duration}ms)`);
     return purchaseOrder;
   } catch (error) {
+    if (auditLogger) {
+      await auditLogger.logIntegrityViolation('PurchaseOrderV3', id, 'unknown', { id, receivedBy }, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ receivePurchaseOrderV3 mutation error:", error as Error);
     throw error;
   }
@@ -988,12 +1126,29 @@ export const addPurchaseOrderItemV3 = async (
   args: { purchaseOrderId: string; input: any },
   context: GraphQLContext
 ): Promise<any> => {
-  try {
-    const item = await context.database.addPurchaseOrderItemV3(args.purchaseOrderId, args.input);
+  const { purchaseOrderId, input } = args;
+  const { database, verificationEngine, auditLogger, user, ip } = context;
+  const startTime = Date.now();
+  let verificationFailed = false;
 
-    console.log(`✅ addPurchaseOrderItemV3 mutation added item to order: ${args.purchaseOrderId}`);
+  try {
+    const itemInput = { ...input, purchaseOrderId };
+    const verification = await verificationEngine.verifyBatch('PurchaseOrderItemV3', itemInput);
+    if (!verification.valid) {
+      await auditLogger.logIntegrityViolation('PurchaseOrderItemV3', 'N/A (CREATE)', verification.criticalFields[0] || 'batch', itemInput, verification.errors[0] || verification.errors.join(', '), (verification.severity || 'CRITICAL') as 'WARNING' | 'ERROR' | 'CRITICAL', user?.id, user?.email, ip);
+      verificationFailed = true;
+      throw new Error(`Error de validación: ${verification.errors.join(', ')}`);
+    }
+    const item = await database.addPurchaseOrderItemV3(purchaseOrderId, input);
+    const duration = Date.now() - startTime;
+    await auditLogger.logCreate('PurchaseOrderItemV3', item.id, item, user?.id, user?.email, ip);
+    if (context.pubsub) context.pubsub.publish('PURCHASE_ORDER_ITEM_ADDED', { itemAdded: item });
+    console.log(`✅ addPurchaseOrderItemV3 mutation added item to order: ${purchaseOrderId} (${duration}ms)`);
     return item;
   } catch (error) {
+    if (auditLogger && !verificationFailed) {
+      await auditLogger.logIntegrityViolation('PurchaseOrderItemV3', 'N/A (CREATE)', 'unknown', args, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ addPurchaseOrderItemV3 mutation error:", error as Error);
     throw error;
   }
@@ -1004,12 +1159,30 @@ export const updatePurchaseOrderItemV3 = async (
   args: { id: string; input: any },
   context: GraphQLContext
 ): Promise<any> => {
-  try {
-    const item = await context.database.updatePurchaseOrderItemV3(args.id, args.input);
+  const { id, input } = args;
+  const { database, verificationEngine, auditLogger, user, ip } = context;
+  const startTime = Date.now();
+  let verificationFailed = false;
 
-    console.log(`✅ updatePurchaseOrderItemV3 mutation updated item ID: ${args.id}`);
+  try {
+    const oldRecord = await database.getPurchaseOrderItemV3ById(id);
+    if (!oldRecord) throw new Error(`Item de orden de compra no encontrado: ${id}`);
+    const verification = await verificationEngine.verifyBatch('PurchaseOrderItemV3', input);
+    if (!verification.valid) {
+      await auditLogger.logIntegrityViolation('PurchaseOrderItemV3', id, verification.criticalFields[0] || 'batch', input, verification.errors[0] || verification.errors.join(', '), (verification.severity || 'CRITICAL') as 'WARNING' | 'ERROR' | 'CRITICAL', user?.id, user?.email, ip);
+      verificationFailed = true;
+      throw new Error(`Error de validación: ${verification.errors.join(', ')}`);
+    }
+    const item = await database.updatePurchaseOrderItemV3(id, input);
+    const duration = Date.now() - startTime;
+    await auditLogger.logUpdate('PurchaseOrderItemV3', id, oldRecord, item, user?.id, user?.email, ip);
+    if (context.pubsub) context.pubsub.publish('PURCHASE_ORDER_ITEM_UPDATED', { itemUpdated: item });
+    console.log(`✅ updatePurchaseOrderItemV3 mutation updated item ID: ${id} (${duration}ms)`);
     return item;
   } catch (error) {
+    if (auditLogger && !verificationFailed) {
+      await auditLogger.logIntegrityViolation('PurchaseOrderItemV3', id, 'unknown', input, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ updatePurchaseOrderItemV3 mutation error:", error as Error);
     throw error;
   }
@@ -1020,12 +1193,23 @@ export const removePurchaseOrderItemV3 = async (
   args: { id: string },
   context: GraphQLContext
 ): Promise<boolean> => {
-  try {
-    await context.database.removePurchaseOrderItemV3(args.id);
+  const { id } = args;
+  const { database, auditLogger, user, ip } = context;
+  const startTime = Date.now();
 
-    console.log(`✅ removePurchaseOrderItemV3 mutation removed item ID: ${args.id}`);
+  try {
+    const oldRecord = await database.getPurchaseOrderItemV3ById(id);
+    if (!oldRecord) throw new Error(`Item de orden de compra no encontrado: ${id}`);
+    await database.removePurchaseOrderItemV3(id);
+    const duration = Date.now() - startTime;
+    await auditLogger.logDelete('PurchaseOrderItemV3', id, oldRecord, user?.id, user?.email, ip);
+    if (context.pubsub) context.pubsub.publish('PURCHASE_ORDER_ITEM_REMOVED', { itemRemoved: { id } });
+    console.log(`✅ removePurchaseOrderItemV3 mutation removed item ID: ${id} (${duration}ms)`);
     return true;
   } catch (error) {
+    if (auditLogger) {
+      await auditLogger.logIntegrityViolation('PurchaseOrderItemV3', id, 'unknown', { id }, (error as Error).message, 'CRITICAL', user?.id, user?.email, ip);
+    }
     console.error("❌ removePurchaseOrderItemV3 mutation error:", error as Error);
     throw error;
   }
