@@ -31,12 +31,109 @@ export const updateInventoryV3 = async (
   args: { id: string; input: any },
   context: GraphQLContext
 ): Promise<any> => {
-  try {
-    const inventory = await context.database.updateInventoryV3(args.id, args.input);
+  const { id, input } = args;
+  const { database, verificationEngine, auditLogger, user, ip } = context;
+  const startTime = Date.now();
 
-    console.log(`✅ updateInventoryV3 mutation updated: ${inventory.name}`);
-    return inventory;
+  try {
+    // --------------------------------------------------------------------------
+    // 🔥 PUERTA 1: VERIFICACIÓN (El Guardián - VerificationEngine)
+    // --------------------------------------------------------------------------
+    // Primero, obtenemos el estado actual para la auditoría
+    const oldRecord = await database.inventory.getInventoryV3ById(id);
+    if (!oldRecord) {
+      throw new Error(`Registro de inventario no encontrado: ${id}`);
+    }
+
+    // Verificar el input contra las reglas de 'integrity_checks'
+    const verification = await verificationEngine.verifyBatch(
+      'InventoryV3',
+      input
+    );
+
+    if (!verification.valid) {
+      // Si la verificación falla, registramos la violación y paramos
+      await auditLogger.logIntegrityViolation(
+        'InventoryV3',
+        id,
+        verification.criticalFields[0] || 'batch',
+        input,
+        verification.errors.join(', '),
+        verification.overallSeverity as 'WARNING' | 'ERROR' | 'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+      throw new Error(`Error de validación: ${verification.errors.join(', ')}`);
+    }
+
+    // --------------------------------------------------------------------------
+    // 🎯 PUERTA 2: LÓGICA DE NEGOCIO (El Arquitecto)
+    // --------------------------------------------------------------------------
+    // Para un update simple de inventario, la Puerta 1 es suficiente.
+    // Aquí iría lógica compleja: transiciones de estado, cascadas, etc.
+    // Ejemplo: Si el inventario cambia de status, validar transición permitida
+    if (input.status && input.status !== oldRecord.status) {
+      const stateTransition = await verificationEngine.verifyStateTransition(
+        oldRecord.status || 'ACTIVE',
+        input.status,
+        {
+          'ACTIVE': ['INACTIVE', 'ARCHIVED'],
+          'INACTIVE': ['ACTIVE', 'ARCHIVED'],
+          'ARCHIVED': [] // Terminal state
+        }
+      );
+
+      if (!stateTransition.valid) {
+        throw new Error(stateTransition.error);
+      }
+    }
+
+    // --------------------------------------------------------------------------
+    // 💾 PUERTA 3: TRANSACCIÓN DB (El Ejecutor)
+    // --------------------------------------------------------------------------
+    const updatedRecord = await database.inventory.updateInventoryV3(id, input);
+
+    // --------------------------------------------------------------------------
+    // 📝 PUERTA 4: AUDITORÍA (El Cronista - AuditLogger)
+    // --------------------------------------------------------------------------
+    const duration = Date.now() - startTime;
+    
+    await auditLogger.logUpdate(
+      'InventoryV3',
+      id,
+      oldRecord,       // Estado ANTES del cambio
+      updatedRecord,   // Estado DESPUÉS del cambio
+      user?.id,
+      user?.email,
+      ip
+    );
+
+    // (Opcional: Publicar evento de WebSocket si tienes PubSub configurado)
+    if (context.pubsub) {
+      context.pubsub.publish('INVENTORY_UPDATED', {
+        inventoryUpdated: updatedRecord
+      });
+    }
+
+    console.log(`✅ updateInventoryV3 mutation updated: ${updatedRecord.name} (${duration}ms)`);
+    return updatedRecord;
   } catch (error) {
+    // Registrar error como violación de integridad
+    if (auditLogger) {
+      await auditLogger.logIntegrityViolation(
+        'InventoryV3',
+        id,
+        'unknown',
+        input,
+        (error as Error).message,
+        'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+    }
+
     console.error("❌ updateInventoryV3 mutation error:", error as Error);
     throw error;
   }

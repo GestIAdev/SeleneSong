@@ -32,6 +32,11 @@ export interface GraphQLContext {
   heal: SeleneHeal;
   predict: SelenePredict;
   offline: SeleneOffline;
+  
+  // 🔥 PHASE 3: VERIFICATION & AUDIT ENGINES
+  verificationEngine?: any; // VerificationEngine instance for field validation
+  auditLogger?: any; // AuditLogger instance for audit trail tracking
+  
   pubsub?: any; // PubSub for subscriptions (optional for now)
   auth?: {
     isAuthenticated: boolean;
@@ -39,6 +44,15 @@ export interface GraphQLContext {
     role?: string;
     permissions?: string[];
   }; // Authentication context for WebSocket connections
+  
+  // 🔐 USER & REQUEST CONTEXT (for PHASE 3 audit logging)
+  user?: {
+    id?: string;
+    email?: string;
+    role?: string;
+  };
+  ip?: string; // Client IP address for audit trail
+  
   quantumEngine?: any; // Quantum subscription engine for Phase E
 }
 
