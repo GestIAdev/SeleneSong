@@ -170,9 +170,11 @@ export class InventoryDatabase extends BaseDatabase {
 
     let query = `
       SELECT
-        m.id, m.name, m.description, m.category, m.unit_cost,
-        m.unit, m.reorder_point, m.created_at, m.updated_at
-      FROM materials m
+        m.id, m.name, m.category, m.unit_cost,
+        m.unit, m.current_stock, m.minimum_stock, 
+        m.supplier, m.expiry_date, m.batch_number,
+        m.is_active, m.created_at, m.updated_at
+      FROM dental_materials m
     `;
 
     const params: any[] = [];
@@ -184,10 +186,7 @@ export class InventoryDatabase extends BaseDatabase {
     }
 
     if (supplierId) {
-      query += `
-        LEFT JOIN material_suppliers ms ON m.id = ms.material_id
-      `;
-      conditions.push(`ms.supplier_id = $${params.length + 1}`);
+      conditions.push(`m.supplier = $${params.length + 1}`);
       params.push(supplierId);
     }
 
@@ -195,40 +194,43 @@ export class InventoryDatabase extends BaseDatabase {
       query += ` WHERE ${conditions.join(' AND ')}`;
     }
 
-    query += ` GROUP BY m.id`;
+    query += ` ORDER BY m.name ASC`;
     query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limit, offset);
-
-    query += ` ORDER BY m.name ASC`;
 
     return this.getAll(query, params);
   }
 
   async getMaterialV3ById(id: string): Promise<any> {
-    const query = `SELECT * FROM materials WHERE id = $1`;
+    const query = `SELECT * FROM dental_materials WHERE id = $1`;
     return this.getOne(query, [id]);
   }
 
   async createMaterialV3(input: any): Promise<any> {
     const {
       name,
-      description,
       category,
       unitCost,
       unit,
-      reorderPoint
+      currentStock,
+      minimumStock,
+      supplier,
+      expiryDate,
+      batchNumber
     } = input;
 
     const query = `
-      INSERT INTO materials (
-        name, description, category, unit_cost,
-        unit, reorder_point, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+      INSERT INTO dental_materials (
+        name, category, unit_cost, unit, current_stock,
+        minimum_stock, supplier, expiry_date, batch_number,
+        is_active, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, NOW(), NOW())
       RETURNING *
     `;
 
     const result = await this.runQuery(query, [
-      name, description, category, unitCost, unit, reorderPoint
+      name, category, unitCost, unit, currentStock || 0,
+      minimumStock || 0, supplier, expiryDate, batchNumber
     ]);
 
     return result.rows[0];
@@ -243,10 +245,6 @@ export class InventoryDatabase extends BaseDatabase {
       updates.push(`name = $${paramIndex++}`);
       values.push(input.name);
     }
-    if (input.description !== undefined) {
-      updates.push(`description = $${paramIndex++}`);
-      values.push(input.description);
-    }
     if (input.category !== undefined) {
       updates.push(`category = $${paramIndex++}`);
       values.push(input.category);
@@ -259,16 +257,24 @@ export class InventoryDatabase extends BaseDatabase {
       updates.push(`unit = $${paramIndex++}`);
       values.push(input.unit);
     }
-    if (input.reorderPoint !== undefined) {
-      updates.push(`reorder_point = $${paramIndex++}`);
-      values.push(input.reorderPoint);
+    if (input.currentStock !== undefined) {
+      updates.push(`current_stock = $${paramIndex++}`);
+      values.push(input.currentStock);
+    }
+    if (input.minimumStock !== undefined) {
+      updates.push(`minimum_stock = $${paramIndex++}`);
+      values.push(input.minimumStock);
+    }
+    if (input.supplier !== undefined) {
+      updates.push(`supplier = $${paramIndex++}`);
+      values.push(input.supplier);
     }
 
     updates.push(`updated_at = NOW()`);
     values.push(id);
 
     const query = `
-      UPDATE materials
+      UPDATE dental_materials
       SET ${updates.join(', ')}
       WHERE id = $${paramIndex}
       RETURNING *
@@ -279,7 +285,7 @@ export class InventoryDatabase extends BaseDatabase {
   }
 
   async deleteMaterialV3(id: string): Promise<void> {
-    const query = `DELETE FROM materials WHERE id = $1`;
+    const query = `DELETE FROM dental_materials WHERE id = $1`;
     await this.runQuery(query, [id]);
   }
 
@@ -307,9 +313,8 @@ export class InventoryDatabase extends BaseDatabase {
         COUNT(CASE WHEN current_stock <= minimum_stock THEN 1 END) as low_stock_items,
         COUNT(CASE WHEN current_stock = 0 THEN 1 END) as out_of_stock_items,
         COUNT(CASE WHEN expiry_date <= NOW() + INTERVAL '30 days' THEN 1 END) as expiring_soon_items,
-        COALESCE(SUM(current_stock * unit_cost), 0) as total_value
-      FROM inventory i
-      LEFT JOIN materials m ON i.material_id = m.id
+        0 as total_value
+      FROM inventory
     `;
 
     const result = await this.runQuery(query);
@@ -384,9 +389,12 @@ export class InventoryDatabase extends BaseDatabase {
 
     let query = `
       SELECT
-        id, name, model, serial_number, category, status,
-        purchase_date, warranty_expiry, location, created_at, updated_at
-      FROM equipment
+        id, name, model, serial_number, manufacturer, equipment_type,
+        room_id, status, purchase_date, warranty_expiry, last_maintenance,
+        next_maintenance_due, purchase_cost, current_value, depreciation_rate,
+        power_requirements, maintenance_interval_days, operating_hours,
+        is_active, notes, created_at, updated_at
+      FROM dental_equipment
     `;
 
     const params: any[] = [];
@@ -396,7 +404,7 @@ export class InventoryDatabase extends BaseDatabase {
       const conditions: string[] = [];
 
       if (category) {
-        conditions.push(` category = $${params.length + 1}`);
+        conditions.push(` equipment_type = $${params.length + 1}`);
         params.push(category);
       }
       if (status) {
@@ -414,7 +422,7 @@ export class InventoryDatabase extends BaseDatabase {
   }
 
   async getEquipmentV3ById(id: string): Promise<any> {
-    const query = `SELECT * FROM equipment WHERE id = $1`;
+    const query = `SELECT * FROM dental_equipment WHERE id = $1`;
     return this.getOne(query, [id]);
   }
 
@@ -423,23 +431,29 @@ export class InventoryDatabase extends BaseDatabase {
       name,
       model,
       serialNumber,
+      manufacturer,
       category,
       status,
       purchaseDate,
       warrantyExpiry,
-      location
+      location,
+      purchaseCost,
+      depreciationRate
     } = input;
 
     const query = `
-      INSERT INTO equipment (
-        name, model, serial_number, category, status,
-        purchase_date, warranty_expiry, location, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+      INSERT INTO dental_equipment (
+        name, model, serial_number, manufacturer, equipment_type,
+        status, purchase_date, warranty_expiry, purchase_cost,
+        depreciation_rate, is_active, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, NOW(), NOW())
       RETURNING *
     `;
 
     const result = await this.runQuery(query, [
-      name, model, serialNumber, category, status || 'ACTIVE', purchaseDate, warrantyExpiry, location
+      name, model, serialNumber, manufacturer, category,
+      status || 'ACTIVE', purchaseDate, warrantyExpiry,
+      purchaseCost || 0, depreciationRate || 0
     ]);
 
     return result.rows[0];
@@ -463,7 +477,7 @@ export class InventoryDatabase extends BaseDatabase {
       values.push(input.serialNumber);
     }
     if (input.category !== undefined) {
-      updates.push(`category = $${paramIndex++}`);
+      updates.push(`equipment_type = $${paramIndex++}`);
       values.push(input.category);
     }
     if (input.status !== undefined) {
@@ -478,16 +492,12 @@ export class InventoryDatabase extends BaseDatabase {
       updates.push(`warranty_expiry = $${paramIndex++}`);
       values.push(input.warrantyExpiry);
     }
-    if (input.location !== undefined) {
-      updates.push(`location = $${paramIndex++}`);
-      values.push(input.location);
-    }
 
     updates.push(`updated_at = NOW()`);
     values.push(id);
 
     const query = `
-      UPDATE equipment
+      UPDATE dental_equipment
       SET ${updates.join(', ')}
       WHERE id = $${paramIndex}
       RETURNING *
@@ -498,7 +508,7 @@ export class InventoryDatabase extends BaseDatabase {
   }
 
   async deleteEquipmentV3(id: string): Promise<void> {
-    const query = `DELETE FROM equipment WHERE id = $1`;
+    const query = `DELETE FROM dental_equipment WHERE id = $1`;
     await this.runQuery(query, [id]);
   }
 
@@ -517,9 +527,10 @@ export class InventoryDatabase extends BaseDatabase {
     let query = `
       SELECT
         id, equipment_id, maintenance_type, description,
-        scheduled_date, completed_date, status, priority,
-        cost, technician_id, completion_notes, created_at, updated_at
-      FROM maintenance
+        scheduled_date, completed_date, status,
+        cost, performed_by, findings, recommendations,
+        next_maintenance_date, created_at, updated_at
+      FROM equipment_maintenance
     `;
 
     const params: any[] = [];
@@ -547,7 +558,7 @@ export class InventoryDatabase extends BaseDatabase {
   }
 
   async getMaintenanceV3ById(id: string): Promise<any> {
-    const query = `SELECT * FROM maintenance WHERE id = $1`;
+    const query = `SELECT * FROM equipment_maintenance WHERE id = $1`;
     return this.getOne(query, [id]);
   }
 
@@ -558,21 +569,21 @@ export class InventoryDatabase extends BaseDatabase {
       description,
       scheduledDate,
       status,
-      priority,
       cost,
-      technicianId
+      performedBy
     } = input;
 
     const query = `
-      INSERT INTO maintenance (
+      INSERT INTO equipment_maintenance (
         equipment_id, maintenance_type, description, scheduled_date,
-        status, priority, cost, technician_id, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+        status, cost, performed_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
       RETURNING *
     `;
 
     const result = await this.runQuery(query, [
-      equipmentId, maintenanceType, description, scheduledDate, status || 'SCHEDULED', priority || 'MEDIUM', cost || 0, technicianId
+      equipmentId, maintenanceType, description, scheduledDate,
+      status || 'SCHEDULED', cost || 0, performedBy
     ]);
 
     return result.rows[0];
@@ -599,24 +610,20 @@ export class InventoryDatabase extends BaseDatabase {
       updates.push(`status = $${paramIndex++}`);
       values.push(input.status);
     }
-    if (input.priority !== undefined) {
-      updates.push(`priority = $${paramIndex++}`);
-      values.push(input.priority);
-    }
     if (input.cost !== undefined) {
       updates.push(`cost = $${paramIndex++}`);
       values.push(input.cost);
     }
-    if (input.technicianId !== undefined) {
-      updates.push(`technician_id = $${paramIndex++}`);
-      values.push(input.technicianId);
+    if (input.performedBy !== undefined) {
+      updates.push(`performed_by = $${paramIndex++}`);
+      values.push(input.performedBy);
     }
 
     updates.push(`updated_at = NOW()`);
     values.push(id);
 
     const query = `
-      UPDATE maintenance
+      UPDATE equipment_maintenance
       SET ${updates.join(', ')}
       WHERE id = $${paramIndex}
       RETURNING *
@@ -628,8 +635,8 @@ export class InventoryDatabase extends BaseDatabase {
 
   async completeMaintenanceV3(id: string, completionNotes?: string): Promise<any> {
     const query = `
-      UPDATE maintenance
-       SET status = 'COMPLETED', completed_date = NOW(), completion_notes = $1, updated_at = NOW()
+      UPDATE equipment_maintenance
+       SET status = 'COMPLETED', completed_date = NOW(), findings = $1, updated_at = NOW()
        WHERE id = $2
        RETURNING *
     `;
@@ -640,10 +647,10 @@ export class InventoryDatabase extends BaseDatabase {
 
   async scheduleMaintenanceV3(equipmentId: string, scheduledDate: string, maintenanceType: string, description?: string): Promise<any> {
     const query = `
-      INSERT INTO maintenance (
+      INSERT INTO equipment_maintenance (
         equipment_id, maintenance_type, description, scheduled_date,
-        status, priority, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, 'SCHEDULED', 'MEDIUM', NOW(), NOW())
+        status, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, 'SCHEDULED', NOW(), NOW())
       RETURNING *
     `;
 
@@ -653,8 +660,8 @@ export class InventoryDatabase extends BaseDatabase {
 
   async cancelMaintenanceV3(id: string, reason?: string): Promise<void> {
     const query = `
-      UPDATE maintenance
-       SET status = 'CANCELLED', completion_notes = $1, updated_at = NOW()
+      UPDATE equipment_maintenance
+       SET status = 'CANCELLED', findings = $1, updated_at = NOW()
        WHERE id = $2
     `;
 
@@ -774,23 +781,20 @@ export class InventoryDatabase extends BaseDatabase {
   // ============================================================================
 
   async getSuppliers(args: { limit?: number; offset?: number; category?: string; status?: string; }): Promise<any[]> {
-    const { limit = 50, offset = 0, category, status } = args;
+    const { limit = 50, offset = 0, status } = args;
 
-    let query = `SELECT * FROM suppliers`;
+    let query = `
+      SELECT
+        id, name, contact_person, email, phone, address,
+        payment_terms, delivery_time_days, minimum_order_value,
+        rating, is_active, notes, created_at, updated_at
+      FROM suppliers
+    `;
     const params: any[] = [];
 
-    if (category || status) {
-      query += ` WHERE`;
-      const conditions: string[] = [];
-      if (category) {
-        conditions.push(` category = $${params.length + 1}`);
-        params.push(category);
-      }
-      if (status) {
-        conditions.push(` status = $${params.length + 1}`);
-        params.push(status);
-      }
-      query += conditions.join(' AND ');
+    if (status) {
+      query += ` WHERE is_active = $${params.length + 1}`;
+      params.push(status === 'ACTIVE');
     }
 
     query += ` ORDER BY name ASC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
@@ -800,15 +804,33 @@ export class InventoryDatabase extends BaseDatabase {
   }
 
   async createSupplier(input: any): Promise<any> {
-    const { name, contactInfo, category, status = 'ACTIVE' } = input;
+    const {
+      name,
+      contactPerson,
+      email,
+      phone,
+      address,
+      paymentTerms,
+      deliveryTimeDays,
+      minimumOrderValue,
+      rating,
+      notes
+    } = input;
 
     const query = `
-      INSERT INTO suppliers (name, contact_info, category, status, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      INSERT INTO suppliers (
+        name, contact_person, email, phone, address,
+        payment_terms, delivery_time_days, minimum_order_value,
+        rating, is_active, notes, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, $10, NOW(), NOW())
       RETURNING *
     `;
 
-    const result = await this.runQuery(query, [name, contactInfo, category, status]);
+    const result = await this.runQuery(query, [
+      name, contactPerson, email, phone, address,
+      paymentTerms, deliveryTimeDays || 7, minimumOrderValue || 0,
+      rating || 0, notes
+    ]);
     return result.rows[0];
   }
 
@@ -821,17 +843,45 @@ export class InventoryDatabase extends BaseDatabase {
       updates.push(`name = $${paramIndex++}`);
       values.push(input.name);
     }
-    if (input.contactInfo !== undefined) {
-      updates.push(`contact_info = $${paramIndex++}`);
-      values.push(input.contactInfo);
+    if (input.contactPerson !== undefined) {
+      updates.push(`contact_person = $${paramIndex++}`);
+      values.push(input.contactPerson);
     }
-    if (input.category !== undefined) {
-      updates.push(`category = $${paramIndex++}`);
-      values.push(input.category);
+    if (input.email !== undefined) {
+      updates.push(`email = $${paramIndex++}`);
+      values.push(input.email);
     }
-    if (input.status !== undefined) {
-      updates.push(`status = $${paramIndex++}`);
-      values.push(input.status);
+    if (input.phone !== undefined) {
+      updates.push(`phone = $${paramIndex++}`);
+      values.push(input.phone);
+    }
+    if (input.address !== undefined) {
+      updates.push(`address = $${paramIndex++}`);
+      values.push(input.address);
+    }
+    if (input.paymentTerms !== undefined) {
+      updates.push(`payment_terms = $${paramIndex++}`);
+      values.push(input.paymentTerms);
+    }
+    if (input.deliveryTimeDays !== undefined) {
+      updates.push(`delivery_time_days = $${paramIndex++}`);
+      values.push(input.deliveryTimeDays);
+    }
+    if (input.minimumOrderValue !== undefined) {
+      updates.push(`minimum_order_value = $${paramIndex++}`);
+      values.push(input.minimumOrderValue);
+    }
+    if (input.rating !== undefined) {
+      updates.push(`rating = $${paramIndex++}`);
+      values.push(input.rating);
+    }
+    if (input.isActive !== undefined) {
+      updates.push(`is_active = $${paramIndex++}`);
+      values.push(input.isActive);
+    }
+    if (input.notes !== undefined) {
+      updates.push(`notes = $${paramIndex++}`);
+      values.push(input.notes);
     }
 
     if (updates.length === 0) return null;
@@ -849,7 +899,7 @@ export class InventoryDatabase extends BaseDatabase {
   }
 
   async deleteSupplier(id: string): Promise<void> {
-    const query = `DELETE FROM suppliers WHERE id = $1`;
+    const query = `UPDATE suppliers SET is_active = false, updated_at = NOW() WHERE id = $1`;
     await this.runQuery(query, [id]);
   }
 
@@ -889,26 +939,40 @@ export class InventoryDatabase extends BaseDatabase {
   }
 
   async createPurchaseOrder(input: any): Promise<any> {
-    const { supplierId, items, notes } = input;
+    const {
+      supplierId,
+      orderNumber,
+      orderDate,
+      expectedDeliveryDate,
+      totalAmount,
+      taxAmount,
+      discountAmount,
+      notes,
+      approvedBy
+    } = input;
 
     const query = `
-      INSERT INTO purchase_orders (supplier_id, status, total_amount, notes, created_at, updated_at)
-      VALUES ($1, 'PENDING', 0, $2, NOW(), NOW())
+      INSERT INTO purchase_orders (
+        order_number, supplier_id, order_date, expected_delivery_date,
+        status, total_amount, tax_amount, discount_amount,
+        notes, approved_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, 'PENDING', $5, $6, $7, $8, $9, NOW(), NOW())
       RETURNING *
     `;
 
-    const result = await this.runQuery(query, [supplierId, notes]);
-    const purchaseOrder = result.rows[0];
+    const result = await this.runQuery(query, [
+      orderNumber || `PO-${Date.now()}`,
+      supplierId,
+      orderDate || new Date().toISOString(),
+      expectedDeliveryDate,
+      totalAmount || 0,
+      taxAmount || 0,
+      discountAmount || 0,
+      notes,
+      approvedBy
+    ]);
 
-    // Add items if provided
-    if (items && items.length > 0) {
-      for (const item of items) {
-        await this.addPurchaseOrderItem(purchaseOrder.id, item);
-      }
-      await this.updatePurchaseOrderTotal(purchaseOrder.id);
-    }
-
-    return purchaseOrder;
+    return result.rows[0];
   }
 
   async updatePurchaseOrder(id: string, input: any): Promise<any> {
@@ -942,7 +1006,7 @@ export class InventoryDatabase extends BaseDatabase {
   async approvePurchaseOrder(id: string, approverId: string): Promise<any> {
     const query = `
       UPDATE purchase_orders
-      SET status = 'APPROVED', approved_by = $1, approved_at = NOW(), updated_at = NOW()
+      SET status = 'APPROVED', approved_by = $1, updated_at = NOW()
       WHERE id = $2
       RETURNING *
     `;
@@ -954,51 +1018,25 @@ export class InventoryDatabase extends BaseDatabase {
   async cancelPurchaseOrder(id: string, reason?: string): Promise<any> {
     const query = `
       UPDATE purchase_orders
-      SET status = 'CANCELLED', cancellation_reason = $1, cancelled_at = NOW(), updated_at = NOW()
+      SET status = 'CANCELLED', notes = COALESCE(notes || E'\n', '') || $1, updated_at = NOW()
       WHERE id = $2
       RETURNING *
     `;
 
-    const result = await this.runQuery(query, [reason, id]);
+    const result = await this.runQuery(query, [reason || 'Cancelled', id]);
     return result.rows[0] || null;
   }
 
-  async receivePurchaseOrder(id: string, receivedItems: any[]): Promise<any> {
-    // Update purchase order status
+  async receivePurchaseOrder(id: string, receivedBy: string): Promise<any> {
     const updateQuery = `
       UPDATE purchase_orders
-      SET status = 'RECEIVED', received_at = NOW(), updated_at = NOW()
-      WHERE id = $1
+      SET status = 'RECEIVED', received_by = $1, actual_delivery_date = NOW(), updated_at = NOW()
+      WHERE id = $2
       RETURNING *
     `;
 
-    const result = await this.runQuery(updateQuery, [id]);
-    const purchaseOrder = result.rows[0];
-
-    // Update inventory for received items
-    for (const item of receivedItems) {
-      const { itemId, quantityReceived } = item;
-
-      // Update inventory stock
-      const inventoryQuery = `
-        UPDATE inventory
-        SET current_stock = current_stock + $1, last_restocked = NOW(), updated_at = NOW()
-        WHERE id = $2
-      `;
-
-      await this.runQuery(inventoryQuery, [quantityReceived, itemId]);
-
-      // Update purchase order item
-      const itemQuery = `
-        UPDATE purchase_order_items
-        SET quantity_received = $1, received_at = NOW()
-        WHERE id = $2
-      `;
-
-      await this.runQuery(itemQuery, [quantityReceived, item.itemId]);
-    }
-
-    return purchaseOrder;
+    const result = await this.runQuery(updateQuery, [receivedBy, id]);
+    return result.rows[0];
   }
 
   async deletePurchaseOrder(id: string): Promise<void> {
@@ -1200,8 +1238,8 @@ export class InventoryDatabase extends BaseDatabase {
     return this.cancelPurchaseOrder(id, reason);
   }
 
-  async receivePurchaseOrderV3(id: string, receivedItems: any[]): Promise<any> {
-    return this.receivePurchaseOrder(id, receivedItems);
+  async receivePurchaseOrderV3(id: string, receivedBy: string): Promise<any> {
+    return this.receivePurchaseOrder(id, receivedBy);
   }
 
   async deletePurchaseOrderV3(id: string): Promise<void> {

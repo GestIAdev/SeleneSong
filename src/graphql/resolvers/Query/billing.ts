@@ -52,3 +52,9 @@ export const billingDatumV3 = async (
     throw error;
   }
 };
+
+// Export consolidated billing queries object
+export const billingQueries = {
+  billingDataV3,
+  billingDatumV3,
+};

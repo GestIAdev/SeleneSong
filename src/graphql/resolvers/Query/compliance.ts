@@ -52,3 +52,9 @@ export const complianceV3 = async (
     throw error;
   }
 };
+
+// Export consolidated compliance queries object
+export const complianceQueries = {
+  compliancesV3,
+  complianceV3,
+};

@@ -416,3 +416,24 @@ export const purchaseOrderItemsV3 = async (
     throw error;
   }
 };
+
+// Export consolidated inventory queries object
+export const inventoryQueries = {
+  inventoriesV3,
+  inventoryV3,
+  materialsV3,
+  materialV3,
+  inventoryDashboardV3,
+  inventoryAlertsV3,
+  equipmentsV3,
+  equipmentV3,
+  maintenancesV3,
+  maintenanceV3,
+  maintenanceHistoryV3,
+  suppliersV3,
+  supplierV3,
+  purchaseOrdersV3,
+  purchaseOrderV3,
+  supplierPurchaseOrdersV3,
+  purchaseOrderItemsV3,
+};

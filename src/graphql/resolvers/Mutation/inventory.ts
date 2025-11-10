@@ -430,22 +430,6 @@ export const updatePurchaseOrderV3 = async (
   }
 };
 
-export const approvePurchaseOrderV3 = async (
-  _: unknown,
-  args: { id: string; approverId: string },
-  context: GraphQLContext
-): Promise<any> => {
-  try {
-    const purchaseOrder = await context.database.approvePurchaseOrderV3(args.id, args.approverId);
-
-    console.log(`✅ approvePurchaseOrderV3 mutation approved order: ${purchaseOrder.order_number}`);
-    return purchaseOrder;
-  } catch (error) {
-    console.error("❌ approvePurchaseOrderV3 mutation error:", error as Error);
-    throw error;
-  }
-};
-
 export const cancelPurchaseOrderV3 = async (
   _: unknown,
   args: { id: string; reason?: string },
@@ -464,11 +448,11 @@ export const cancelPurchaseOrderV3 = async (
 
 export const receivePurchaseOrderV3 = async (
   _: unknown,
-  args: { id: string; receivedItems: any[] },
+  args: { id: string; receivedBy: string },
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    const purchaseOrder = await context.database.receivePurchaseOrderV3(args.id, args.receivedItems);
+    const purchaseOrder = await context.database.receivePurchaseOrderV3(args.id, args.receivedBy);
 
     console.log(`✅ receivePurchaseOrderV3 mutation received order: ${purchaseOrder.order_number}`);
     return purchaseOrder;
@@ -528,4 +512,31 @@ export const removePurchaseOrderItemV3 = async (
     console.error("❌ removePurchaseOrderItemV3 mutation error:", error as Error);
     throw error;
   }
+};
+
+// Export consolidated inventory mutations object
+export const inventoryMutations = {
+  createInventoryV3,
+  updateInventoryV3,
+  deleteInventoryV3,
+  adjustInventoryStockV3,
+  createMaterialV3,
+  updateMaterialV3,
+  deleteMaterialV3,
+  reorderMaterialV3,
+  acknowledgeInventoryAlertV3,
+  createEquipmentV3,
+  updateEquipmentV3,
+  deleteEquipmentV3,
+  scheduleMaintenanceV3,
+  completeMaintenanceV3,
+  cancelMaintenanceV3,
+  createSupplierV3,
+  updateSupplierV3,
+  deleteSupplierV3,
+  createPurchaseOrderV3,
+  updatePurchaseOrderV3,
+  addPurchaseOrderItemV3,
+  updatePurchaseOrderItemV3,
+  removePurchaseOrderItemV3,
 };

@@ -11,6 +11,17 @@ export const typeDefs = `#graphql
   scalar DateString  # YYYY-MM-DD format (e.g., "1990-01-01")
   scalar JSON  # Generic JSON type for complex objects
   
+  # ⚡ DIRECTIVA VERITAS - DESACTIVADA (GraphQL no la reconoce sin implementación)
+  # directive @veritas(level: VeritasLevel!) on FIELD_DEFINITION
+
+  enum VeritasLevel {
+    NONE      # Sin verificación - datos no críticos
+    LOW       # Verificación básica - datos estándar
+    MEDIUM    # Verificación intermedia - datos importantes
+    HIGH      # Verificación alta - datos sensibles
+    CRITICAL  # Verificación completa - datos críticos para la integridad
+  }
+
   # 🎯 PATIENTS - V169 Schema Bridge Compatible
   type Patient {
     id: ID!
@@ -26,10 +37,23 @@ export const typeDefs = `#graphql
     emergencyContact: String
     insuranceProvider: String
     policyNumber: String
+    policyNumber_veritas: VeritasMetadata
     medicalHistory: String
+    medicalHistory_veritas: VeritasMetadata
     billingStatus: String
     createdAt: String!
     updatedAt: String!
+  }
+
+  # 🔐 VERITAS METADATA
+  type VeritasMetadata {
+    verified: Boolean!
+    confidence: Float!
+    level: VeritasLevel!
+    certificate: String
+    error: String
+    verifiedAt: String!
+    algorithm: String!
   }
 
   input PatientInput {
@@ -87,12 +111,16 @@ export const typeDefs = `#graphql
     practitionerId: ID
     practitioner: User
     appointmentDate: String!
+    appointmentDate_veritas: VeritasMetadata
     appointmentTime: String!
+    appointmentTime_veritas: VeritasMetadata
     duration: Int!
     type: String!
     status: String!
+    status_veritas: VeritasMetadata
     notes: String
     treatmentDetails: String
+    treatmentDetails_veritas: VeritasMetadata
     createdAt: String!
     updatedAt: String!
   }
@@ -207,6 +235,16 @@ export const typeDefs = `#graphql
     attachments: [String!]
     createdAt: String!
     updatedAt: String!
+    _veritas: MedicalRecordV3VeritasMetadata!
+  }
+
+  type MedicalRecordV3VeritasMetadata {
+    diagnosis: VeritasMetadata!
+    treatmentPlan: VeritasMetadata!
+    allergies: VeritasMetadata!
+    medications: VeritasMetadata!
+    content: VeritasMetadata!
+    vitalSigns: VeritasMetadata!
   }
 
   type VitalSigns {
@@ -290,6 +328,16 @@ export const typeDefs = `#graphql
     lastAccessedAt: String
     createdAt: String!
     updatedAt: String!
+    _veritas: DocumentV3VeritasMetadata!
+  }
+
+  type DocumentV3VeritasMetadata {
+    patientId: VeritasMetadata!
+    uploaderId: VeritasMetadata!
+    fileName: VeritasMetadata!
+    filePath: VeritasMetadata!
+    fileHash: VeritasMetadata!
+    encryptionKey: VeritasMetadata
   }
 
   # 📄 UNIFIED DOCUMENTS V3 - FULL SCHEMA with AI & Medical Fields
@@ -367,6 +415,13 @@ export const typeDefs = `#graphql
     isActive: Boolean!
     createdAt: String!
     updatedAt: String!
+    _veritas: InventoryV3VeritasMetadata!
+  }
+
+  type InventoryV3VeritasMetadata {
+    itemName: VeritasMetadata!
+    itemCode: VeritasMetadata!
+    supplierId: VeritasMetadata!
   }
 
   # 💰 BILLING DATA V3 - VERITAS CRITICAL PROTECTION
@@ -380,6 +435,12 @@ export const typeDefs = `#graphql
     paymentMethod: String
     createdAt: String!
     updatedAt: String!
+    _veritas: BillingDataV3VeritasMetadata!
+  }
+
+  type BillingDataV3VeritasMetadata {
+    patientId: VeritasMetadata!
+    amount: VeritasMetadata!
   }
 
   # 📋 COMPLIANCE V3 - VERITAS CRITICAL PROTECTION
@@ -393,6 +454,12 @@ export const typeDefs = `#graphql
     nextCheck: String
     createdAt: String!
     updatedAt: String!
+    _veritas: ComplianceV3VeritasMetadata!
+  }
+
+  type ComplianceV3VeritasMetadata {
+    regulationId: VeritasMetadata!
+    complianceStatus: VeritasMetadata!
   }
 
   enum DocumentType {
@@ -583,11 +650,17 @@ export const typeDefs = `#graphql
     practitionerId: ID!
     practitioner: User
     treatmentType: String!
+    treatmentType_veritas: VeritasMetadata
     description: String!
+    description_veritas: VeritasMetadata
     status: String!
+    status_veritas: VeritasMetadata
     startDate: String!
+    startDate_veritas: VeritasMetadata
     endDate: String
+    endDate_veritas: VeritasMetadata
     cost: Float
+    cost_veritas: VeritasMetadata
     notes: String
     aiRecommendations: [String!]
     veritasScore: Float
@@ -643,8 +716,11 @@ export const typeDefs = `#graphql
   type ToothDataV3 {
     id: ID!
     toothNumber: Int!
+    toothNumber_veritas: VeritasMetadata
     status: ToothStatus!
+    status_veritas: VeritasMetadata
     condition: String
+    condition_veritas: VeritasMetadata
     surfaces: [ToothSurfaceV3!]
     notes: String
     lastTreatmentDate: String
@@ -655,6 +731,7 @@ export const typeDefs = `#graphql
   type ToothSurfaceV3 {
     surface: String!
     status: String!
+    status_veritas: VeritasMetadata
     notes: String
   }
 
@@ -714,8 +791,10 @@ export const typeDefs = `#graphql
     id: ID!
     name: String!
     roomNumber: String!
+    roomNumber_veritas: VeritasMetadata
     type: TreatmentRoomType!
     status: TreatmentRoomStatus!
+    status_veritas: VeritasMetadata
     capacity: Int!
     equipment: [DentalEquipmentV3!]!
     isActive: Boolean!
@@ -731,10 +810,13 @@ export const typeDefs = `#graphql
     name: String!
     type: DentalEquipmentType!
     status: DentalEquipmentStatus!
+    status_veritas: VeritasMetadata
     manufacturer: String!
     model: String!
     serialNumber: String!
+    serialNumber_veritas: VeritasMetadata
     purchaseDate: String!
+    purchaseDate_veritas: VeritasMetadata
     warrantyExpiry: String
     lastMaintenance: String
     nextMaintenanceDue: String
@@ -752,12 +834,15 @@ export const typeDefs = `#graphql
     equipmentId: ID!
     equipment: DentalEquipmentV3
     scheduledDate: String!
+    scheduledDate_veritas: VeritasMetadata
     completedDate: String
     maintenanceType: MaintenanceType!
     description: String!
     technician: String
     cost: Float
+    cost_veritas: VeritasMetadata
     status: MaintenanceStatus!
+    status_veritas: VeritasMetadata
     priority: MaintenancePriority!
     notes: String
     createdAt: String!
@@ -769,10 +854,12 @@ export const typeDefs = `#graphql
     roomId: ID!
     room: TreatmentRoomV3
     scheduledDate: String!
+    scheduledDate_veritas: VeritasMetadata
     completedDate: String
     cleaningType: CleaningType!
     staffMember: String
     status: CleaningStatus!
+    status_veritas: VeritasMetadata
     notes: String
     createdAt: String!
     updatedAt: String!
@@ -788,6 +875,7 @@ export const typeDefs = `#graphql
     equipmentUtilization: Float!
     roomUtilization: Float!
     maintenanceCosts: Float!
+    maintenanceCosts_veritas: VeritasMetadata
     equipmentAges: EquipmentAgesV3!
   }
 
@@ -1292,131 +1380,52 @@ export const typeDefs = `#graphql
     createdAt: String!
     updatedAt: String!
     
+    # @veritas metadata
+    _veritas: VeritasMetadata
   }
-
-  # ========================================
-  # INVENTORY V3 - Dental Materials & Equipment
-  # ========================================
-  
-  type DentalMaterialV3 {
-    id: ID!
-    name: String!
-    category: String
-    unit: String
-    currentStock: Float
-    minimumStock: Float
-    unitCost: Float
-    supplier: String
-    expiryDate: String
-    batchNumber: String
-    isActive: Boolean
-    createdAt: String
-    updatedAt: String
-  }
-
-  type EquipmentV3 {
-    id: ID!
-    name: String!
-    model: String
-    serialNumber: String
-    manufacturer: String
-    equipmentType: String
-    roomId: Int
-    status: String
-    purchaseDate: String
-    warrantyExpiry: String
-    lastMaintenance: String
-    nextMaintenanceDue: String
-    purchaseCost: Float
-    currentValue: Float
-    depreciationRate: Float
-    powerRequirements: String
-    maintenanceIntervalDays: Int
-    operatingHours: Int
-    isActive: Boolean
-    notes: String
-    createdAt: String
-    updatedAt: String
-  }
-
-  # ========================================
-  # MARKETPLACE V3 - Suppliers & Orders
-  # ========================================
 
   type SupplierV3 {
     id: ID!
     name: String!
-    contactPerson: String
-    email: String
-    phone: String
-    address: String
+    email: String!
+    phone: String!
+    address: AddressV3!
+    rating: Float!
+    totalReviews: Int!
+    verified: Boolean!
+    categories: [String!]!
     paymentTerms: String
-    deliveryTimeDays: Int
     minimumOrderValue: Float
-    rating: Float
-    isActive: Boolean
-    notes: String
-    createdAt: String
-    updatedAt: String
+    shippingMethods: [String!]
+    certifications: [String!]
+    active: Boolean!
+    createdAt: String!
+    updatedAt: String!
+    
+    # @veritas metadata
+    _veritas: VeritasMetadata
   }
 
   type PurchaseOrderV3 {
     id: ID!
     orderNumber: String!
     supplierId: ID!
-    supplier: SupplierV3
-    orderDate: String
-    expectedDeliveryDate: String
+    supplier: SupplierV3!
+    items: [PurchaseOrderItemV3!]!
+    subtotal: Float!
+    tax: Float!
+    shippingCost: Float!
+    total: Float!
+    status: PurchaseOrderStatus!
+    orderDate: String!
+    estimatedDeliveryDate: String
     actualDeliveryDate: String
-    status: String
-    totalAmount: Float
-    taxAmount: Float
-    discountAmount: Float
     notes: String
-    approvedBy: String
-    receivedBy: String
-    createdAt: String
-    updatedAt: String
-  }
-
-  type EquipmentMaintenanceV3 {
-    id: ID!
-    equipmentId: ID!
-    maintenanceType: String!
-    description: String
-    performedBy: String
-    cost: Float
-    scheduledDate: String
-    completedDate: String
-    nextMaintenanceDate: String
-    status: String
-    findings: String
-    recommendations: String
-    createdAt: String
-    updatedAt: String
-  }
-
-  type InventoryDashboardV3 {
-    totalMaterials: Int!
-    totalEquipment: Int!
-    lowStockMaterials: Int!
-    expiredMaterials: Int!
-    maintenanceDueEquipment: Int!
-    totalInventoryValue: Float!
-    recentPurchaseOrders: [PurchaseOrderV3!]!
-    topSuppliers: [SupplierV3!]!
-  }
-
-  type InventoryAlertV3 {
-    id: ID!
-    type: String!
-    severity: String!
-    message: String!
-    itemId: ID
-    itemName: String
-    currentValue: Float
-    thresholdValue: Float
     createdAt: String!
+    updatedAt: String!
+    
+    # @veritas metadata
+    _veritas: VeritasMetadata
   }
 
   type PurchaseOrderItemV3 {
@@ -1430,6 +1439,8 @@ export const typeDefs = `#graphql
     deliveredQuantity: Int
     notes: String
     
+    # @veritas metadata
+    _veritas: VeritasMetadata
   }
 
   type CartItemV3 {
@@ -1443,6 +1454,8 @@ export const typeDefs = `#graphql
     addedAt: String!
     notes: String
     
+    # @veritas metadata
+    _veritas: VeritasMetadata
   }
 
   type ShippingInfoV3 {
@@ -1481,69 +1494,6 @@ export const typeDefs = `#graphql
   # Marketplace V3 Queries
   type Query {
     # ... existing queries ...
-    
-    # Inventory V3 - Dental Materials & Equipment
-    materialsV3(
-      category: String
-      lowStock: Boolean
-      expired: Boolean
-      limit: Int
-      offset: Int
-    ): [DentalMaterialV3!]!
-    
-    materialV3(id: ID!): DentalMaterialV3
-    
-    equipmentsV3(
-      type: String
-      status: String
-      roomId: Int
-      limit: Int
-      offset: Int
-    ): [EquipmentV3!]!
-    
-    equipmentV3(id: ID!): EquipmentV3
-    
-    # Inventory V3 - Equipment Maintenance
-    maintenancesV3(
-      equipmentId: ID
-      status: String
-      limit: Int
-      offset: Int
-    ): [EquipmentMaintenanceV3!]!
-    
-    maintenanceV3(id: ID!): EquipmentMaintenanceV3
-    
-    maintenanceHistoryV3(equipmentId: ID!): [EquipmentMaintenanceV3!]!
-    
-    equipmentMaintenanceScheduleV3(equipmentId: ID!): [EquipmentMaintenanceV3!]!
-    
-    # Inventory V3 - Suppliers Management
-    suppliersV3(
-      category: String
-      status: String
-      limit: Int
-      offset: Int
-    ): [SupplierV3!]!
-    
-    supplierV3(id: ID!): SupplierV3
-    
-    # Inventory V3 - Purchase Orders Management
-    purchaseOrdersV3(
-      supplierId: ID
-      status: String
-      limit: Int
-      offset: Int
-    ): [PurchaseOrderV3!]!
-    
-    purchaseOrderV3(id: ID!): PurchaseOrderV3
-    
-    supplierPurchaseOrdersV3(supplierId: ID!, limit: Int): [PurchaseOrderV3!]!
-    
-    purchaseOrderItemsV3(purchaseOrderId: ID!): [PurchaseOrderItemV3!]!
-    
-    # Inventory V3 - Dashboard Analytics
-    inventoryDashboardV3: InventoryDashboardV3!
-    inventoryAlertsV3: [InventoryAlertV3!]!
     
     # Marketplace V3 - B2B Dental Supply System
     marketplaceProductsV3(
@@ -1586,48 +1536,6 @@ export const typeDefs = `#graphql
   type Mutation {
     # ... existing mutations ...
     
-    # Inventory V3 - Dental Materials & Equipment
-    createMaterialV3(input: CreateMaterialInputV3!): DentalMaterialV3!
-    updateMaterialV3(id: ID!, input: UpdateMaterialInputV3!): DentalMaterialV3!
-    deleteMaterialV3(id: ID!): Boolean!
-    
-    createEquipmentV3(input: CreateEquipmentInputV3!): EquipmentV3!
-    updateEquipmentV3(id: ID!, input: UpdateEquipmentInputV3!): EquipmentV3!
-    deleteEquipmentV3(id: ID!): Boolean!
-    
-    # Inventory V3 - Inventory Management
-    createInventoryV3(input: CreateInventoryInputV3!): InventoryV3!
-    updateInventoryV3(id: ID!, input: UpdateInventoryInputV3!): InventoryV3!
-    deleteInventoryV3(id: ID!): Boolean!
-    adjustInventoryStockV3(inventoryId: ID!, quantity: Float!, reason: String): InventoryV3!
-    
-    # Inventory V3 - Material Management
-    reorderMaterialV3(materialId: ID!, quantity: Float!): DentalMaterialV3!
-    acknowledgeInventoryAlertV3(alertId: ID!): Boolean!
-    
-    # Inventory V3 - Equipment Maintenance
-    createMaintenanceV3(input: CreateMaintenanceInputV3!): EquipmentMaintenanceV3!
-    updateMaintenanceV3(id: ID!, input: UpdateMaintenanceInputV3!): EquipmentMaintenanceV3!
-    scheduleMaintenanceV3(equipmentId: ID!, scheduledDate: String!): EquipmentMaintenanceV3!
-    completeMaintenanceV3(maintenanceId: ID!, completedDate: String): EquipmentMaintenanceV3!
-    cancelMaintenanceV3(maintenanceId: ID!, reason: String): EquipmentMaintenanceV3!
-    
-    # Inventory V3 - Suppliers Management
-    createSupplierV3(input: CreateSupplierInputV3!): SupplierV3!
-    updateSupplierV3(id: ID!, input: UpdateSupplierInputV3!): SupplierV3!
-    deleteSupplierV3(id: ID!): Boolean!
-    
-    # Inventory V3 - Purchase Orders Management
-    createPurchaseOrderV3(input: CreatePurchaseOrderInputV3!): PurchaseOrderV3!
-    updatePurchaseOrderV3(id: ID!, input: UpdatePurchaseOrderInputV3!): PurchaseOrderV3!
-    cancelPurchaseOrderV3(id: ID!, reason: String): PurchaseOrderV3!
-    receivePurchaseOrderV3(id: ID!, receivedBy: String!): PurchaseOrderV3!
-    
-    # Inventory V3 - Purchase Order Items
-    addPurchaseOrderItemV3(purchaseOrderId: ID!, input: AddPurchaseOrderItemInputV3!): PurchaseOrderItemV3!
-    updatePurchaseOrderItemV3(id: ID!, input: UpdatePurchaseOrderItemInputV3!): PurchaseOrderItemV3!
-    removePurchaseOrderItemV3(id: ID!): Boolean!
-    
     # Marketplace V3 - B2B Dental Supply System
     createPurchaseOrderV3(input: CreatePurchaseOrderInputV3!): PurchaseOrderV3!
     updatePurchaseOrderV3(id: ID!, input: UpdatePurchaseOrderInputV3!): PurchaseOrderV3!
@@ -1640,136 +1548,6 @@ export const typeDefs = `#graphql
     
     createSupplierV3(input: CreateSupplierInputV3!): SupplierV3!
     updateSupplierV3(id: ID!, input: UpdateSupplierInputV3!): SupplierV3!
-  }
-
-  # Inventory V3 Inputs
-  input CreateMaterialInputV3 {
-    name: String!
-    category: String
-    unit: String
-    unitCost: Float
-    minimumStock: Float
-    supplier: String
-    expiryDate: String
-    batchNumber: String
-  }
-
-  input UpdateMaterialInputV3 {
-    name: String
-    category: String
-    unit: String
-    currentStock: Float
-    minimumStock: Float
-    unitCost: Float
-    supplier: String
-    expiryDate: String
-    batchNumber: String
-    isActive: Boolean
-  }
-
-  input CreateEquipmentInputV3 {
-    name: String!
-    model: String
-    serialNumber: String
-    manufacturer: String
-    equipmentType: String
-    roomId: Int
-    purchaseDate: String
-    warrantyExpiry: String
-    purchaseCost: Float
-    powerRequirements: String
-    maintenanceIntervalDays: Int
-  }
-
-  input UpdateEquipmentInputV3 {
-    name: String
-    model: String
-    serialNumber: String
-    status: String
-    lastMaintenance: String
-    nextMaintenanceDue: String
-    currentValue: Float
-    depreciationRate: Float
-    operatingHours: Int
-    isActive: Boolean
-    notes: String
-  }
-
-  # Inventory V3 Inputs
-  input CreateInventoryInputV3 {
-    name: String!
-    category: String
-    description: String
-    quantity: Float!
-    unitCost: Float
-  }
-
-  input UpdateInventoryInputV3 {
-    name: String
-    category: String
-    description: String
-    quantity: Float
-    unitCost: Float
-  }
-
-  input CreateMaintenanceInputV3 {
-    equipmentId: ID!
-    maintenanceType: String!
-    description: String
-    performedBy: String
-    cost: Float
-    scheduledDate: String
-    findings: String
-    recommendations: String
-  }
-
-  input UpdateMaintenanceInputV3 {
-    maintenanceType: String
-    description: String
-    performedBy: String
-    cost: Float
-    findings: String
-    recommendations: String
-    status: String
-  }
-
-  input CreateSupplierInputV3 {
-    name: String!
-    contactPerson: String
-    email: String
-    phone: String
-    address: String
-    paymentTerms: String
-    deliveryTimeDays: Int
-    minimumOrderValue: Float
-    notes: String
-  }
-
-  input UpdateSupplierInputV3 {
-    name: String
-    contactPerson: String
-    email: String
-    phone: String
-    address: String
-    paymentTerms: String
-    deliveryTimeDays: Int
-    minimumOrderValue: Float
-    rating: Float
-    notes: String
-    isActive: Boolean
-  }
-
-  input AddPurchaseOrderItemInputV3 {
-    productId: ID!
-    quantity: Int!
-    unitPrice: Float!
-  }
-
-  input UpdatePurchaseOrderItemInputV3 {
-    quantity: Int
-    unitPrice: Float
-    deliveredQuantity: Int
-    notes: String
   }
 
   # Marketplace V3 Inputs
@@ -1849,8 +1627,8 @@ export const typeDefs = `#graphql
     supplierV3Updated: SupplierV3!
     
     # Inventory V3 - Real-time inventory updates
-    inventoryUpdatedV3(productId: ID): InventoryV3!
-    lowStockAlertV3(productId: ID): InventoryV3!
+    inventoryUpdatedV3(productId: ID): InventoryItemV3!
+    lowStockAlertV3(productId: ID): InventoryItemV3!
     purchaseOrderStatusV3(orderId: ID): PurchaseOrderV3!
   }
 
@@ -1874,6 +1652,8 @@ export const typeDefs = `#graphql
     createdAt: String!
     updatedAt: String!
     
+    # @veritas metadata
+    _veritas: VeritasMetadata
   }
 
   type SubscriptionV3 {
@@ -1895,6 +1675,8 @@ export const typeDefs = `#graphql
     createdAt: String!
     updatedAt: String!
     
+    # @veritas metadata
+    _veritas: VeritasMetadata
   }
 
   type BillingCycleV3 {
@@ -1913,6 +1695,8 @@ export const typeDefs = `#graphql
     notes: String
     createdAt: String!
     
+    # @veritas metadata
+    _veritas: VeritasMetadata
   }
 
   type SubscriptionFeatureV3 {
@@ -1925,6 +1709,8 @@ export const typeDefs = `#graphql
     unit: String
     createdAt: String!
     
+    # @veritas metadata
+    _veritas: VeritasMetadata
   }
 
   type UsageTrackingV3 {
@@ -1937,6 +1723,8 @@ export const typeDefs = `#graphql
     notes: String
     createdAt: String!
     
+    # @veritas metadata
+    _veritas: VeritasMetadata
   }
 
   enum SubscriptionTier {
@@ -2127,6 +1915,8 @@ export const typeDefs = `#graphql
     createdAt: String!
     updatedAt: String!
 
+    # @veritas metadata
+    _veritas: VeritasMetadata
   }
 
   type CalendarSettingsV3 {
@@ -2144,6 +1934,8 @@ export const typeDefs = `#graphql
     createdAt: String!
     updatedAt: String!
 
+    # @veritas metadata
+    _veritas: VeritasMetadata
   }
 
   type CalendarFilterV3 {
@@ -2156,6 +1948,8 @@ export const typeDefs = `#graphql
     createdAt: String!
     updatedAt: String!
 
+    # @veritas metadata
+    _veritas: VeritasMetadata
   }
 
   type CalendarEventV3 {
@@ -2176,6 +1970,8 @@ export const typeDefs = `#graphql
     createdAt: String!
     updatedAt: String!
 
+    # @veritas metadata
+    _veritas: VeritasMetadata
   }
 
   input CustomCalendarViewInputV3 {
@@ -2315,6 +2111,5 @@ export const typeDefs = `#graphql
 `;
 
 export default typeDefs;
-
 
 

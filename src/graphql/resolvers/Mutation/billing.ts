@@ -51,3 +51,10 @@ export const deleteBillingDataV3 = async (
     throw error;
   }
 };
+
+// Export consolidated billing mutations object
+export const billingMutations = {
+  createBillingDataV3,
+  updateBillingDataV3,
+  deleteBillingDataV3,
+};

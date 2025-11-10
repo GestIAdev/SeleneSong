@@ -56,3 +56,10 @@ export const deleteComplianceV3 = async (
     throw error;
   }
 };
+
+// Export consolidated compliance mutations object
+export const complianceMutations = {
+  createComplianceV3,
+  updateComplianceV3,
+  deleteComplianceV3,
+};

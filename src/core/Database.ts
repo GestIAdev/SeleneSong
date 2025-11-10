@@ -955,8 +955,8 @@ export class SeleneDatabase {
     return this.inventory.cancelPurchaseOrderV3(id, reason);
   }
 
-  async receivePurchaseOrderV3(id: string, receivedItems: any[]): Promise<any> {
-    return this.inventory.receivePurchaseOrderV3(id, receivedItems);
+  async receivePurchaseOrderV3(id: string, receivedBy: string): Promise<any> {
+    return this.inventory.receivePurchaseOrderV3(id, receivedBy);
   }
 
   // PURCHASE ORDER ITEMS V3 METHODS

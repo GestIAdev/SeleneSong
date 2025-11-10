@@ -52,22 +52,23 @@ import {
 import { ReactorQuery, ReactorMutation } from "../Reactor/resolvers.js";
 import {
   InventoryV3,
-  InventoryQuery,
-  InventoryMutation,
-  InventorySubscription,
 } from "../Inventory/resolvers.js";
 import {
   BillingDataV3,
-  BillingDataQuery,
-  BillingDataMutation,
 } from "../BillingData/resolvers.js";
 import {
   ComplianceV3,
-  ComplianceQuery,
-  ComplianceMutation,
 } from "../Compliance/resolvers.js";
 import { AuthQuery, AuthMutation, User } from "./resolvers/Auth/index.js";
 import { inventorySubscriptions } from "./resolvers/Subscription/inventory.js";
+import { inventoryQueries } from './resolvers/Query/inventory.js';
+import { inventoryMutations } from './resolvers/Mutation/inventory.js';
+import { marketplaceQueries } from './resolvers/Query/marketplace.js';
+import { marketplaceMutations } from './resolvers/Mutation/marketplace.js';
+import { billingQueries } from './resolvers/Query/billing.js';
+import { billingMutations } from './resolvers/Mutation/billing.js';
+import { complianceQueries } from './resolvers/Query/compliance.js';
+import { complianceMutations } from './resolvers/Mutation/compliance.js';
 
 console.log("🔥 MAIN RESOLVERS LOADED - CHECKING QUANTUM RESURRECTION...");
 console.log("🔍 ReactorMutation available?", !!ReactorMutation);
@@ -115,9 +116,10 @@ export const Query = {
   medicalRecord, // ✅ Legacy resolver for migration
   ...MedicalRecordQuery,
   ...DocumentQuery,
-  ...InventoryQuery,
-  ...BillingDataQuery,
-  ...ComplianceQuery,
+  ...inventoryQueries,
+  ...marketplaceQueries,
+  ...billingQueries,
+  ...complianceQueries,
 };
 
 export const Mutation = {
@@ -129,9 +131,10 @@ export const Mutation = {
   ...TreatmentMutation,
   ...MedicalRecordMutation,
   ...DocumentMutation,
-  ...InventoryMutation,
-  ...BillingDataMutation,
-  ...ComplianceMutation,
+  ...inventoryMutations,
+  ...marketplaceMutations,
+  ...billingMutations,
+  ...complianceMutations,
 };
 
 export const Subscription = {

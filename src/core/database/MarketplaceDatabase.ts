@@ -8,34 +8,23 @@ export class MarketplaceDatabase extends BaseDatabase {
   async getSuppliersV3(args: {
     limit?: number;
     offset?: number;
-    category?: string;
-    status?: string;
+    isActive?: boolean;
   }): Promise<any[]> {
-    const { limit = 50, offset = 0, category, status } = args;
+    const { limit = 50, offset = 0, isActive } = args;
 
     let query = `
       SELECT
         id, name, contact_person, email, phone, address,
-        category, status, payment_terms, created_at, updated_at
+        is_active, payment_terms, delivery_time_days, 
+        minimum_order_value, rating, notes, created_at, updated_at
       FROM suppliers
     `;
 
     const params: any[] = [];
 
-    if (category || status) {
-      query += ` WHERE`;
-      const conditions: string[] = [];
-
-      if (category) {
-        conditions.push(` category = $${params.length + 1}`);
-        params.push(category);
-      }
-      if (status) {
-        conditions.push(` status = $${params.length + 1}`);
-        params.push(status);
-      }
-
-      query += conditions.join(' AND ');
+    if (isActive !== undefined) {
+      query += ` WHERE is_active = $${params.length + 1}`;
+      params.push(isActive);
     }
 
     query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
@@ -56,19 +45,27 @@ export class MarketplaceDatabase extends BaseDatabase {
       email,
       phone,
       address,
-      category,
-      status,
-      paymentTerms
+      isActive = true,
+      paymentTerms,
+      deliveryTimeDays,
+      minimumOrderValue,
+      rating,
+      notes
     } = input;
 
     const query = `
       INSERT INTO suppliers (
         name, contact_person, email, phone, address,
-        category, status, payment_terms, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+        is_active, payment_terms, delivery_time_days, 
+        minimum_order_value, rating, notes, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
       RETURNING *
     `;
-    const params = [name, contactPerson, email, phone, address, category, status || 'ACTIVE', paymentTerms];
+    const params = [
+      name, contactPerson, email, phone, address, 
+      isActive, paymentTerms, deliveryTimeDays, 
+      minimumOrderValue, rating, notes
+    ];
 
     const result = await this.runQuery(query, params);
     return result.rows[0];
@@ -99,17 +96,29 @@ export class MarketplaceDatabase extends BaseDatabase {
       updates.push(`address = $${paramIndex++}`);
       values.push(input.address);
     }
-    if (input.category !== undefined) {
-      updates.push(`category = $${paramIndex++}`);
-      values.push(input.category);
-    }
-    if (input.status !== undefined) {
-      updates.push(`status = $${paramIndex++}`);
-      values.push(input.status);
+    if (input.isActive !== undefined) {
+      updates.push(`is_active = $${paramIndex++}`);
+      values.push(input.isActive);
     }
     if (input.paymentTerms !== undefined) {
       updates.push(`payment_terms = $${paramIndex++}`);
       values.push(input.paymentTerms);
+    }
+    if (input.deliveryTimeDays !== undefined) {
+      updates.push(`delivery_time_days = $${paramIndex++}`);
+      values.push(input.deliveryTimeDays);
+    }
+    if (input.minimumOrderValue !== undefined) {
+      updates.push(`minimum_order_value = $${paramIndex++}`);
+      values.push(input.minimumOrderValue);
+    }
+    if (input.rating !== undefined) {
+      updates.push(`rating = $${paramIndex++}`);
+      values.push(input.rating);
+    }
+    if (input.notes !== undefined) {
+      updates.push(`notes = $${paramIndex++}`);
+      values.push(input.notes);
     }
 
     updates.push(`updated_at = NOW()`);
@@ -146,9 +155,9 @@ export class MarketplaceDatabase extends BaseDatabase {
     let query = `
       SELECT
         id, order_number, supplier_id, status, order_date,
-        expected_delivery_date, actual_delivery_date, total_amount,
-        notes, created_by, approved_by, approved_at,
-        cancellation_reason, created_at, updated_at
+        expected_delivery_date, actual_delivery_date, total_amount, 
+        tax_amount, discount_amount, notes, 
+        approved_by, received_by, created_at, updated_at
       FROM purchase_orders
     `;
 
@@ -187,7 +196,6 @@ export class MarketplaceDatabase extends BaseDatabase {
       orderDate,
       expectedDeliveryDate,
       notes,
-      createdBy,
       items
     } = input;
 
@@ -203,12 +211,12 @@ export class MarketplaceDatabase extends BaseDatabase {
     const query = `
       INSERT INTO purchase_orders (
         order_number, supplier_id, status, order_date,
-        expected_delivery_date, total_amount, notes, created_by,
+        expected_delivery_date, total_amount, notes,
         created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
       RETURNING *
     `;
-    const params = [orderNumber, supplierId, 'DRAFT', orderDate, expectedDeliveryDate, totalAmount, notes, createdBy];
+    const params = [orderNumber, supplierId, 'DRAFT', orderDate, expectedDeliveryDate, totalAmount, notes];
 
     const result = await this.runQuery(query, params);
     const purchaseOrder = result.rows[0];
@@ -668,14 +676,10 @@ export class MarketplaceDatabase extends BaseDatabase {
 
     const query = `
       SELECT
-        ci.id, ci.marketplace_product_id, ci.quantity, ci.unit_price,
-        ci.total_price, ci.added_at,
-        mp.name as product_name, mp.unit, mp.supplier_id,
-        s.name as supplier_name
-      FROM cart_items ci
-      LEFT JOIN marketplace_products mp ON ci.marketplace_product_id = mp.id
-      LEFT JOIN suppliers s ON mp.supplier_id = s.id
-      ORDER BY ci.added_at DESC
+        id, marketplace_product_id, quantity, unit_price,
+        total_price, added_at, created_at, updated_at
+      FROM cart_items
+      ORDER BY added_at DESC
       LIMIT $1 OFFSET $2
     `;
     return await this.getAll(query, [limit, offset]);

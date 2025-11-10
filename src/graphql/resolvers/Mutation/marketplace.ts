@@ -191,3 +191,16 @@ export const updateSupplierV3 = async (
     throw error;
   }
 };
+
+// Export consolidated marketplace mutations object
+export const marketplaceMutations = {
+  createPurchaseOrderV3,
+  updatePurchaseOrderV3,
+  deletePurchaseOrderV3,
+  addToCartV3,
+  updateCartItemV3,
+  removeFromCartV3,
+  clearCartV3,
+  createSupplierV3,
+  updateSupplierV3,
+};

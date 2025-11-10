@@ -75,20 +75,18 @@ export const marketplaceProductV3 = async (
 export const suppliersV3 = async (
   _: unknown,
   args: {
-    category?: string;
-    verifiedOnly?: boolean;
+    isActive?: boolean;
     limit?: number;
     offset?: number;
   },
   context: GraphQLContext
 ): Promise<any[]> => {
   try {
-    const { category, verifiedOnly = false, limit = 50, offset = 0 } = args;
+    const { isActive, limit = 50, offset = 0 } = args;
 
     // Use specialized MarketplaceDatabase class
     const suppliers = await context.database.marketplace.getSuppliersV3({
-      category,
-      status: verifiedOnly ? 'VERIFIED' : undefined,
+      isActive,
       limit,
       offset
     });
@@ -189,4 +187,15 @@ export const cartItemsV3 = async (
     console.error("❌ cartItemsV3 query error:", error as Error);
     throw error;
   }
+};
+
+// Export consolidated marketplace queries object
+export const marketplaceQueries = {
+  marketplaceProductsV3,
+  marketplaceProductV3,
+  suppliersV3,
+  supplierV3,
+  purchaseOrdersV3,
+  purchaseOrderV3,
+  cartItemsV3,
 };
