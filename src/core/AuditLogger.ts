@@ -46,7 +46,7 @@ export interface AuditLogEntry {
   user_id?: string;
   user_email?: string;
   ip_address?: string;
-  integrity_status: 'PASSED' | 'WARNED' | 'FAILED' | 'BLOCKED';
+  integrity_status: 'VALID' | 'PASSED' | 'WARNED' | 'FAILED' | 'BLOCKED';
   violation_details?: Record<string, any>;
   cascade_parent_id?: string;
   cascade_parent_type?: string;
@@ -178,7 +178,7 @@ export class AuditLogger {
       user_id: userId,
       user_email: userEmail,
       ip_address: ipAddress,
-      integrity_status: 'PASSED'
+      integrity_status: 'VALID'
     });
   }
 
@@ -466,15 +466,15 @@ export class AuditLogger {
    */
   private async logMutation(entry: AuditLogEntry): Promise<AuditLogEntry> {
     try {
-      // Generate ID if not provided
+      // Generate UUID if not provided (cryptographically secure)
       if (!entry.id) {
-        entry.id = `LOG-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        entry.id = crypto.randomUUID();
       }
 
       // Record timestamp
       entry.created_at = new Date().toISOString();
 
-      // Execute insert
+      // Execute insert - ONLY use columns that actually exist in schema
       const query = `
         INSERT INTO data_audit_logs (
           id,
@@ -485,17 +485,12 @@ export class AuditLogger {
           new_values,
           changed_fields,
           user_id,
-          user_email,
           ip_address,
           integrity_status,
-          violation_details,
-          cascade_parent_id,
-          cascade_parent_type,
-          affected_count,
-          transaction_id,
-          created_at
+          created_at,
+          timestamp
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
         )
         RETURNING *
       `;
@@ -507,23 +502,20 @@ export class AuditLogger {
         entry.operation,
         JSON.stringify(entry.old_values || {}),
         JSON.stringify(entry.new_values || {}),
-        entry.changed_fields ? JSON.stringify(entry.changed_fields) : null,
+        entry.changed_fields || null,  // TEXT[] - pass array directly, not stringified
         entry.user_id,
-        entry.user_email,
         entry.ip_address,
-        entry.integrity_status,
-        entry.violation_details ? JSON.stringify(entry.violation_details) : null,
-        entry.cascade_parent_id,
-        entry.cascade_parent_type,
-        entry.affected_count,
-        entry.transaction_id,
+        entry.integrity_status || 'PENDING',
+        entry.created_at,
         entry.created_at
       ]);
 
       return result.rows[0] as AuditLogEntry;
     } catch (error) {
-      console.error('❌ Failed to log mutation:', error);
-      throw new Error('Audit logging failed - cannot proceed');
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error('❌ Failed to log mutation:', errMsg);
+      console.error('Full error:', error);
+      throw new Error(`Audit logging failed: ${errMsg}`);
     }
   }
 
