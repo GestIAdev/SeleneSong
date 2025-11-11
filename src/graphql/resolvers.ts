@@ -141,6 +141,7 @@ import { ReactorQuery, ReactorMutation } from "../Reactor/resolvers.js";
 import { AuthQuery, AuthMutation, User } from "./resolvers/Auth/index.js";
 import { marketplaceQueries } from './resolvers/Query/marketplace.js';
 import { marketplaceMutations } from './resolvers/Mutation/marketplace.js';
+import { auditQueryResolvers } from './resolvers/Query/audit.js';
 
 console.log("🔥 MAIN RESOLVERS LOADED - CHECKING QUANTUM RESURRECTION...");
 console.log("🔍 ReactorMutation available?", !!ReactorMutation);
@@ -288,6 +289,7 @@ export const Query = {
   ...BillingQuery,
   ...ComplianceQuery,
   ...marketplaceQueries,
+  ...auditQueryResolvers,
 };
 
 export const Mutation = {

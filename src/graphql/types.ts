@@ -36,6 +36,7 @@ export interface GraphQLContext {
   // 🔥 PHASE 3: VERIFICATION & AUDIT ENGINES
   verificationEngine?: any; // VerificationEngine instance for field validation
   auditLogger?: any; // AuditLogger instance for audit trail tracking
+  auditDatabase?: any; // AuditDatabase instance for reading audit logs
   
   pubsub?: any; // PubSub for subscriptions (optional for now)
   auth?: {

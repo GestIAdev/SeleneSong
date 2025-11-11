@@ -956,7 +956,103 @@ export const typeDefs = `#graphql
     nuclearStatus: NuclearSystemStatus!
   }
 
-  # 📊 QUERIES
+  # � AUDIT & VERIFICATION TYPES (PHASE 3 Dashboard)
+  """
+  Un registro individual del log de auditoría.
+  Captura cada mutación con before/after state.
+  """
+  type AuditLogEntry {
+    id: ID!
+    entityType: String!
+    entityId: String!
+    operation: String!
+    oldValues: JSON
+    newValues: JSON
+    changedFields: [String!]
+    userId: String
+    userEmail: String
+    ipAddress: String
+    integrityStatus: String!
+    timestamp: String!
+    createdAt: String!
+  }
+
+  """
+  El historial completo de una entidad.
+  Muestra: mutations totales, history, state transitions, current state.
+  """
+  type EntityAuditTrail {
+    entityType: String!
+    entityId: String!
+    totalMutations: Int!
+    firstMutation: AuditLogEntry!
+    lastMutation: AuditLogEntry!
+    history: [AuditLogEntry!]!
+    currentState: JSON
+    stateTransitions: [StateTransition!]
+  }
+
+  """
+  Una transición de estado individual (cambio de estado).
+  """
+  type StateTransition {
+    from: JSON!
+    to: JSON!
+    operation: String!
+    timestamp: String!
+    userId: String
+  }
+
+  """
+  Resumen de auditoría para el dashboard.
+  Muestra: total de operaciones, fallos, warnings, score de integridad.
+  """
+  type VerificationDashboard {
+    reportDate: String!
+    totalOperations: Int!
+    failedChecks: Int!
+    criticalIssues: Int!
+    warningIssues: Int!
+    integrityScore: Float!
+  }
+
+  """
+  Estadísticas de integridad en un rango de fechas.
+  """
+  type IntegrityStats {
+    total: Int!
+    valid: Int!
+    warned: Int!
+    failed: Int!
+    blocked: Int!
+    integrityPercentage: Float!
+  }
+
+  """
+  Resumen de mutaciones por entity type.
+  """
+  type MutationByType {
+    entityType: String!
+    count: Int!
+  }
+
+  """
+  Resumen de mutaciones por operación (CREATE, UPDATE, DELETE, etc).
+  """
+  type MutationStats {
+    operation: String!
+    count: Int!
+  }
+
+  """
+  Usuario más activo.
+  """
+  type ActiveUser {
+    userId: String!
+    mutationCount: Int!
+  }
+
+  # �📊 QUERIES
   type Query {
     # 🔐 Authentication Queries (V3 - VERITAS)
     me: User
@@ -2277,6 +2373,51 @@ export const typeDefs = `#graphql
     calendarEventsV3(userId: ID, startDate: String, endDate: String): [CalendarEventV3!]!
     calendarEventV3(id: ID!): CalendarEventV3
     calendarAvailabilityV3(userId: ID!, date: String!): JSON
+
+    # 📋 AUDIT & VERIFICATION QUERIES (PHASE 3)
+    """
+    Dashboard principal de verificación.
+    Muestra: total de operaciones, fallos, warnings, score de integridad.
+    """
+    verificationDashboard: VerificationDashboard!
+
+    """
+    Historial completo de una entidad.
+    entityType: ej. 'InventoryV3', 'CartItemV3'
+    entityId: ID de la entidad
+    limit: número de registros (default: 100)
+    """
+    auditTrail(entityType: String!, entityId: String!, limit: Int): EntityAuditTrail!
+
+    """
+    Reporte de violaciones de integridad.
+    severity: WARNING | ERROR | CRITICAL
+    limit: número de registros (default: 50)
+    """
+    integrityReport(severity: String!, limit: Int): [AuditLogEntry!]!
+
+    """
+    Cambios recientes (últimas N mutaciones).
+    Útil para activity feeds y timelines.
+    """
+    recentChanges(limit: Int): [AuditLogEntry!]!
+
+    """
+    Mutaciones agrupadas por tipo de entidad.
+    Ver qué se está modificando más.
+    """
+    mutationsByEntityType(limit: Int): [MutationByType!]!
+
+    """
+    Estadísticas de integridad en un rango de fechas.
+    """
+    integrityStats(startDate: String, endDate: String): IntegrityStats!
+
+    """
+    Usuarios más activos.
+    Ver quiénes están modificando más datos.
+    """
+    mostActiveUsers(limit: Int): [ActiveUser!]!
   }
 
   # CustomCalendar V3 Mutations
