@@ -18,6 +18,7 @@ import { createDocumentUploadRouter } from "../routes/documentRoutes.js";
 
 import { GraphQLContext } from "./types.js";
 import { SeleneDatabase } from "../core/Database.ts";
+import { AuditDatabase } from "../database/AuditDatabase.js";
 import { SeleneCache } from "../Cache.js";
 import { SeleneMonitoring } from "../Monitoring.js";
 import { SeleneReactor } from "../Reactor/Reactor.js";
@@ -39,6 +40,7 @@ export class SeleneNuclearGraphQL {
   private server!: ApolloServer<GraphQLContext>;
   private isRunning: boolean = false;
   private redisClient: any; // Direct Redis client for GraphQL context
+  private auditDatabase!: AuditDatabase; // 📚 The Historian for audit queries
 
   constructor(
     private database: SeleneDatabase,
@@ -54,6 +56,10 @@ export class SeleneNuclearGraphQL {
     private offline: SeleneOffline,
   ) {
     console.log("🔥 Initializing Selene Song Core GraphQL Server...");
+
+    // 📚 Initialize The Historian (AuditDatabase)
+    this.auditDatabase = new AuditDatabase(this.database.getPool());
+    console.log("📚 The Historian (AuditDatabase) initialized");
 
     // 🔥 CRITICAL FIX: Get direct Redis client for GraphQL context
     this.redisClient = redisManager.getIORedisClient("graphql-context");
@@ -463,7 +469,7 @@ export class SeleneNuclearGraphQL {
             res: any;
           }): Promise<GraphQLContext> => {
             console.log("🔄 GraphQL context created for request");
-            // Full context with all nuclear components + DIRECT REDIS ACCESS
+            // Full context with all nuclear components + DIRECT REDIS ACCESS + THE HISTORIAN
             return {
               database: this.database,
               cache: this.cache,
@@ -477,6 +483,7 @@ export class SeleneNuclearGraphQL {
               heal: this.heal,
               predict: this.predict,
               offline: this.offline,
+              auditDatabase: this.auditDatabase, // 📚 The Historian for audit queries
             };
           },
         }),

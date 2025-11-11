@@ -1364,4 +1364,11 @@ export class SeleneDatabase {
       throw error;
     }
   }
+
+  /**
+   * 🔌 Get database connection pool (for specialized database layers like AuditDatabase)
+   */
+  public getPool(): Pool {
+    return this.pool;
+  }
 }
