@@ -347,6 +347,153 @@ export const cancelPaymentPlan = async (
   }
 };
 
+/**
+ * Registra un pago parcial (Payment Tracking Module - Puente Agnóstico)
+ * 
+ * Esta mutación es crítica porque maneja dinero real desde el sistema de pagos
+ * (VISA/MC, QR, Bizum, etc.) y actualiza automáticamente el status de la factura.
+ * 
+ * FLUJO TRANSACCIONAL (BEGIN/COMMIT):
+ * - Inserta pago en partial_payments
+ * - Recalcula total pagado (SUM)
+ * - Actualiza status de billing_data (PENDING → PARTIAL → PAID)
+ * 
+ * Implementa el Four-Gate Pattern con auditoría doble (pago + factura)
+ */
+export const recordPartialPayment = async (
+  _: unknown,
+  args: { input: any },
+  context: GraphQLContext
+): Promise<any> => {
+  const { input } = args;
+  const { database, verificationEngine, auditLogger, user, ip } = context;
+  const startTime = Date.now();
+  let verificationFailed = false;
+
+  try {
+    // --------------------------------------------------------------------------
+    // 🔥 PUERTA 1: VERIFICACIÓN (El Guardián - VerificationEngine)
+    // --------------------------------------------------------------------------
+    const verification = await verificationEngine.verifyBatch(
+      'PartialPaymentV3',
+      input
+    );
+
+    if (!verification.valid) {
+      await auditLogger.logIntegrityViolation(
+        'PartialPaymentV3',
+        'N/A (CREATE)',
+        verification.criticalFields[0] || 'batch',
+        input,
+        verification.errors[0] || verification.errors.join(', '),
+        (verification.severity || 'CRITICAL') as 'WARNING' | 'ERROR' | 'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+      verificationFailed = true;
+      throw new Error(`Error de validación: ${verification.errors.join(', ')}`);
+    }
+
+    // --------------------------------------------------------------------------
+    // 🎯 PUERTA 2: LÓGICA DE NEGOCIO (El Arquitecto)
+    // --------------------------------------------------------------------------
+    // Obtener el estado actual de la factura para auditoría
+    const oldInvoice = await database.billing.getBillingDataById(input.invoiceId);
+    if (!oldInvoice) {
+      throw new Error(`Factura (billing_data) no encontrada: ${input.invoiceId}`);
+    }
+
+    // No se puede registrar pagos en facturas ya pagadas completamente
+    if (oldInvoice.status === 'PAID') {
+      throw new Error('Esta factura ya ha sido pagada en su totalidad.');
+    }
+
+    // Validar que el monto sea positivo
+    if (input.amount <= 0) {
+      throw new Error(`El monto del pago debe ser positivo: ${input.amount}`);
+    }
+
+    // Validar que el currency sea válido
+    const validCurrencies = ['EUR', 'USD', 'MXN', 'ARS', 'COP', 'CLP', 'PEN'];
+    if (!validCurrencies.includes(input.currency)) {
+      throw new Error(
+        `Moneda inválida: ${input.currency}. Valores válidos: ${validCurrencies.join(', ')}`
+      );
+    }
+
+    // --------------------------------------------------------------------------
+    // 💾 PUERTA 3: TRANSACCIÓN DB (El Ejecutor)
+    // --------------------------------------------------------------------------
+    // La lógica transaccional compleja (BEGIN/COMMIT) está en el método de la DB
+    const { newPayment, updatedInvoice } = await database.billing.recordPartialPayment({
+      ...input,
+      userId: user?.id
+    });
+
+    // --------------------------------------------------------------------------
+    // 📝 PUERTA 4: AUDITORÍA (El Cronista - AuditLogger)
+    // --------------------------------------------------------------------------
+    const duration = Date.now() - startTime;
+
+    // 4a. Registrar la creación del pago
+    await auditLogger.logCreate(
+      'PartialPaymentV3',
+      newPayment.id,
+      newPayment,
+      user?.id,
+      user?.email,
+      ip
+    );
+
+    // 4b. Registrar la actualización de la factura (status change)
+    await auditLogger.logUpdate(
+      'BillingDataV3',
+      updatedInvoice.id,
+      oldInvoice,
+      updatedInvoice,
+      user?.id,
+      user?.email,
+      ip
+    );
+
+    // Publicar eventos WebSocket (opcional, para actualizar frontend en tiempo real)
+    if (context.pubsub) {
+      context.pubsub.publish('PAYMENT_RECORDED', {
+        partialPaymentAdded: newPayment
+      });
+      context.pubsub.publish('INVOICE_UPDATED', {
+        invoiceUpdated: updatedInvoice
+      });
+    }
+
+    console.log(
+      `✅ recordPartialPayment mutation: ${input.amount} ${input.currency} ` +
+      `registrado en factura ${input.invoiceId} (${duration}ms)`
+    );
+
+    return newPayment; // Devolver el objeto de pago creado
+  } catch (error) {
+    // Registrar error como violación de integridad (solo si no fue registrado en GATE 1)
+    if (auditLogger && !verificationFailed) {
+      await auditLogger.logIntegrityViolation(
+        'PartialPaymentV3',
+        input.invoiceId || 'N/A',
+        'transaction',
+        input,
+        (error as Error).message,
+        'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+    }
+
+    console.error("❌ recordPartialPayment mutation error:", error as Error);
+    throw error;
+  }
+};
+
 // Export consolidated billing mutations object
 export const billingMutations = {
   createBillingDataV3,
@@ -355,4 +502,5 @@ export const billingMutations = {
   createPaymentPlan,
   updatePaymentPlanStatus,
   cancelPaymentPlan,
+  recordPartialPayment,
 };
