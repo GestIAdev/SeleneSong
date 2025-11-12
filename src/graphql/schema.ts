@@ -2460,6 +2460,148 @@ export const typeDefs = `#graphql
     calendarEventV3Updated: CalendarEventV3!
     calendarAvailabilityV3Changed(userId: ID!): JSON
   }
+
+  # ======================================================
+  # PAYMENT TRACKING MODULE V3 - BILLING REVOLUTION
+  # Derived from: PAYMENT_TRACKING_BLUEPRINT.md
+  # Status: Veritas RSA + AuditLogger (4-Gate Pattern)
+  # ======================================================
+
+  # Types — Los Entes Financieros Míticos
+  type PaymentPlan {
+    id: ID!
+    billingId: ID!
+    patientId: ID!
+    totalAmount: Float!
+    installmentsCount: Int!
+    installmentAmount: Float!
+    frequency: String!
+    startDate: String!
+    endDate: String
+    status: String!
+    veritasSignature: String
+    createdBy: ID
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type PartialPayment {
+    id: ID!
+    invoiceId: ID!
+    patientId: ID!
+    paymentPlanId: ID
+    amount: Float!
+    currency: String!
+    methodId: ID
+    methodType: String!
+    transactionId: String
+    status: String!
+    processedAt: String
+    veritasSignature: String
+    metadata: JSON
+    createdBy: ID
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type PaymentReminder {
+    id: ID!
+    billingId: ID!
+    patientId: ID!
+    reminderType: String!
+    scheduledAt: String!
+    sentAt: String
+    status: String!
+    messageTemplate: String
+    veritasSignature: String
+    metadata: JSON
+    createdBy: ID
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type PaymentReceipt {
+    id: ID!
+    paymentId: ID!
+    billingId: ID!
+    patientId: ID!
+    receiptNumber: String!
+    totalAmount: Float!
+    paidAmount: Float!
+    balanceRemaining: Float!
+    generatedAt: String!
+    veritasSignature: String!
+    pdfUrl: String
+    metadata: JSON
+    createdBy: ID
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  # Inputs — Las Armas de Entrada Financiera
+  input CreatePaymentPlanInput {
+    billingId: ID!
+    patientId: ID!
+    totalAmount: Float!
+    installmentsCount: Int!
+    installmentAmount: Float!
+    frequency: String!
+    startDate: String!
+    endDate: String
+  }
+
+  input RecordPartialPaymentInput {
+    invoiceId: ID!
+    patientId: ID!
+    paymentPlanId: ID
+    amount: Float!
+    currency: String!
+    methodId: ID
+    methodType: String!
+    transactionId: String
+    metadata: JSON
+  }
+
+  input ScheduleReminderInput {
+    billingId: ID!
+    patientId: ID!
+    reminderType: String!
+    scheduledAt: String!
+    messageTemplate: String
+  }
+
+  input GenerateReceiptInput {
+    paymentId: ID!
+    billingId: ID!
+    patientId: ID!
+    receiptNumber: String!
+    totalAmount: Float!
+    paidAmount: Float!
+    metadata: JSON
+  }
+
+  # Extended Queries — Las Consultas del Oráculo Financiero
+  extend type Query {
+    getPaymentPlans(billingId: ID, patientId: ID, status: String): [PaymentPlan!]!
+    getPaymentPlanById(id: ID!): PaymentPlan
+    getPartialPayments(invoiceId: ID!, patientId: ID): [PartialPayment!]!
+    getPaymentReminders(billingId: ID, patientId: ID, status: String): [PaymentReminder!]!
+    getPaymentReceipts(invoiceId: ID!, patientId: ID): [PaymentReceipt!]!
+    getPaymentReceiptById(id: ID!): PaymentReceipt
+  }
+
+  # Extended Mutations — Las Mutaciones del Caos Financiero
+  extend type Mutation {
+    createPaymentPlan(input: CreatePaymentPlanInput!): PaymentPlan!
+    updatePaymentPlanStatus(planId: ID!, status: String!): PaymentPlan!
+    cancelPaymentPlan(planId: ID!): Boolean!
+    recordPartialPayment(input: RecordPartialPaymentInput!): PartialPayment!
+    processPaymentOrder(orderId: ID!): PartialPayment!
+    scheduleReminder(input: ScheduleReminderInput!): PaymentReminder!
+    sendReminder(reminderId: ID!): PaymentReminder!
+    generateReceipt(input: GenerateReceiptInput!): PaymentReceipt!
+    regenerateReceipt(receiptId: ID!): PaymentReceipt!
+  }
 `;
 
 export default typeDefs;
