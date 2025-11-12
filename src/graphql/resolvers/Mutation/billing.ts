@@ -494,6 +494,354 @@ export const recordPartialPayment = async (
   }
 };
 
+// ============================================================================
+// PAYMENT REMINDERS & RECEIPTS MUTATIONS
+// ============================================================================
+
+/**
+ * MUTATION: scheduleReminder
+ * Programa un nuevo recordatorio de pago
+ * Four-Gate Pattern: Verification → Business Logic → DB Transaction → Audit
+ */
+export const scheduleReminder = async (
+  _: unknown,
+  args: { input: any },
+  context: GraphQLContext
+): Promise<any> => {
+  const startTime = Date.now();
+  const { input } = args;
+  const { verificationEngine, auditLogger, user, ip } = context;
+  let verificationFailed = false;
+
+  try {
+    // ================================
+    // GATE 1: VERIFICATION (Veritas)
+    // ================================
+    const verificationResult = await verificationEngine.verify(
+      'scheduleReminder',
+      {
+        billingId: input.billingId,
+        patientId: input.patientId,
+        reminderType: input.reminderType,
+        scheduledAt: input.scheduledAt
+      },
+      {
+        operation: 'create_payment_reminder',
+        timestamp: new Date().toISOString(),
+        user: user?.id || 'anonymous'
+      }
+    );
+
+    if (!verificationResult.isValid) {
+      verificationFailed = true;
+      await auditLogger.logIntegrityViolation(
+        'PaymentReminder',
+        input.billingId,
+        'verification',
+        input,
+        verificationResult.errors?.join(', ') || 'Verification failed',
+        'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+      throw new Error(`Verification failed: ${verificationResult.errors?.join(', ')}`);
+    }
+
+    // ================================
+    // GATE 2: BUSINESS LOGIC
+    // ================================
+    if (!input.scheduledAt || isNaN(Date.parse(input.scheduledAt))) {
+      throw new Error('Invalid scheduled date');
+    }
+
+    const scheduledDate = new Date(input.scheduledAt);
+    const now = new Date();
+    if (scheduledDate < now) {
+      throw new Error('Scheduled date must be in the future');
+    }
+
+    if (!['email', 'sms', 'push', 'whatsapp'].includes(input.reminderType)) {
+      throw new Error(`Invalid reminderType: ${input.reminderType}`);
+    }
+
+    // ================================
+    // GATE 3: DATABASE TRANSACTION
+    // ================================
+    const newReminder = await context.database.billing.scheduleReminder({
+      billingId: input.billingId,
+      patientId: input.patientId,
+      scheduledAt: input.scheduledAt,
+      reminderType: input.reminderType,
+      messageTemplate: input.messageTemplate || 'Payment reminder',
+      metadata: input.metadata || {}
+    });
+
+    // ================================
+    // GATE 4: AUDIT LOGGING (Veritas)
+    // ================================
+    const duration = Date.now() - startTime;
+    await auditLogger.logDataChange(
+      'PaymentReminder',
+      newReminder.id,
+      'INSERT',
+      null,
+      newReminder,
+      'ACTIVE',
+      user?.id,
+      user?.email,
+      ip
+    );
+
+    console.log(
+      `✅ scheduleReminder mutation: Recordatorio ${input.reminderType} programado ` +
+      `para ${input.scheduledAt} (${duration}ms)`
+    );
+
+    return newReminder;
+  } catch (error) {
+    if (auditLogger && !verificationFailed) {
+      await auditLogger.logIntegrityViolation(
+        'PaymentReminder',
+        input.billingId || 'N/A',
+        'transaction',
+        input,
+        (error as Error).message,
+        'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+    }
+
+    console.error("❌ scheduleReminder mutation error:", error as Error);
+    throw error;
+  }
+};
+
+/**
+ * MUTATION: sendReminder
+ * Marca un recordatorio como enviado
+ * Four-Gate Pattern: Verification → Business Logic → DB Transaction → Audit
+ */
+export const sendReminder = async (
+  _: unknown,
+  args: { reminderId: string },
+  context: GraphQLContext
+): Promise<any> => {
+  const startTime = Date.now();
+  const { reminderId } = args;
+  const { verificationEngine, auditLogger, user, ip } = context;
+  let verificationFailed = false;
+
+  try {
+    // ================================
+    // GATE 1: VERIFICATION (Veritas)
+    // ================================
+    const verificationResult = await verificationEngine.verify(
+      'sendReminder',
+      { reminderId },
+      {
+        operation: 'send_payment_reminder',
+        timestamp: new Date().toISOString(),
+        user: user?.id || 'anonymous'
+      }
+    );
+
+    if (!verificationResult.isValid) {
+      verificationFailed = true;
+      await auditLogger.logIntegrityViolation(
+        'PaymentReminder',
+        reminderId,
+        'verification',
+        { reminderId },
+        verificationResult.errors?.join(', ') || 'Verification failed',
+        'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+      throw new Error(`Verification failed: ${verificationResult.errors?.join(', ')}`);
+    }
+
+    // ================================
+    // GATE 2: BUSINESS LOGIC
+    // ================================
+    // TODO: Aquí se integraría con el servicio de envío real (email, SMS, etc.)
+    // Por ahora solo actualizamos el status en DB
+
+    // ================================
+    // GATE 3: DATABASE TRANSACTION
+    // ================================
+    const sentReminder = await context.database.billing.sendReminder(reminderId);
+
+    if (!sentReminder) {
+      throw new Error(`Payment reminder not found: ${reminderId}`);
+    }
+
+    // ================================
+    // GATE 4: AUDIT LOGGING (Veritas)
+    // ================================
+    const duration = Date.now() - startTime;
+    await auditLogger.logDataChange(
+      'PaymentReminder',
+      reminderId,
+      'UPDATE',
+      { status: 'scheduled' },
+      { status: 'sent', sent_at: new Date() },
+      'ACTIVE',
+      user?.id,
+      user?.email,
+      ip
+    );
+
+    console.log(`✅ sendReminder mutation: Recordatorio ${reminderId} marcado como enviado (${duration}ms)`);
+
+    return sentReminder;
+  } catch (error) {
+    if (auditLogger && !verificationFailed) {
+      await auditLogger.logIntegrityViolation(
+        'PaymentReminder',
+        reminderId,
+        'transaction',
+        { reminderId },
+        (error as Error).message,
+        'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+    }
+
+    console.error("❌ sendReminder mutation error:", error as Error);
+    throw error;
+  }
+};
+
+/**
+ * MUTATION: generateReceipt
+ * Genera un recibo de pago con firma Veritas SHA-256
+ * Four-Gate Pattern: Verification → Business Logic → DB Transaction → Audit
+ */
+export const generateReceipt = async (
+  _: unknown,
+  args: { input: any },
+  context: GraphQLContext
+): Promise<any> => {
+  const startTime = Date.now();
+  const { input } = args;
+  const { verificationEngine, auditLogger, user, ip } = context;
+  let verificationFailed = false;
+
+  try {
+    // ================================
+    // GATE 1: VERIFICATION (Veritas)
+    // ================================
+    const verificationResult = await verificationEngine.verify(
+      'generateReceipt',
+      {
+        paymentId: input.paymentId,
+        billingId: input.billingId,
+        patientId: input.patientId,
+        totalAmount: input.totalAmount,
+        paidAmount: input.paidAmount
+      },
+      {
+        operation: 'generate_payment_receipt',
+        timestamp: new Date().toISOString(),
+        user: user?.id || 'anonymous'
+      }
+    );
+
+    if (!verificationResult.isValid) {
+      verificationFailed = true;
+      await auditLogger.logIntegrityViolation(
+        'PaymentReceipt',
+        input.billingId,
+        'verification',
+        input,
+        verificationResult.errors?.join(', ') || 'Verification failed',
+        'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+      throw new Error(`Verification failed: ${verificationResult.errors?.join(', ')}`);
+    }
+
+    // ================================
+    // GATE 2: BUSINESS LOGIC
+    // ================================
+    if (input.paidAmount <= 0) {
+      throw new Error('Paid amount must be greater than 0');
+    }
+
+    if (input.totalAmount <= 0) {
+      throw new Error('Total amount must be greater than 0');
+    }
+
+    if (input.paidAmount > input.totalAmount) {
+      throw new Error('Paid amount cannot exceed total amount');
+    }
+
+    const balanceRemaining = input.totalAmount - input.paidAmount;
+
+    // ================================
+    // GATE 3: DATABASE TRANSACTION
+    // ================================
+    const newReceipt = await context.database.billing.generateReceipt({
+      paymentId: input.paymentId,
+      billingId: input.billingId,
+      patientId: input.patientId,
+      receiptNumber: input.receiptNumber,
+      totalAmount: input.totalAmount,
+      paidAmount: input.paidAmount,
+      balanceRemaining,
+      metadata: input.metadata || {}
+    });
+
+    // ================================
+    // GATE 4: AUDIT LOGGING (Veritas)
+    // ================================
+    const duration = Date.now() - startTime;
+    await auditLogger.logDataChange(
+      'PaymentReceipt',
+      newReceipt.id,
+      'INSERT',
+      null,
+      newReceipt,
+      'ACTIVE',
+      user?.id,
+      user?.email,
+      ip
+    );
+
+    console.log(
+      `✅ generateReceipt mutation: Recibo ${input.receiptNumber} generado ` +
+      `(Paid: €${input.paidAmount}, Balance: €${balanceRemaining}) (${duration}ms)`
+    );
+
+    return newReceipt;
+  } catch (error) {
+    if (auditLogger && !verificationFailed) {
+      await auditLogger.logIntegrityViolation(
+        'PaymentReceipt',
+        input.billingId || 'N/A',
+        'transaction',
+        input,
+        (error as Error).message,
+        'CRITICAL',
+        user?.id,
+        user?.email,
+        ip
+      );
+    }
+
+    console.error("❌ generateReceipt mutation error:", error as Error);
+    throw error;
+  }
+};
+
 // Export consolidated billing mutations object
 export const billingMutations = {
   createBillingDataV3,
@@ -503,4 +851,7 @@ export const billingMutations = {
   updatePaymentPlanStatus,
   cancelPaymentPlan,
   recordPartialPayment,
+  scheduleReminder,
+  sendReminder,
+  generateReceipt,
 };

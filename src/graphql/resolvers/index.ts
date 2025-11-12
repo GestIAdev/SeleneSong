@@ -76,15 +76,8 @@ import {
 import { TreatmentV3 } from "./FieldResolvers/treatment.js";
 
 // Import all Billing domain resolvers
-import {
-  billingDataV3,
-  billingDatumV3
-} from './Query/billing.js';
-import {
-  createBillingDataV3,
-  updateBillingDataV3,
-  deleteBillingDataV3
-} from './Mutation/billing.js';
+import { billingQueries } from './Query/billing.js';
+import { billingMutations } from './Mutation/billing.js';
 import { BillingDataV3 } from "./FieldResolvers/billing.js";
 
 // Import all Compliance domain resolvers
@@ -554,15 +547,8 @@ export const MedicalRecordResolvers = {
 
 // Consolidated Billing domain exports
 export const BillingResolvers = {
-  Query: {
-    billingDataV3,
-    billingDatumV3,
-  },
-  Mutation: {
-    createBillingDataV3,
-    updateBillingDataV3,
-    deleteBillingDataV3,
-  },
+  Query: billingQueries,
+  Mutation: billingMutations,
   BillingDataV3,
 };
 
@@ -729,8 +715,7 @@ export const AllResolvers = {
     medicalRecord,
     medicalRecordsV3,
     medicalRecordV3,
-    billingDataV3,
-    billingDatumV3,
+    ...billingQueries,
     compliancesV3,
     complianceV3,
     inventoriesV3,
@@ -783,9 +768,7 @@ export const AllResolvers = {
     createMedicalRecordV3,
     updateMedicalRecordV3,
     deleteMedicalRecordV3,
-    createBillingDataV3,
-    updateBillingDataV3,
-    deleteBillingDataV3,
+    ...billingMutations,
     createComplianceV3,
     updateComplianceV3,
     deleteComplianceV3,

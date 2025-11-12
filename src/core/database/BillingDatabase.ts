@@ -438,4 +438,214 @@ export class BillingDatabase extends BaseDatabase {
     const query = `SELECT * FROM partial_payments WHERE id = $1`;
     return this.getOne(query, [id]);
   }
+
+  // ========================================
+  // PAYMENT REMINDERS
+  // ========================================
+
+  /**
+   * Obtiene recordatorios de pago con filtros opcionales
+   */
+  async getPaymentReminders(filters: {
+    billingId?: string;
+    patientId?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<any[]> {
+    const { billingId, patientId, status, limit = 50, offset = 0 } = filters;
+
+    let query = `SELECT * FROM payment_reminders WHERE 1=1`;
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (billingId) {
+      query += ` AND billing_id = $${paramIndex++}`;
+      values.push(billingId);
+    }
+
+    if (patientId) {
+      query += ` AND patient_id = $${paramIndex++}`;
+      values.push(patientId);
+    }
+
+    if (status) {
+      query += ` AND status = $${paramIndex++}`;
+      values.push(status);
+    }
+
+    query += ` ORDER BY scheduled_at ASC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
+    values.push(limit, offset);
+
+    return this.getAll(query, values);
+  }
+
+  /**
+   * Programa un nuevo recordatorio de pago
+   */
+  async scheduleReminder(data: {
+    billingId: string;
+    patientId: string;
+    scheduledAt: string;
+    reminderType: string;
+    messageTemplate: string;
+    metadata?: any;
+  }): Promise<any> {
+    const query = `
+      INSERT INTO payment_reminders (
+        id, billing_id, patient_id, scheduled_at, reminder_type, 
+        message_template, status, metadata, veritas_signature
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *
+    `;
+
+    const id = crypto.randomUUID();
+    const veritasSignature = this.generateReminderSignature(id, data.billingId, data.scheduledAt);
+
+    const values = [
+      id,
+      data.billingId,
+      data.patientId,
+      data.scheduledAt,
+      data.reminderType,
+      data.messageTemplate,
+      'scheduled',
+      JSON.stringify(data.metadata || {}),
+      veritasSignature
+    ];
+
+    return this.getOne(query, values);
+  }
+
+  /**
+   * Marca un recordatorio como enviado
+   */
+  async sendReminder(reminderId: string): Promise<any> {
+    const query = `
+      UPDATE payment_reminders 
+      SET status = 'sent', sent_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      RETURNING *
+    `;
+
+    return this.getOne(query, [reminderId]);
+  }
+
+  // ========================================
+  // PAYMENT RECEIPTS
+  // ========================================
+
+  /**
+   * Obtiene recibos de pago con filtros opcionales
+   */
+  async getPaymentReceipts(filters: {
+    invoiceId: string;
+    patientId?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<any[]> {
+    const { invoiceId, patientId, limit = 50, offset = 0 } = filters;
+
+    let query = `SELECT * FROM payment_receipts WHERE billing_id = $1`;
+    const values: any[] = [invoiceId];
+    let paramIndex = 2;
+
+    if (patientId) {
+      query += ` AND patient_id = $${paramIndex++}`;
+      values.push(patientId);
+    }
+
+    query += ` ORDER BY generated_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
+    values.push(limit, offset);
+
+    return this.getAll(query, values);
+  }
+
+  /**
+   * Obtiene un recibo de pago por ID
+   */
+  async getPaymentReceiptById(id: string): Promise<any> {
+    const query = `SELECT * FROM payment_receipts WHERE id = $1`;
+    return this.getOne(query, [id]);
+  }
+
+  /**
+   * Genera un recibo de pago con firma Veritas SHA-256
+   */
+  async generateReceipt(data: {
+    paymentId: string;
+    billingId: string;
+    patientId: string;
+    receiptNumber: string;
+    totalAmount: number;
+    paidAmount: number;
+    balanceRemaining: number;
+    metadata?: any;
+  }): Promise<any> {
+    const query = `
+      INSERT INTO payment_receipts (
+        id, payment_id, billing_id, patient_id, receipt_number,
+        total_amount, paid_amount, balance_remaining,
+        metadata, veritas_signature
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *
+    `;
+
+    const id = crypto.randomUUID();
+    const veritasSignature = this.generateReceiptSignature(
+      id, 
+      data.receiptNumber, 
+      data.paidAmount,
+      'EUR' // Currency hardcoded (EUR por defecto en el proyecto)
+    );
+
+    const values = [
+      id,
+      data.paymentId,
+      data.billingId,
+      data.patientId,
+      data.receiptNumber,
+      data.totalAmount,
+      data.paidAmount,
+      data.balanceRemaining,
+      JSON.stringify(data.metadata || {}),
+      veritasSignature
+    ];
+
+    return this.getOne(query, values);
+  }
+
+  // ========================================
+  // VERITAS SIGNATURE HELPERS
+  // ========================================
+
+  /**
+   * Genera firma Veritas para recordatorio (SHA-256 hash)
+   */
+  private generateReminderSignature(
+    reminderId: string, 
+    paymentPlanId: string, 
+    scheduledDate: string
+  ): string {
+    const crypto = require('crypto');
+    const data = `${reminderId}:${paymentPlanId}:${scheduledDate}:VERITAS_REMINDER`;
+    return crypto.createHash('sha256').update(data).digest('hex');
+  }
+
+  /**
+   * Genera firma Veritas para recibo (SHA-256 hash)
+   * Esta es la firma crítica que garantiza inmutabilidad del recibo
+   */
+  private generateReceiptSignature(
+    receiptId: string,
+    receiptNumber: string,
+    amountPaid: number,
+    currency: string
+  ): string {
+    const crypto = require('crypto');
+    const data = `${receiptId}:${receiptNumber}:${amountPaid}:${currency}:VERITAS_RECEIPT`;
+    return crypto.createHash('sha256').update(data).digest('hex');
+  }
 }
