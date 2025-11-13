@@ -29,6 +29,63 @@ class PredictionWorker {
       // Worker data available
     }
     this.setupMessageHandler();
+    this.startActiveHeartbeat(); // 🔒 EL CANDADO - Layer 1
+    this.startMemoryMonitoring(); // 🔒 EL CANDADO - Layer 3
+  }
+
+  /**
+   * 💓 EL CANDADO - LAYER 1: ACTIVE HEARTBEAT
+   * Worker PRUEBA que está vivo independientemente del ping/pong
+   * Envía señal cada 2s con métricas de memoria
+   */
+  private startActiveHeartbeat(): void {
+    setInterval(() => {
+      const mem = process.memoryUsage();
+      parentPort?.postMessage({
+        type: "heartbeat",
+        timestamp: Date.now(),
+        memoryUsed: mem.heapUsed,
+        memoryTotal: mem.heapTotal,
+        rss: mem.rss,
+      });
+    }, 2000); // Heartbeat cada 2 segundos
+  }
+
+  /**
+   * 🔍 EL CANDADO - LAYER 3: MEMORY LEAK DETECTOR
+   * Monitorea uso de memoria y alerta ANTES de OOM
+   */
+  private startMemoryMonitoring(): void {
+    setInterval(() => {
+      const mem = process.memoryUsage();
+      const heapUsedMB = mem.heapUsed / 1024 / 1024;
+      const rssMB = mem.rss / 1024 / 1024;
+
+      // Alert si memoria excede umbrales críticos
+      if (heapUsedMB > 500) {
+        console.warn(
+          `⚠️ [MEMORY-PRESSURE] Heap usage: ${heapUsedMB.toFixed(2)}MB (threshold: 500MB)`
+        );
+        parentPort?.postMessage({
+          type: "memory_alert",
+          level: "warning",
+          heapUsedMB,
+          rssMB,
+        });
+      }
+
+      if (rssMB > 1024) {
+        console.error(
+          `🔥 [MEMORY-CRITICAL] RSS: ${rssMB.toFixed(2)}MB (threshold: 1GB)`
+        );
+        parentPort?.postMessage({
+          type: "memory_alert",
+          level: "critical",
+          heapUsedMB,
+          rssMB,
+        });
+      }
+    }, 10000); // Check cada 10 segundos
   }
 
   /**
@@ -196,14 +253,17 @@ class PredictionWorker {
   /**
    * 🔍 Análisis de patrones históricos (CPU intensivo) - ASÍNCRONO PARA EVITAR BLOQUEO
    */
+  /**
+   * 🔒 EL CANDADO - LAYER 2: CPU WORK CHUNKING
+   * Analiza patrones históricos en chunks para liberar event loop
+   * Procesa 10 patrones, luego yield para permitir ping/pong
+   */
   async analyzeHistoricalPatterns(target: string, iterations: number): Promise<HistoricalPattern[]> {
     const patterns: HistoricalPattern[] = [];
+    const CHUNK_SIZE = 10; // Procesar 10 patrones antes de yield
 
-    // Procesar análisis de datos históricos con cálculos pesados - ASÍNCRONO
+    // Procesar análisis de datos históricos con cálculos pesados - CHUNKED
     for (let i = 0; i < iterations; i++) {
-      // Permitir que el event loop procese mensajes (pings) entre iteraciones
-      await new Promise(resolve => setImmediate(resolve));
-
       const pattern: HistoricalPattern = {
         timestamp: Date.now() - deterministicRandom() * 2592000000, // Último mes
         value: Math.sin(i) * Math.cos(i) + Math.sqrt(Math.abs(Math.tan(i % 100))),
@@ -211,41 +271,52 @@ class PredictionWorker {
         anomaly: deterministicRandom() > 0.95,
       };
       patterns.push(pattern);
+
+      // 🎸 LIBERAR EVENT LOOP cada CHUNK_SIZE iteraciones
+      if (i % CHUNK_SIZE === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+      }
     }
 
-    // Procesamiento adicional de patrones - también asíncrono
+    // Procesamiento adicional de patrones - también chunked
     const processedPatterns = [];
     for (let i = 0; i < patterns.length; i++) {
-      // Permitir procesamiento de mensajes entre cada patrón
-      await new Promise(resolve => setImmediate(resolve));
-
       const p = patterns[i];
       processedPatterns.push({
         ...p,
         normalized: this.normalizeValue(p.value),
         trend: this.calculateTrend(p.value, patterns.slice(-10)),
       });
+
+      // 🎸 LIBERAR EVENT LOOP cada CHUNK_SIZE patrones
+      if (i % CHUNK_SIZE === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+      }
     }
 
     return processedPatterns;
   }
 
   /**
-   * 📊 Análisis de patrones de carga - ASÍNCRONO
+   * 📊 Análisis de patrones de carga - CHUNKED
+   * 🔒 EL CANDADO - LAYER 2: CPU work en chunks
    */
   async analyzeLoadPatterns(target: string, iterations: number) {
     const patterns = [];
+    const CHUNK_SIZE = 10;
 
     for (let i = 0; i < iterations; i++) {
-      // Permitir procesamiento de mensajes entre iteraciones
-      await new Promise(resolve => setImmediate(resolve));
-
       patterns.push({
         timestamp: Date.now() - deterministicRandom() * 604800000, // Última semana
         load: 0.3 + deterministicRandom() * 0.7,
         component: target,
         peak: deterministicRandom() > 0.9,
       });
+
+      // 🎸 LIBERAR EVENT LOOP cada CHUNK_SIZE iteraciones
+      if (i % CHUNK_SIZE === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+      }
     }
 
     return patterns;

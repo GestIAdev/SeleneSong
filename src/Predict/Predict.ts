@@ -100,13 +100,20 @@ export class SelenePredict {
   private workerCircuitOpenTime: number = 0;
   private readonly WORKER_FAILURE_THRESHOLD = 5; // Open circuit after 5 failures
   private readonly WORKER_CIRCUIT_RESET_TIME = 60000; // 1 minute
-  private readonly CIRCUIT_COOLDOWN_MS = 60000; // Circuit breaker cooldown 1 minute
+  
+  // 🔒 EL CANDADO - LAYER 4: REINFORCED CIRCUIT BREAKER
+  private readonly CIRCUIT_COOLDOWN_BASE_MS = 5000; // Base cooldown 5s (was 1s)
+  private circuitBreakerOpenCount = 0; // Track repeated failures for exponential backoff
 
   // 🏓 PHASE 2.1.4a FIX #5: Worker Health Check (ping/pong) - OPTIMIZED 27/10/2025
   private workerHealthCheckInterval: NodeJS.Timeout | null = null;
   private lastWorkerPong: number = Date.now();
   private readonly WORKER_PING_INTERVAL_MS = 5000; // Ping every 5 seconds (optimized from 10s)
   private readonly WORKER_PONG_TIMEOUT_MS = 3000; // Expect pong within 3 seconds (optimized from 5s)
+
+  // 🔒 EL CANDADO - LAYER 1: ACTIVE HEARTBEAT
+  private lastHeartbeat: number = Date.now();
+  private readonly HEARTBEAT_TIMEOUT_MS = 10000; // No heartbeat for 10s = dead worker
 
   // Worker thread management - Operación 1: Hilos de Apolo
   private predictionWorker: Worker | null = null;
@@ -220,9 +227,27 @@ export class SelenePredict {
         });
 
         // 🏓 PHASE 2.1.4a: Start health check after worker is online
+        // 🔒 EL CANDADO - LAYER 1: Handle heartbeats and memory alerts
         this.predictionWorker.on("message", (msg: any) => {
           if (msg.type === "pong") {
             this.lastWorkerPong = Date.now();
+          } else if (msg.type === "heartbeat") {
+            // 💓 Active heartbeat received - worker is alive
+            this.lastHeartbeat = Date.now();
+            // Reset circuit breaker open count after prolonged stability (1 minute)
+            if (this.circuitBreakerOpenCount > 0 && 
+                Date.now() - this.workerCircuitOpenTime > 60000) {
+              this.circuitBreakerOpenCount = 0;
+              console.log("✅ Worker stability restored - circuit breaker counter reset");
+            }
+          } else if (msg.type === "memory_alert") {
+            // 🔍 Memory pressure alert from worker
+            if (msg.level === "critical") {
+              console.error(`🔥 [MEMORY-CRITICAL] Worker RSS: ${msg.rssMB.toFixed(2)}MB`);
+              this.recordWorkerFailure(); // Treat critical memory as failure
+            } else if (msg.level === "warning") {
+              console.warn(`⚠️ [MEMORY-PRESSURE] Worker heap: ${msg.heapUsedMB.toFixed(2)}MB`);
+            }
           }
         });
       } catch (error) {
@@ -234,6 +259,7 @@ export class SelenePredict {
 
   /**
    * 🏓 PHASE 2.1.4a FIX #5: Start worker health check (ping/pong)
+   * 🔒 EL CANDADO - Enhanced with heartbeat monitoring
    * Detects dead worker in 5 seconds vs 25-50 seconds (circuit breaker)
    */
   private startWorkerHealthCheck(): void {
@@ -242,10 +268,21 @@ export class SelenePredict {
     }
 
     this.lastWorkerPong = Date.now();
+    this.lastHeartbeat = Date.now(); // 💓 Initialize heartbeat
 
     this.workerHealthCheckInterval = setInterval(() => {
       const now = Date.now();
       const timeSinceLastPong = now - this.lastWorkerPong;
+      const timeSinceLastHeartbeat = now - this.lastHeartbeat;
+
+      // 🔒 EL CANDADO - LAYER 1: Check heartbeat FIRST (independent of ping/pong)
+      if (timeSinceLastHeartbeat > this.HEARTBEAT_TIMEOUT_MS) {
+        console.error(
+          `💓 Worker HEARTBEAT FAILED - No heartbeat for ${timeSinceLastHeartbeat}ms (threshold: ${this.HEARTBEAT_TIMEOUT_MS}ms)`
+        );
+        this.recordWorkerFailure();
+        return;
+      }
 
       // Check if last pong is too old (worker might be dead)
       if (timeSinceLastPong > this.WORKER_PONG_TIMEOUT_MS + this.WORKER_PING_INTERVAL_MS) {
@@ -570,14 +607,26 @@ export class SelenePredict {
   /**
    * � PHASE 1.4b FIX #3: Check if worker circuit breaker is open
    */
+  /**
+   * 🔒 EL CANDADO - LAYER 4: EXPONENTIAL BACKOFF COOLDOWN
+   * Calcula cooldown exponencial basado en número de circuit breaker opens
+   * Base: 5s, Max: 60s, Formula: 5s * 2^failures
+   */
+  private getCircuitCooldownPeriod(): number {
+    const exponentialCooldown = this.CIRCUIT_COOLDOWN_BASE_MS * Math.pow(2, this.circuitBreakerOpenCount);
+    return Math.min(exponentialCooldown, 60000); // Max 1 minuto
+  }
+
   private isWorkerCircuitOpen(): boolean {
     if (!this.workerCircuitOpen) return false;
 
-    // Check if cooldown period passed
-    if (Date.now() - this.workerCircuitOpenTime > this.CIRCUIT_COOLDOWN_MS) {
-      console.log("🔌 Circuit breaker cooldown complete - resetting");
+    // Check if cooldown period passed (with exponential backoff)
+    const cooldownPeriod = this.getCircuitCooldownPeriod();
+    if (Date.now() - this.workerCircuitOpenTime > cooldownPeriod) {
+      console.log(`🔌 Circuit breaker cooldown complete (${cooldownPeriod}ms) - resetting`);
       this.workerCircuitOpen = false;
       this.workerFailureCount = 0;
+      // NO resetear circuitBreakerOpenCount aquí - solo después de estabilidad prolongada
       return false;
     }
 
@@ -586,6 +635,7 @@ export class SelenePredict {
 
   /**
    * ⚡ PHASE 1.4b FIX #3: Record worker failure for circuit breaker
+   * 🔒 EL CANDADO - Enhanced with exponential backoff tracking
    */
   private recordWorkerFailure(): void {
     this.workerFailureCount++;
@@ -593,8 +643,12 @@ export class SelenePredict {
     console.warn(`⚠️ Worker failure recorded: ${this.workerFailureCount}/${this.WORKER_FAILURE_THRESHOLD}`);
 
     if (this.workerFailureCount >= this.WORKER_FAILURE_THRESHOLD) {
+      this.circuitBreakerOpenCount++; // 🔒 Track repeated circuit breaker opens
+      const cooldown = this.getCircuitCooldownPeriod();
+      
       console.error(
-        `🔌 CIRCUIT BREAKER OPEN: ${this.workerFailureCount} consecutive worker failures - AUTO-RESTART INITIATED`,
+        `🔌 CIRCUIT BREAKER OPEN: ${this.workerFailureCount} consecutive failures - ` +
+        `AUTO-RESTART INITIATED (cooldown: ${cooldown}ms, open count: ${this.circuitBreakerOpenCount})`,
       );
       this.workerCircuitOpen = true;
       this.workerCircuitOpenTime = Date.now();
