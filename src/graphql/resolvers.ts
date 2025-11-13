@@ -1,9 +1,5 @@
-import {
-  Patient,
-  PatientQuery,
-  PatientMutation,
-} from "../Patients/resolvers.js";
 import { patientQueries, patientMutations } from "./resolvers/index.js";
+import { PatientV3 } from "./resolvers/FieldResolvers/patient.js";
 import {
   Appointment,
   AppointmentV3,
@@ -297,7 +293,6 @@ const TreatmentSubscription = {
 export const Query = {
   ...AuthQuery,
   ...ReactorQuery,
-  ...PatientQuery,
   ...patientQueries,
   ...AppointmentQuery,
   ...TreatmentQuery,
@@ -313,7 +308,6 @@ export const Query = {
 export const Mutation = {
   ...AuthMutation,
   ...ReactorMutation,
-  ...PatientMutation,
   ...patientMutations,
   ...AppointmentMutation,
   ...TreatmentMutation,
@@ -337,7 +331,7 @@ export const resolvers = {
   Mutation,
   Subscription,
   User,
-  Patient,
+  PatientV3,
   Appointment,
   AppointmentV3,
   TreatmentV3,

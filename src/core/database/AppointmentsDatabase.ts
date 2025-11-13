@@ -8,26 +8,30 @@ import { BaseDatabase } from './BaseDatabase.js';
  */
 export class AppointmentsDatabase extends BaseDatabase {
   /**
-   * � GET APPOINTMENTS - GraphQL Migration v1.0
+   * 📅 GET APPOINTMENTS - GraphQL Migration v1.0
    * ✅ MAPEO COMPLETO: snake_case DB → camelCase GraphQL
+   * ✅ REAL TABLE: appointments (not medical_records workaround)
    * ✅ FIELDS: id, patientId, practitionerId, date, time, appointmentDate, appointmentTime, duration, type, status, notes, createdAt, updatedAt
    */
   public async getAppointments(filters?: any): Promise<any[]> {
     try {
-      // PUNK FIX: Query usando medical_records en lugar de apollo_appointments (que no existe)
+      // ✅ REAL QUERY: Using appointments table with proper schema
       let query = `
         SELECT
           id,
           patient_id,
-          created_by,
-          visit_date,
-          procedure_category,
-          treatment_status,
-          clinical_notes,
+          dentist_id,
+          scheduled_date,
+          duration_minutes,
+          appointment_type,
+          status,
+          title,
+          notes,
           created_at,
-          updated_at
-        FROM medical_records
-        WHERE is_active = true AND deleted_at IS NULL AND patient_id IS NOT NULL
+          updated_at,
+          deleted_at
+        FROM appointments
+        WHERE deleted_at IS NULL
       `;
       const params: any[] = [];
 
@@ -37,48 +41,41 @@ export class AppointmentsDatabase extends BaseDatabase {
           params.push(filters.patientId);
         }
         if (filters.date) {
-          query += ` AND TO_CHAR(visit_date, 'YYYY-MM-DD') = $${params.length + 1}`;
+          query += ` AND DATE(scheduled_date) = $${params.length + 1}`;
           params.push(filters.date);
         }
         if (filters.status) {
-          query += ` AND treatment_status = $${params.length + 1}`;
+          query += ` AND status = $${params.length + 1}`;
           params.push(filters.status);
         }
       }
 
-      query += " ORDER BY visit_date DESC";
+      query += " ORDER BY scheduled_date DESC";
 
       const result = await this.pool.query(query, params);
 
-      // ✅ MAPEO: Extraer fecha y hora de visit_date timestamp
-      return result.rows.map((dbRow) => ({
-        id: dbRow.id,
-        patientId: dbRow.patient_id,
-        practitionerId: dbRow.created_by,
-        date: dbRow.visit_date
-          ? new Date(dbRow.visit_date).toISOString().split("T")[0]
-          : null,
-        time: dbRow.visit_date
-          ? new Date(dbRow.visit_date).toISOString().split("T")[1].slice(0, 5)
-          : null,
-        appointmentDate: dbRow.visit_date
-          ? new Date(dbRow.visit_date).toISOString().split("T")[0]
-          : null,
-        appointmentTime: dbRow.visit_date
-          ? new Date(dbRow.visit_date).toISOString().split("T")[1].slice(0, 5)
-          : null,
-        duration: 60, // Default 60 min
-        type: dbRow.procedure_category || "regular",
-        status:
-          dbRow.treatment_status === "COMPLETED"
-            ? "completed"
-            : dbRow.treatment_status === "IN_PROGRESS"
-              ? "in_progress"
-              : "scheduled",
-        notes: dbRow.clinical_notes || "",
-        createdAt: dbRow.created_at,
-        updatedAt: dbRow.updated_at,
-      }));
+      // ✅ MAPEO COMPLETO: snake_case DB → camelCase GraphQL
+      return result.rows.map((dbRow) => {
+        const scheduledDate = new Date(dbRow.scheduled_date);
+        const appointmentDate = scheduledDate.toISOString().split("T")[0]; // YYYY-MM-DD
+        const appointmentTime = scheduledDate.toTimeString().slice(0, 5); // HH:MM
+
+        return {
+          id: dbRow.id,
+          patientId: dbRow.patient_id,
+          practitionerId: dbRow.dentist_id,
+          date: appointmentDate,
+          time: appointmentTime,
+          appointmentDate,
+          appointmentTime,
+          duration: dbRow.duration_minutes,
+          type: dbRow.appointment_type,
+          status: dbRow.status,
+          notes: dbRow.notes || "",
+          createdAt: dbRow.created_at,
+          updatedAt: dbRow.updated_at,
+        };
+      });
     } catch (error) {
       console.error("💥 Failed to get appointments:", error as Error);
       throw error;
@@ -351,18 +348,41 @@ export class AppointmentsDatabase extends BaseDatabase {
       SELECT
         id,
         patient_id as "patientId",
-        created_by as "practitionerId",
-        visit_date as "appointmentDate",
-        procedure_category as type,
-        treatment_status as status,
-        clinical_notes as notes,
+        dentist_id as "practitionerId",
+        scheduled_date as "appointmentDate",
+        duration_minutes as "duration",
+        appointment_type as "type",
+        status,
+        notes,
         created_at as "createdAt",
         updated_at as "updatedAt"
-      FROM medical_records
-      WHERE id = $1 AND is_active = true AND deleted_at IS NULL
+      FROM appointments
+      WHERE id = $1 AND deleted_at IS NULL
     `;
 
-    return this.getOne(query, [id]);
+    const result = await this.pool.query(query, [id]);
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    const dbRow = result.rows[0];
+    const scheduledDate = new Date(dbRow.appointmentDate);
+    const appointmentDate = scheduledDate.toISOString().split("T")[0];
+    const appointmentTime = scheduledDate.toTimeString().slice(0, 5);
+
+    return {
+      id: dbRow.id,
+      patientId: dbRow.patientId,
+      practitionerId: dbRow.practitionerId,
+      appointmentDate,
+      appointmentTime,
+      duration: dbRow.duration,
+      type: dbRow.type,
+      status: dbRow.status,
+      notes: dbRow.notes || "",
+      createdAt: dbRow.createdAt,
+      updatedAt: dbRow.updatedAt,
+    };
   }
 
   async getAppointmentsByDateV3(date: string): Promise<any[]> {
@@ -370,18 +390,38 @@ export class AppointmentsDatabase extends BaseDatabase {
       SELECT
         id,
         patient_id as "patientId",
-        created_by as "practitionerId",
-        visit_date as "appointmentDate",
-        procedure_category as type,
-        treatment_status as status,
-        clinical_notes as notes,
+        dentist_id as "practitionerId",
+        scheduled_date as "appointmentDate",
+        duration_minutes as "duration",
+        appointment_type as "type",
+        status,
+        notes,
         created_at as "createdAt",
         updated_at as "updatedAt"
-      FROM medical_records
-      WHERE DATE(visit_date) = $1 AND is_active = true AND deleted_at IS NULL
-      ORDER BY visit_date ASC
+      FROM appointments
+      WHERE DATE(scheduled_date) = $1 AND deleted_at IS NULL
+      ORDER BY scheduled_date ASC
     `;
 
-    return this.getAll(query, [date]);
+    const result = await this.pool.query(query, [date]);
+    return result.rows.map((dbRow) => {
+      const scheduledDate = new Date(dbRow.appointmentDate);
+      const appointmentDate = scheduledDate.toISOString().split("T")[0];
+      const appointmentTime = scheduledDate.toTimeString().slice(0, 5);
+
+      return {
+        id: dbRow.id,
+        patientId: dbRow.patientId,
+        practitionerId: dbRow.practitionerId,
+        appointmentDate,
+        appointmentTime,
+        duration: dbRow.duration,
+        type: dbRow.type,
+        status: dbRow.status,
+        notes: dbRow.notes || "",
+        createdAt: dbRow.createdAt,
+        updatedAt: dbRow.updatedAt,
+      };
+    });
   }
 }

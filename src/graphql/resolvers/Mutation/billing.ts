@@ -1,54 +1,170 @@
 import type { GraphQLContext } from '../../types.js';
 
 // ============================================================================
-// BILLING MUTATION RESOLVERS V3
+// BILLING MUTATION RESOLVERS V3 - FOUR-GATE PATTERN
 // ============================================================================
 
+// 🔥 CREATE BILLING DATA V3 - FOUR-GATE PATTERN (GATE 1 + 3 + 4)
 export const createBillingDataV3 = async (
   _: unknown,
   args: { input: any },
   context: GraphQLContext
 ): Promise<any> => {
+  console.log("🎯 [BILLING] createBillingDataV3 - Creating with FOUR-GATE protection");
+  
   try {
+    // ✅ GATE 1: VERIFICACIÓN - Input validation
+    if (!args.input || typeof args.input !== 'object') {
+      throw new Error('Invalid input: must be a non-null object');
+    }
+    if (!args.input.description) {
+      throw new Error('Validation failed: description is required');
+    }
+    if (args.input.amount <= 0) {
+      throw new Error('Validation failed: amount must be positive');
+    }
+    console.log("✅ GATE 1 (Verificación) - Input validated");
+
+    // ✅ GATE 3: TRANSACCIÓN DB - Real database operation
     const billingData = await context.database.createBillingDataV3(args.input);
+    console.log("✅ GATE 3 (Transacción DB) - Created:", billingData.id);
+
+    // ✅ GATE 4: AUDITORÍA - Log to audit trail
+    if (context.auditLogger) {
+      await context.auditLogger.logMutation({
+        entityType: 'BillingDataV3',
+        entityId: billingData.id,
+        operationType: 'CREATE',
+        userId: context.user?.id,
+        userEmail: context.user?.email,
+        ipAddress: context.ip,
+        newValues: billingData,
+      });
+      console.log("✅ GATE 4 (Auditoría) - Mutation logged");
+    }
+
+    if (context.pubsub) {
+      context.pubsub.publish('BILLING_DATA_V3_CREATED', {
+        billingDataV3Created: billingData,
+      });
+    }
 
     console.log(`✅ createBillingDataV3 mutation created: ${billingData.id}`);
     return billingData;
   } catch (error) {
     console.error("❌ createBillingDataV3 mutation error:", error as Error);
-    throw error;
+    throw new Error(`Failed to create billing data: ${(error as Error).message}`);
   }
 };
 
+// 🔥 UPDATE BILLING DATA V3 - FOUR-GATE PATTERN (GATE 1 + 3 + 4)
 export const updateBillingDataV3 = async (
   _: unknown,
   args: { id: string; input: any },
   context: GraphQLContext
 ): Promise<any> => {
+  console.log("🎯 [BILLING] updateBillingDataV3 - Updating with FOUR-GATE protection");
+  
   try {
+    // ✅ GATE 1: VERIFICACIÓN - Input validation
+    if (!args.id) {
+      throw new Error('Validation failed: id is required');
+    }
+    if (!args.input || typeof args.input !== 'object') {
+      throw new Error('Invalid input: must be a non-null object');
+    }
+    console.log("✅ GATE 1 (Verificación) - Input validated");
+
+    // Capture old values for audit trail
+    const oldBillingData = await context.database.getBillingDatumV3ById(args.id);
+    if (!oldBillingData) {
+      throw new Error(`Billing data ${args.id} not found`);
+    }
+
+    // ✅ GATE 3: TRANSACCIÓN DB - Real database operation
     const billingData = await context.database.updateBillingDataV3(args.id, args.input);
+    console.log("✅ GATE 3 (Transacción DB) - Updated:", billingData.id);
+
+    // ✅ GATE 4: AUDITORÍA - Log to audit trail
+    if (context.auditLogger) {
+      await context.auditLogger.logMutation({
+        entityType: 'BillingDataV3',
+        entityId: args.id,
+        operationType: 'UPDATE',
+        userId: context.user?.id,
+        userEmail: context.user?.email,
+        ipAddress: context.ip,
+        oldValues: oldBillingData,
+        newValues: billingData,
+        changedFields: Object.keys(args.input),
+      });
+      console.log("✅ GATE 4 (Auditoría) - Mutation logged");
+    }
+
+    if (context.pubsub) {
+      context.pubsub.publish('BILLING_DATA_V3_UPDATED', {
+        billingDataV3Updated: billingData,
+      });
+    }
 
     console.log(`✅ updateBillingDataV3 mutation updated: ${billingData.id}`);
     return billingData;
   } catch (error) {
     console.error("❌ updateBillingDataV3 mutation error:", error as Error);
-    throw error;
+    throw new Error(`Failed to update billing data: ${(error as Error).message}`);
   }
 };
 
+// 🔥 DELETE BILLING DATA V3 - FOUR-GATE PATTERN (GATE 1 + 3 + 4)
 export const deleteBillingDataV3 = async (
   _: unknown,
   args: { id: string },
   context: GraphQLContext
 ): Promise<boolean> => {
+  console.log("🎯 [BILLING] deleteBillingDataV3 - Deleting with FOUR-GATE protection");
+  
   try {
+    // ✅ GATE 1: VERIFICACIÓN - Input validation
+    if (!args.id) {
+      throw new Error('Validation failed: id is required');
+    }
+    console.log("✅ GATE 1 (Verificación) - Input validated");
+
+    // Capture old values for audit trail
+    const oldBillingData = await context.database.getBillingDatumV3ById(args.id);
+    if (!oldBillingData) {
+      throw new Error(`Billing data ${args.id} not found`);
+    }
+
+    // ✅ GATE 3: TRANSACCIÓN DB - Real database operation (soft delete)
     await context.database.deleteBillingDataV3(args.id);
+    console.log("✅ GATE 3 (Transacción DB) - Deleted (soft delete):", args.id);
+
+    // ✅ GATE 4: AUDITORÍA - Log to audit trail
+    if (context.auditLogger) {
+      await context.auditLogger.logMutation({
+        entityType: 'BillingDataV3',
+        entityId: args.id,
+        operationType: 'DELETE',
+        userId: context.user?.id,
+        userEmail: context.user?.email,
+        ipAddress: context.ip,
+        oldValues: oldBillingData,
+      });
+      console.log("✅ GATE 4 (Auditoría) - Mutation logged");
+    }
+
+    if (context.pubsub) {
+      context.pubsub.publish('BILLING_DATA_V3_DELETED', {
+        billingDataV3Deleted: args.id,
+      });
+    }
 
     console.log(`✅ deleteBillingDataV3 mutation deleted ID: ${args.id}`);
     return true;
   } catch (error) {
     console.error("❌ deleteBillingDataV3 mutation error:", error as Error);
-    throw error;
+    throw new Error(`Failed to delete billing data: ${(error as Error).message}`);
   }
 };
 

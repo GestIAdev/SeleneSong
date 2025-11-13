@@ -87,13 +87,51 @@ export const deletePurchaseOrderV3 = async (
   args: { id: string },
   context: GraphQLContext
 ): Promise<boolean> => {
-  console.log('🛒 MARKETPLACE_API: Delegando deletePurchaseOrderV3 a InventoryCore...');
+  console.log('🎯 [MARKETPLACE] deletePurchaseOrderV3 - Deleting with FOUR-GATE protection');
   
-  // Usar soft delete desde inventory si existe, si no, implementar aquí
-  await context.database.marketplace.deletePurchaseOrderV3(args.id);
-  
-  console.log(`✅ deletePurchaseOrderV3 mutation deleted order ID: ${args.id}`);
-  return true;
+  try {
+    // ✅ GATE 1: VERIFICACIÓN - Input validation
+    if (!args.id) {
+      throw new Error('Validation failed: id is required');
+    }
+    console.log("✅ GATE 1 (Verificación) - Input validated");
+
+    // Capture old values for audit trail
+    const oldOrder = await context.database.marketplace.getPurchaseOrderV3ById(args.id);
+    if (!oldOrder) {
+      throw new Error(`Purchase order ${args.id} not found`);
+    }
+
+    // ✅ GATE 3: TRANSACCIÓN DB - Real database operation (soft delete)
+    await context.database.marketplace.deletePurchaseOrderV3(args.id);
+    console.log("✅ GATE 3 (Transacción DB) - Deleted (soft delete):", args.id);
+
+    // ✅ GATE 4: AUDITORÍA - Log to audit trail
+    if (context.auditLogger) {
+      await context.auditLogger.logMutation({
+        entityType: 'PurchaseOrderV3',
+        entityId: args.id,
+        operationType: 'DELETE',
+        userId: context.user?.id,
+        userEmail: context.user?.email,
+        ipAddress: context.ip,
+        oldValues: oldOrder,
+      });
+      console.log("✅ GATE 4 (Auditoría) - Mutation logged");
+    }
+
+    if (context.pubsub) {
+      context.pubsub.publish('PURCHASE_ORDER_V3_DELETED', {
+        purchaseOrderV3Deleted: args.id,
+      });
+    }
+
+    console.log(`✅ deletePurchaseOrderV3 mutation deleted order ID: ${args.id}`);
+    return true;
+  } catch (error) {
+    console.error('❌ deletePurchaseOrderV3 mutation error:', error as Error);
+    throw new Error(`Failed to delete purchase order: ${(error as Error).message}`);
+  }
 };
 
 // ============================================================================

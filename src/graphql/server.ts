@@ -92,7 +92,7 @@ export class SeleneNuclearGraphQL {
       console.log("🔍 TypeDefs loaded?", !!typeDefs);
       console.log("🔍 Resolvers loaded?", !!resolvers);
       console.log("🔍 Resolvers keys:", Object.keys(resolvers));
-      console.log("🔍 Patient resolver available?", !!resolvers.Patient);
+      console.log("🔍 Patient resolver available?", !!resolvers.PatientV3);
 
       // Create Selene Server with lazy-loaded components
       console.log("🔧 Creating Selene Server instance...");

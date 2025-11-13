@@ -20,17 +20,23 @@ export class ComplianceDatabase extends BaseDatabase {
 
     const params: any[] = [];
 
+    // 🎯 GATE 1: Build WHERE clause
     if (patientId) {
       query += ` WHERE patient_id = $1`;
       params.push(patientId);
+    }
+
+    // 🎯 GATE 2: Add ORDER BY (BEFORE LIMIT/OFFSET)
+    query += ` ORDER BY created_at DESC`;
+
+    // 🎯 GATE 3: Add pagination
+    if (patientId) {
       query += ` LIMIT $2 OFFSET $3`;
       params.push(limit, offset);
     } else {
       query += ` LIMIT $1 OFFSET $2`;
       params.push(limit, offset);
     }
-
-    query += ` ORDER BY last_checked DESC`;
 
     return await this.getAll(query, params);
   }

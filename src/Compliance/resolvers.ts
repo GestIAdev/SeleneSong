@@ -12,84 +12,183 @@ export const ComplianceV3 = {
 };
 
 export const ComplianceQuery = {
-  compliancesV3: async (_: any, { patientId, limit = 50, offset = 0 }: any) => {
-    const list = [
-      {
-        id: "comp-001",
-        patientId: patientId || "patient-001",
-        regulationId: "HIPAA-001",
-        complianceStatus: "COMPLIANT",
-        description: "HIPAA compliance check",
-        lastChecked: "2024-01-15T09:00:00Z",
-        nextCheck: "2025-01-15T09:00:00Z",
-        createdAt: "2024-01-15T09:00:00Z",
-        updatedAt: "2024-01-15T09:00:00Z",
-      },
-      {
-        id: "comp-002",
-        patientId: patientId || "patient-002",
-        regulationId: "GDPR-002",
-        complianceStatus: "PENDING",
-        description: "GDPR data protection",
-        lastChecked: "2024-01-20T10:00:00Z",
-        nextCheck: "2024-07-20T10:00:00Z",
-        createdAt: "2024-01-20T10:00:00Z",
-        updatedAt: "2024-01-20T10:00:00Z",
-      },
-    ];
-    const filtered = patientId
-      ? list.filter((_c: any) => _c.patientId === patientId)
-      : list;
-    return filtered.slice(offset, offset + limit);
+  compliancesV3: async (_: any, { patientId, limit = 50, offset = 0 }: any, ctx: GraphQLContext) => {
+    console.log('🎯 [COMPLIANCE] compliancesV3 query - fetching with patientId:', patientId);
+    
+    try {
+      const results = await ctx.database.compliance.getCompliancesV3({
+        patientId,
+        limit,
+        offset,
+      });
+      
+      // Convert snake_case to camelCase
+      return results.map(r => ({
+        id: r.id,
+        patientId: r.patient_id,
+        regulationId: r.regulation_id,
+        complianceStatus: r.compliance_status,
+        description: r.description,
+        lastChecked: r.last_checked,
+        nextCheck: r.next_check,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      }));
+    } catch (error) {
+      console.error('❌ [COMPLIANCE] compliancesV3 query failed:', error);
+      throw error;
+    }
   },
-  complianceV3: async (_: any, { id }: any) => {
-    const list = [
-      {
-        id: "comp-001",
-        patientId: "patient-001",
-        regulationId: "HIPAA-001",
-        complianceStatus: "COMPLIANT",
-        description: "HIPAA compliance check",
-        lastChecked: "2024-01-15T09:00:00Z",
-        nextCheck: "2025-01-15T09:00:00Z",
-        createdAt: "2024-01-15T09:00:00Z",
-        updatedAt: "2024-01-15T09:00:00Z",
-      },
-      {
-        id: "comp-002",
-        patientId: "patient-002",
-        regulationId: "GDPR-002",
-        complianceStatus: "PENDING",
-        description: "GDPR data protection",
-        lastChecked: "2024-01-20T10:00:00Z",
-        nextCheck: "2024-07-20T10:00:00Z",
-        createdAt: "2024-01-20T10:00:00Z",
-        updatedAt: "2024-01-20T10:00:00Z",
-      },
-    ];
-    return list.find((_c: any) => _c.id === id) || null;
+  
+  complianceV3: async (_: any, { id }: any, ctx: GraphQLContext) => {
+    console.log('🎯 [COMPLIANCE] complianceV3 query - fetching:', id);
+    
+    try {
+      const result = await ctx.database.compliance.getComplianceV3ById(id);
+      
+      if (!result) return null;
+      
+      // Convert snake_case to camelCase
+      return {
+        id: result.id,
+        patientId: result.patient_id,
+        regulationId: result.regulation_id,
+        complianceStatus: result.compliance_status,
+        description: result.description,
+        lastChecked: result.last_checked,
+        nextCheck: result.next_check,
+        createdAt: result.created_at,
+        updatedAt: result.updated_at,
+      };
+    } catch (error) {
+      console.error('❌ [COMPLIANCE] complianceV3 query failed:', error);
+      throw error;
+    }
   },
 };
 
 export const ComplianceMutation = {
-  createComplianceV3: async (_: any, { input }: any, _ctx: GraphQLContext) => {
-    const comp = {
-      id: `comp-${Date.now()}`,
-      ...input,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    return comp;
+  createComplianceV3: async (_: any, { input }: any, ctx: GraphQLContext) => {
+    // 🎯 [COMPLIANCE] CREATE - Using real PostgreSQL via ComplianceDatabase
+    console.log('🎯 [COMPLIANCE] createComplianceV3 - Creating in PostgreSQL', input);
+    
+    try {
+      const compliance = await ctx.database.compliance.createComplianceV3(input);
+      console.log('✅ [COMPLIANCE] Created:', compliance.id);
+      
+      // Log to audit trail
+      if (ctx.auditLogger) {
+        await ctx.auditLogger.logMutation({
+          entityType: 'ComplianceV3',
+          entityId: compliance.id,
+          operationType: 'CREATE',
+          userId: ctx.user?.id,
+          userEmail: ctx.user?.email,
+          ipAddress: ctx.ip,
+          newValues: compliance,
+        });
+      }
+      
+      return {
+        id: compliance.id,
+        patientId: compliance.patient_id,
+        regulationId: compliance.regulation_id,
+        complianceStatus: compliance.compliance_status,
+        description: compliance.description,
+        lastChecked: compliance.last_checked,
+        nextCheck: compliance.next_check,
+        createdAt: compliance.created_at,
+        updatedAt: compliance.updated_at,
+      };
+    } catch (error) {
+      console.error('❌ [COMPLIANCE] CREATE failed:', error);
+      throw error;
+    }
   },
+  
   updateComplianceV3: async (
     _: any,
     { id, input }: any,
-    _ctx: GraphQLContext,
+    ctx: GraphQLContext,
   ) => {
-    const comp = { id, ...input, updatedAt: new Date().toISOString() };
-    return comp;
+    // 🎯 [COMPLIANCE] UPDATE - Using real PostgreSQL via ComplianceDatabase
+    console.log('🎯 [COMPLIANCE] updateComplianceV3 - Updating in PostgreSQL', id, input);
+    
+    try {
+      // Obtener valores anteriores para audit
+      const oldCompliance = await ctx.database.compliance.getComplianceV3ById(id);
+      if (!oldCompliance) {
+        throw new Error(`Compliance record ${id} not found`);
+      }
+      
+      const compliance = await ctx.database.compliance.updateComplianceV3(id, input);
+      console.log('✅ [COMPLIANCE] Updated:', compliance.id);
+      
+      // Log to audit trail
+      if (ctx.auditLogger) {
+        await ctx.auditLogger.logMutation({
+          entityType: 'ComplianceV3',
+          entityId: id,
+          operationType: 'UPDATE',
+          userId: ctx.user?.id,
+          userEmail: ctx.user?.email,
+          ipAddress: ctx.ip,
+          oldValues: oldCompliance,
+          newValues: compliance,
+          changedFields: Object.keys(input),
+        });
+      }
+      
+      return {
+        id: compliance.id,
+        patientId: compliance.patient_id,
+        regulationId: compliance.regulation_id,
+        complianceStatus: compliance.compliance_status,
+        description: compliance.description,
+        lastChecked: compliance.last_checked,
+        nextCheck: compliance.next_check,
+        createdAt: compliance.created_at,
+        updatedAt: compliance.updated_at,
+      };
+    } catch (error) {
+      console.error('❌ [COMPLIANCE] UPDATE failed:', error);
+      throw error;
+    }
   },
-  deleteComplianceV3: async (_: any, { id }: any) => ({ id, deleted: true }),
+  
+  deleteComplianceV3: async (_: any, { id }: any, ctx: GraphQLContext) => {
+    // 🎯 [COMPLIANCE] DELETE - Using real PostgreSQL via ComplianceDatabase
+    console.log('🎯 [COMPLIANCE] deleteComplianceV3 - Deleting:', id);
+    
+    try {
+      // Obtener valores anteriores para audit
+      const oldCompliance = await ctx.database.compliance.getComplianceV3ById(id);
+      if (!oldCompliance) {
+        throw new Error(`Compliance record ${id} not found`);
+      }
+      
+      await ctx.database.compliance.deleteComplianceV3(id);
+      console.log('✅ [COMPLIANCE] Deleted:', id);
+      
+      // Log to audit trail
+      if (ctx.auditLogger) {
+        await ctx.auditLogger.logMutation({
+          entityType: 'ComplianceV3',
+          entityId: id,
+          operationType: 'DELETE',
+          userId: ctx.user?.id,
+          userEmail: ctx.user?.email,
+          ipAddress: ctx.ip,
+          oldValues: oldCompliance,
+        });
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('❌ [COMPLIANCE] DELETE failed:', error);
+      throw error;
+    }
+  },
 };
 
 

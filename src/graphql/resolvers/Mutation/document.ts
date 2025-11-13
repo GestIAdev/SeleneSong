@@ -149,8 +149,41 @@ export const createDocumentV3 = async (
   args: { input: any },
   context: GraphQLContext
 ): Promise<any> => {
+  console.log("🎯 [DOCUMENTS] createDocumentV3 - Creating with FOUR-GATE protection");
+  
   try {
+    // ✅ GATE 1: VERIFICACIÓN - Input validation
+    if (!args.input || typeof args.input !== 'object') {
+      throw new Error('Validation failed: input must be a non-null object');
+    }
+    if (!args.input.patientId) {
+      throw new Error('Validation failed: patientId is required');
+    }
+    if (!args.input.fileName) {
+      throw new Error('Validation failed: fileName is required');
+    }
+    if (!args.input.documentType) {
+      throw new Error('Validation failed: documentType is required');
+    }
+    console.log("✅ GATE 1 (Verificación) - Input validated");
+
+    // ✅ GATE 3: TRANSACCIÓN DB - Real database operation
     const document = await context.database.createDocumentV3(args.input);
+    console.log("✅ GATE 3 (Transacción DB) - Created:", document.id);
+
+    // ✅ GATE 4: AUDITORÍA - Log to audit trail
+    if (context.auditLogger) {
+      await context.auditLogger.logMutation({
+        entityType: 'DocumentV3',
+        entityId: document.id,
+        operationType: 'CREATE',
+        userId: context.user?.id,
+        userEmail: context.user?.email,
+        ipAddress: context.ip,
+        newValues: document,
+      });
+      console.log("✅ GATE 4 (Auditoría) - Mutation logged");
+    }
     
     console.log(`✅ createDocumentV3 mutation created: ${document.file_name}`);
     return document;
@@ -165,8 +198,43 @@ export const updateDocumentV3 = async (
   args: { id: string; input: any },
   context: GraphQLContext
 ): Promise<any> => {
+  console.log("🎯 [DOCUMENTS] updateDocumentV3 - Updating with FOUR-GATE protection");
+  
   try {
+    // ✅ GATE 1: VERIFICACIÓN - Input validation
+    if (!args.id) {
+      throw new Error('Validation failed: id is required');
+    }
+    if (!args.input || typeof args.input !== 'object') {
+      throw new Error('Validation failed: input must be a non-null object');
+    }
+    console.log("✅ GATE 1 (Verificación) - Input validated");
+
+    // Capture old values for audit trail
+    const oldDocument = await context.database.getDocumentV3ById(args.id);
+    if (!oldDocument) {
+      throw new Error(`Document ${args.id} not found`);
+    }
+
+    // ✅ GATE 3: TRANSACCIÓN DB - Real database operation
     const document = await context.database.updateDocumentV3(args.id, args.input);
+    console.log("✅ GATE 3 (Transacción DB) - Updated:", document.id);
+
+    // ✅ GATE 4: AUDITORÍA - Log to audit trail
+    if (context.auditLogger) {
+      await context.auditLogger.logMutation({
+        entityType: 'DocumentV3',
+        entityId: args.id,
+        operationType: 'UPDATE',
+        userId: context.user?.id,
+        userEmail: context.user?.email,
+        ipAddress: context.ip,
+        oldValues: oldDocument,
+        newValues: document,
+        changedFields: Object.keys(args.input),
+      });
+      console.log("✅ GATE 4 (Auditoría) - Mutation logged");
+    }
     
     console.log(`✅ updateDocumentV3 mutation updated: ${document.file_name}`);
     return document;
@@ -181,9 +249,39 @@ export const deleteDocumentV3 = async (
   args: { id: string },
   context: GraphQLContext
 ): Promise<boolean> => {
+  console.log("🎯 [DOCUMENTS] deleteDocumentV3 - Deleting with FOUR-GATE protection");
+  
   try {
+    // ✅ GATE 1: VERIFICACIÓN - Input validation
+    if (!args.id) {
+      throw new Error('Validation failed: id is required');
+    }
+    console.log("✅ GATE 1 (Verificación) - Input validated");
+
+    // Capture old values for audit trail
+    const oldDocument = await context.database.getDocumentV3ById(args.id);
+    if (!oldDocument) {
+      throw new Error(`Document ${args.id} not found`);
+    }
+
+    // ✅ GATE 3: TRANSACCIÓN DB - Real database operation
     await context.database.deleteDocumentV3(args.id);
-    
+    console.log("✅ GATE 3 (Transacción DB) - Deleted (soft delete):", args.id);
+
+    // ✅ GATE 4: AUDITORÍA - Log to audit trail
+    if (context.auditLogger) {
+      await context.auditLogger.logMutation({
+        entityType: 'DocumentV3',
+        entityId: args.id,
+        operationType: 'DELETE',
+        userId: context.user?.id,
+        userEmail: context.user?.email,
+        ipAddress: context.ip,
+        oldValues: oldDocument,
+      });
+      console.log("✅ GATE 4 (Auditoría) - Mutation logged");
+    }
+
     console.log(`✅ deleteDocumentV3 mutation deleted ID: ${args.id}`);
     return true;
   } catch (error) {
