@@ -13,7 +13,7 @@ export {
   updateBillingDataV3,
   deleteBillingDataV3
 } from './Mutation/billing.js';
-export { BillingDataV3 } from "./FieldResolvers/billing.js";
+export { BillingDataV3, PaymentPlan, PartialPayment, PaymentReceipt } from "./FieldResolvers/billing.js";
 
 // Consolidated Compliance domain exports
 export {

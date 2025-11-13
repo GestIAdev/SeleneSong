@@ -70,6 +70,8 @@ export class SeleneServer {
   private server?: any;
   private io?: SocketServer;
   private database!: SeleneDatabase;
+  private auditDatabase!: any; // 📚 The Historian for audit queries
+  private auditLogger!: any; // 📝 The Chronicler for audit logging
   private cache!: SeleneCache;
   private queue!: SeleneQueue;
   private scheduler!: SeleneScheduler;
@@ -715,6 +717,12 @@ export class SeleneServer {
    */
   private async initializeComponents(): Promise<void> {
     this.database = new SeleneDatabase();
+    // 📚 Initialize The Historian (AuditDatabase)
+    const AuditDatabase = await import('../database/AuditDatabase.js').then(m => m.AuditDatabase);
+    this.auditDatabase = new AuditDatabase(this.database.getPool());
+    // 📝 Initialize The Chronicler (AuditLogger)
+    const AuditLogger = await import('../core/AuditLogger.js').then(m => m.AuditLogger);
+    this.auditLogger = new AuditLogger(this.database.getPool());
     this.cache = new SeleneCache();
     this.queue = new SeleneQueue();
     this.scheduler = new SeleneScheduler();
@@ -2884,6 +2892,8 @@ export class SeleneServer {
               // 🏴‍☠️ EL PUENTE DE CRISTAL: Context with REAL database connection
               database: this.database, // Changed from 'db' to 'database'
               cache: this.cache,
+              auditDatabase: this.auditDatabase, // 📚 The Historian for audit queries
+              auditLogger: this.auditLogger, // 📝 The Chronicler for audit logging
               veritas: this.veritas, // 🔥 CRITICAL: Add Veritas component to GraphQL context
               pubsub: this.pubsub, // 🔥 PHASE D: Add PubSub for real-time subscriptions
               quantumEngine: this.quantumEngine, // ⚛️ PHASE E: Add quantum engine for enhanced processing

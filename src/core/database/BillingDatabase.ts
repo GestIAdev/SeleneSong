@@ -1,8 +1,9 @@
+import { createHash } from 'crypto';
 import { BaseDatabase } from './BaseDatabase.js';
 
 export class BillingDatabase extends BaseDatabase {
   /**
-   * Obtiene datos de facturación con filtros opcionales
+   * Obtiene datos de facturación con filtros opcionales (SCHEMA COMPLETO)
    */
   async getBillingDataV3(args: {
     patientId?: string;
@@ -13,8 +14,10 @@ export class BillingDatabase extends BaseDatabase {
 
     let query = `
       SELECT
-        id, patient_id, amount, billing_date, status,
-        description, payment_method, created_at, updated_at
+        id, patient_id, invoice_number, subtotal, tax_rate, tax_amount,
+        discount_amount, total_amount, currency, issue_date, due_date,
+        paid_date, status, payment_terms, notes, veritas_signature,
+        blockchain_tx_hash, created_by, created_at, updated_at
       FROM billing_data
     `;
 
@@ -30,7 +33,7 @@ export class BillingDatabase extends BaseDatabase {
       params.push(limit, offset);
     }
 
-    query += ` ORDER BY billing_date DESC`;
+    query += ` ORDER BY issue_date DESC`;
 
     return this.getAll(query, params);
   }
@@ -44,65 +47,108 @@ export class BillingDatabase extends BaseDatabase {
   }
 
   /**
-   * Crea un nuevo dato de facturación
+   * Crea un nuevo dato de facturación (SCHEMA COMPLETO)
+   * Alineado con: BILLING_V_ALL_MIGRATION.md
+   * Tabla: billing_data (invoice_number, subtotal, tax_amount, total_amount, etc.)
    */
   async createBillingDataV3(input: any): Promise<any> {
     const {
       patientId,
-      amount,
-      billingDate,
+      invoiceNumber,
+      subtotal,
+      taxRate,
+      taxAmount,
+      discountAmount,
+      totalAmount,
+      currency,
+      issueDate,
+      dueDate,
       status,
-      description,
-      paymentMethod
+      paymentTerms,
+      notes,
+      createdBy
     } = input;
 
     const query = `
       INSERT INTO billing_data (
-        patient_id, amount, billing_date, status,
-        description, payment_method, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+        patient_id, invoice_number, subtotal, tax_rate, tax_amount,
+        discount_amount, total_amount, currency, issue_date, due_date,
+        status, payment_terms, notes, created_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
       RETURNING *
     `;
 
     const result = await this.runQuery(query, [
       patientId,
-      amount,
-      billingDate,
+      invoiceNumber,
+      subtotal || 0,
+      taxRate || null,
+      taxAmount || 0,
+      discountAmount || 0,
+      totalAmount,
+      currency || 'EUR',
+      issueDate || new Date().toISOString().split('T')[0],
+      dueDate || null,
       status || 'PENDING',
-      description,
-      paymentMethod
+      paymentTerms || null,
+      notes || null,
+      createdBy || null
     ]);
 
     return result.rows[0];
   }
 
   /**
-   * Actualiza un dato de facturación existente
+   * Actualiza un dato de facturación existente (SCHEMA COMPLETO)
    */
   async updateBillingDataV3(id: string, input: any): Promise<any> {
     const updates: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
 
-    if (input.amount !== undefined) {
-      updates.push(`amount = $${paramIndex++}`);
-      values.push(input.amount);
+    if (input.subtotal !== undefined) {
+      updates.push(`subtotal = $${paramIndex++}`);
+      values.push(input.subtotal);
     }
-    if (input.billingDate !== undefined) {
-      updates.push(`billing_date = $${paramIndex++}`);
-      values.push(input.billingDate);
+    if (input.taxRate !== undefined) {
+      updates.push(`tax_rate = $${paramIndex++}`);
+      values.push(input.taxRate);
+    }
+    if (input.taxAmount !== undefined) {
+      updates.push(`tax_amount = $${paramIndex++}`);
+      values.push(input.taxAmount);
+    }
+    if (input.discountAmount !== undefined) {
+      updates.push(`discount_amount = $${paramIndex++}`);
+      values.push(input.discountAmount);
+    }
+    if (input.totalAmount !== undefined) {
+      updates.push(`total_amount = $${paramIndex++}`);
+      values.push(input.totalAmount);
+    }
+    if (input.currency !== undefined) {
+      updates.push(`currency = $${paramIndex++}`);
+      values.push(input.currency);
+    }
+    if (input.issueDate !== undefined) {
+      updates.push(`issue_date = $${paramIndex++}`);
+      values.push(input.issueDate);
+    }
+    if (input.dueDate !== undefined) {
+      updates.push(`due_date = $${paramIndex++}`);
+      values.push(input.dueDate);
     }
     if (input.status !== undefined) {
       updates.push(`status = $${paramIndex++}`);
       values.push(input.status);
     }
-    if (input.description !== undefined) {
-      updates.push(`description = $${paramIndex++}`);
-      values.push(input.description);
+    if (input.paymentTerms !== undefined) {
+      updates.push(`payment_terms = $${paramIndex++}`);
+      values.push(input.paymentTerms);
     }
-    if (input.paymentMethod !== undefined) {
-      updates.push(`payment_method = $${paramIndex++}`);
-      values.push(input.paymentMethod);
+    if (input.notes !== undefined) {
+      updates.push(`notes = $${paramIndex++}`);
+      values.push(input.notes);
     }
 
     updates.push(`updated_at = NOW()`);
@@ -302,7 +348,7 @@ export class BillingDatabase extends BaseDatabase {
         INSERT INTO partial_payments (
           invoice_id, patient_id, payment_plan_id, amount, currency,
           method, transaction_id, reference, metadata, created_by, status, processed_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'completed', NOW())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PENDING'::billing_status_enum, NOW())
         RETURNING *;
       `;
       const paymentValues = [
@@ -318,6 +364,22 @@ export class BillingDatabase extends BaseDatabase {
         input.userId
       ];
       
+      // 🔥 DEBUG: Log SQL values para ver type mismatch
+      console.log('🔥🔥🔥 [BILLING] recordPartialPayment SQL:', {
+        invoiceId: input.invoiceId,
+        invoiceIdType: typeof input.invoiceId,
+        patientId: input.patientId,
+        patientIdType: typeof input.patientId,
+        paymentPlanId: input.paymentPlanId,
+        amount: input.amount,
+        amountType: typeof input.amount,
+        currency: input.currency,
+        method: input.method,
+        transactionId: input.transactionId,
+        userId: input.userId,
+        userIdType: typeof input.userId,
+      });
+      
       const paymentResult = await client.query(paymentQuery, paymentValues);
       const newPayment = paymentResult.rows[0];
 
@@ -327,7 +389,7 @@ export class BillingDatabase extends BaseDatabase {
       const sumResult = await client.query(
         `SELECT COALESCE(SUM(amount), 0) as total_paid 
          FROM partial_payments 
-         WHERE invoice_id = $1 AND status = 'completed'`,
+         WHERE invoice_id = $1 AND status::text = 'PENDING'`,
         [input.invoiceId]
       );
       const totalPaid = parseFloat(sumResult.rows[0].total_paid);
@@ -362,8 +424,8 @@ export class BillingDatabase extends BaseDatabase {
       const updateInvoiceQuery = `
         UPDATE billing_data
         SET 
-          status = $1,
-          paid_date = CASE WHEN $1 = 'PAID' THEN NOW() ELSE paid_date END,
+          status = $1::billing_status_enum,
+          paid_date = CASE WHEN $1::text = 'PAID' THEN NOW() ELSE paid_date END,
           updated_at = NOW()
         WHERE id = $2
         RETURNING *;
@@ -629,9 +691,8 @@ export class BillingDatabase extends BaseDatabase {
     paymentPlanId: string, 
     scheduledDate: string
   ): string {
-    const crypto = require('crypto');
     const data = `${reminderId}:${paymentPlanId}:${scheduledDate}:VERITAS_REMINDER`;
-    return crypto.createHash('sha256').update(data).digest('hex');
+    return createHash('sha256').update(data).digest('hex');
   }
 
   /**
@@ -644,8 +705,7 @@ export class BillingDatabase extends BaseDatabase {
     amountPaid: number,
     currency: string
   ): string {
-    const crypto = require('crypto');
     const data = `${receiptId}:${receiptNumber}:${amountPaid}:${currency}:VERITAS_RECEIPT`;
-    return crypto.createHash('sha256').update(data).digest('hex');
+    return createHash('sha256').update(data).digest('hex');
   }
 }

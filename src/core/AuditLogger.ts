@@ -465,6 +465,9 @@ export class AuditLogger {
    * All other methods call this one
    */
   private async logMutation(entry: AuditLogEntry): Promise<AuditLogEntry> {
+    const operationId = crypto.randomUUID().slice(0, 8);
+    console.log(`🔍 [${operationId}] AuditLogger.logMutation START: ${entry.operation} ${entry.entity_type}:${entry.entity_id}`);
+    
     try {
       // Generate UUID if not provided (cryptographically secure)
       if (!entry.id) {
@@ -495,26 +498,39 @@ export class AuditLogger {
         RETURNING *
       `;
 
-      const result = await this.db.query(query, [
-        entry.id,
-        entry.entity_type,
-        entry.entity_id,
-        entry.operation,
-        JSON.stringify(entry.old_values || {}),
-        JSON.stringify(entry.new_values || {}),
-        entry.changed_fields || null,  // TEXT[] - pass array directly, not stringified
-        entry.user_id,
-        entry.ip_address,
-        entry.integrity_status || 'PENDING',
-        entry.created_at,
-        entry.created_at
-      ]);
+      console.log(`🔍 [${operationId}] About to execute INSERT query...`);
+      console.log(`🔍 [${operationId}] Parameters: id=${entry.id}, entity_type=${entry.entity_type}, entity_id=${entry.entity_id}`);
+      
+      // 🔥 CRITICAL: Get a dedicated client from pool to ensure transaction isolation
+      const client = await this.db.connect();
+      try {
+        const result = await client.query(query, [
+          entry.id,
+          entry.entity_type,
+          entry.entity_id,
+          entry.operation,
+          JSON.stringify(entry.old_values || {}),
+          JSON.stringify(entry.new_values || {}),
+          entry.changed_fields || null,  // TEXT[] - pass array directly, not stringified
+          entry.user_id,
+          entry.ip_address,
+          entry.integrity_status || 'PENDING',
+          entry.created_at,
+          entry.created_at
+        ]);
 
-      return result.rows[0] as AuditLogEntry;
+        console.log(`✅ [${operationId}] AuditLogger INSERT SUCCESS: rowCount=${result.rowCount}, rows=${result.rows.length}`);
+        console.log(`✅ [${operationId}] Audit log created in DB: ${entry.entity_type}:${entry.entity_id}`);
+        
+        return result.rows[0] as AuditLogEntry;
+      } finally {
+        // 🔥 CRITICAL: Always release the client back to pool
+        client.release();
+      }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      console.error('❌ Failed to log mutation:', errMsg);
-      console.error('Full error:', error);
+      console.error(`❌ [${operationId}] Failed to log mutation:`, errMsg);
+      console.error(`❌ [${operationId}] Full error:`, error);
       throw new Error(`Audit logging failed: ${errMsg}`);
     }
   }

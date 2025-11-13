@@ -117,14 +117,23 @@ import { inventorySubscriptions } from "./resolvers/Subscription/inventory.js";
 
 import {
   billingDataV3,
-  billingDatumV3
+  billingDatumV3,
+  getPaymentPlans,
+  getPaymentPlanById
 } from './resolvers/Query/billing.js';
 import {
   createBillingDataV3,
   updateBillingDataV3,
-  deleteBillingDataV3
+  deleteBillingDataV3,
+  createPaymentPlan,
+  updatePaymentPlanStatus,
+  cancelPaymentPlan,
+  recordPartialPayment,
+  scheduleReminder,
+  sendReminder,
+  generateReceipt
 } from './resolvers/Mutation/billing.js';
-import { BillingDataV3 } from "./resolvers/FieldResolvers/billing.js";
+import { BillingDataV3, PaymentPlan, PartialPayment, PaymentReceipt } from "./resolvers/FieldResolvers/billing.js";
 
 import {
   compliancesV3,
@@ -230,13 +239,22 @@ const InventoryMutation = {
 
 const BillingQuery = {
   billingDataV3,
-  billingDatumV3
+  billingDatumV3,
+  getPaymentPlans,
+  getPaymentPlanById
 };
 
 const BillingMutation = {
   createBillingDataV3,
   updateBillingDataV3,
-  deleteBillingDataV3
+  deleteBillingDataV3,
+  createPaymentPlan,
+  updatePaymentPlanStatus,
+  cancelPaymentPlan,
+  recordPartialPayment,
+  scheduleReminder,
+  sendReminder,
+  generateReceipt
 };
 
 const ComplianceQuery = {
@@ -338,6 +356,9 @@ export const resolvers = {
   PurchaseOrderItemV3,
   InventoryDashboardV3,
   BillingDataV3,
+  PaymentPlan,
+  PartialPayment,
+  PaymentReceipt,
   ComplianceV3,
   
   DateString,

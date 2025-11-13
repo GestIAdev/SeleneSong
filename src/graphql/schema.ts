@@ -393,11 +393,22 @@ export const typeDefs = `#graphql
   type BillingDataV3 {
     id: ID!
     patientId: ID!
-    amount: Float!
-    billingDate: String!
+    invoiceNumber: String!
+    subtotal: Float!
+    taxRate: Float
+    taxAmount: Float
+    discountAmount: Float
+    totalAmount: Float!
+    currency: String!
+    issueDate: String!
+    dueDate: String
+    paidDate: String
     status: BillingStatus!
-    description: String
-    paymentMethod: String
+    paymentTerms: String
+    notes: String
+    veritasSignature: String
+    blockchainTxHash: String
+    createdBy: ID
     createdAt: String!
     updatedAt: String!
   }
@@ -530,20 +541,33 @@ export const typeDefs = `#graphql
 
   input BillingDataV3Input {
     patientId: ID!
-    amount: Float!
-    billingDate: String!
+    invoiceNumber: String!
+    subtotal: Float!
+    taxRate: Float
+    taxAmount: Float
+    discountAmount: Float
+    totalAmount: Float!
+    currency: String
+    issueDate: String
+    dueDate: String
     status: BillingStatus
-    description: String
-    paymentMethod: String
+    paymentTerms: String
+    notes: String
+    createdBy: ID
   }
 
   input UpdateBillingDataV3Input {
-    patientId: ID
-    amount: Float
-    billingDate: String
+    subtotal: Float
+    taxRate: Float
+    taxAmount: Float
+    discountAmount: Float
+    totalAmount: Float
+    currency: String
+    issueDate: String
+    dueDate: String
     status: BillingStatus
-    description: String
-    paymentMethod: String
+    paymentTerms: String
+    notes: String
   }
 
   input ComplianceV3Input {
