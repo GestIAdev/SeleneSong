@@ -152,20 +152,36 @@ export const createDocumentV3 = async (
   console.log("🎯 [DOCUMENTS] createDocumentV3 - Creating with FOUR-GATE protection");
   
   try {
-    // ✅ GATE 1: VERIFICACIÓN - Input validation
+    // ✅ GATE 1: VERIFICACIÓN - Input validation (ENDER-D1-002: XOR Owner Logic)
     if (!args.input || typeof args.input !== 'object') {
       throw new Error('Validation failed: input must be a non-null object');
     }
-    if (!args.input.patientId) {
-      throw new Error('Validation failed: patientId is required');
-    }
+    
+    // File metadata validation
     if (!args.input.fileName) {
       throw new Error('Validation failed: fileName is required');
     }
     if (!args.input.documentType) {
       throw new Error('Validation failed: documentType is required');
     }
-    console.log("✅ GATE 1 (Verificación) - Input validated");
+
+    // XOR Owner Validation: Exactly ONE owner must exist
+    const hasPatient = !!args.input.patientId;
+    const hasAppointment = !!args.input.appointmentId;
+    const hasTreatment = !!args.input.treatmentId;
+    const isVirtual = args.input.isVirtual === true;
+    
+    const ownerCount = [hasPatient, hasAppointment, hasTreatment, isVirtual].filter(Boolean).length;
+    
+    if (ownerCount === 0) {
+      throw new Error('Validation failed: Document must have exactly ONE owner (patientId, appointmentId, treatmentId, or isVirtual=true). Orphan documents are rejected.');
+    }
+    
+    if (ownerCount > 1) {
+      throw new Error('Validation failed: Document cannot have multiple owners simultaneously. Only ONE of (patientId, appointmentId, treatmentId, isVirtual) is allowed.');
+    }
+    
+    console.log("✅ GATE 1 (Verificación) - Input validated with XOR owner logic");
 
     // ✅ GATE 3: TRANSACCIÓN DB - Real database operation
     const document = await context.database.createDocumentV3(args.input);

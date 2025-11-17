@@ -495,7 +495,7 @@ export const PatientResolvers = {
   Query: patientQueries,
   Mutation: patientMutations,
   Subscription: patientSubscriptions,
-  PatientV3,
+  // PatientV3 removed - mapped in AllResolvers as Patient: PatientV3
 };
 
 // Consolidated Appointment domain exports
@@ -832,8 +832,7 @@ export const AllResolvers = {
     ...customCalendarSubscriptions,
   },
   DocumentV3,
-  PatientV3,
-  Patient: PatientV3,
+  Patient: PatientV3, // Map 'Patient' schema type to PatientV3 resolvers
   AppointmentV3,
   TreatmentV3,
   MedicalRecordV3,

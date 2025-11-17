@@ -2341,6 +2341,24 @@ export class SeleneServer {
         );
       }
 
+      console.log("🚀 PHASE 2.2.4.1: STARTING NETFLIX DENTAL BILLING WORKER - ENDER-D1-001");
+      startupLogger.registerComponent("NetflixDentalWorker", "starting");
+      try {
+        console.log("🎬 Starting Netflix Dental Subscription Billing Worker...");
+        const { SubscriptionBillingWorker } = await import('../workers/SubscriptionBillingWorker.js');
+        const netflixDentalWorker = new SubscriptionBillingWorker(this.database.getPool());
+        netflixDentalWorker.start();
+        console.log("✅ Netflix Dental Worker scheduled: Daily at 9:00 AM");
+        startupLogger.registerComponent("NetflixDentalWorker", "ready");
+      } catch (error) {
+        console.error(`❌ Netflix Dental Worker failed to start: ${error}`);
+        startupLogger.registerComponent(
+          "NetflixDentalWorker",
+          "failed",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+
       console.log("🚀 PHASE 2.2.5: REGISTERING MONITORING COMPONENT");
       startupLogger.registerComponent("Monitoring", "starting");
       try {

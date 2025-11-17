@@ -1035,11 +1035,213 @@ export const generateReceipt = async (
   }
 };
 
+/**
+ * 🎬 NETFLIX DENTAL: createBillingFromSubscriptionV3
+ * ENDER-D1-001: Activa facturación automática desde subscriptions_v3
+ * 
+ * FLUJO:
+ * 1. Gate 1: Verify subscription exists & is active
+ * 2. Gate 2: Business Logic - Read total_amount + patient_id from subscription
+ * 3. Gate 3: DB Transaction - Create billing_data with subscription_id FK
+ * 4. Gate 4: Audit - Log BILLING_FROM_SUBSCRIPTION_CREATED event
+ * 
+ * INTEGRACIÓN: Llamado por SubscriptionBillingWorker.ts (cron diario 9:00 AM)
+ */
+export const createBillingFromSubscriptionV3 = async (
+  _: unknown,
+  args: { subscriptionId: string },
+  context: GraphQLContext
+): Promise<any> => {
+  console.log("🎬 [NETFLIX DENTAL] createBillingFromSubscriptionV3 - ENDER-D1-001 ACTIVATED");
+  const startTime = Date.now();
+  
+  try {
+    // ================================
+    // 🔥 GATE 1: VERIFICACIÓN (Veritas)
+    // ================================
+    if (!args.subscriptionId) {
+      throw new Error('Validation failed: subscriptionId is required');
+    }
+    
+    // Verificar que la subscription existe y está activa
+    const subscription = await context.database.getSubscriptionV3ById(args.subscriptionId);
+    if (!subscription) {
+      throw new Error(`Subscription not found: ${args.subscriptionId}`);
+    }
+    
+    if (subscription.status !== 'ACTIVE') {
+      throw new Error(`Subscription is not active: ${subscription.status}`);
+    }
+    
+    console.log("✅ GATE 1 (Verificación) - Subscription exists and is ACTIVE");
+
+    // ================================
+    // 🎯 GATE 2: LÓGICA DE NEGOCIO (El Arquitecto)
+    // ================================
+    // Extraer datos de la subscription para la factura
+    const patientId = subscription.patient_id;
+    const totalAmount = subscription.total_amount;
+    const currency = subscription.currency || 'EUR';
+    
+    if (!patientId) {
+      throw new Error('Subscription has no patient_id');
+    }
+    
+    if (!totalAmount || totalAmount <= 0) {
+      throw new Error(`Invalid subscription amount: ${totalAmount}`);
+    }
+    
+    // Generar invoice_number único (formato: SUB-YYYYMM-UUID)
+    const today = new Date();
+    const yearMonth = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const invoiceNumber = `SUB-${yearMonth}-${args.subscriptionId.substring(0, 8)}`;
+    
+    // Calcular due_date (14 días desde hoy)
+    const dueDate = new Date(today);
+    dueDate.setDate(dueDate.getDate() + 14);
+    
+    console.log("✅ GATE 2 (Lógica de Negocio) - Invoice data prepared:", {
+      patientId,
+      totalAmount,
+      invoiceNumber,
+      dueDate: dueDate.toISOString().split('T')[0]
+    });
+
+    // ================================
+    // 💾 GATE 3: TRANSACCIÓN DB (El Ejecutor)
+    // ================================
+    const billingData = await context.database.createBillingDataV3({
+      patient_id: patientId,
+      subscription_id: args.subscriptionId, // 🔥 NUEVA FK
+      invoice_number: invoiceNumber,
+      subtotal: totalAmount,
+      tax_rate: 0, // TODO: Integrar con tax_rules si existe
+      tax_amount: 0,
+      discount_amount: 0,
+      total_amount: totalAmount,
+      currency,
+      issue_date: today.toISOString().split('T')[0],
+      due_date: dueDate.toISOString().split('T')[0],
+      status: 'PENDING',
+      payment_terms: 'Pago de suscripción mensual Netflix Dental',
+      notes: `Factura generada automáticamente desde subscription ${args.subscriptionId}`,
+      created_by: context.user?.id || 'SYSTEM_CRON'
+    });
+    
+    console.log("✅ GATE 3 (Transacción DB) - Billing created:", billingData.id);
+
+    // ================================
+    // 🎨 GATE 3.5: PDF GENERATION (Integración Documents Module)
+    // ================================
+    let receiptData = null;
+    try {
+      // Generar receipt_number único
+      const receiptNumber = `REC-${yearMonth}-${billingData.id.substring(0, 8)}`;
+      
+      // Crear receipt con PDF automático
+      receiptData = await generateReceipt(
+        _,
+        {
+          input: {
+            paymentId: null, // NULL porque es factura PENDING (no pago aún)
+            billingId: billingData.id,
+            patientId: patientId,
+            receiptNumber: receiptNumber,
+            totalAmount: totalAmount,
+            paidAmount: 0, // PENDING = 0 pagado
+            metadata: {
+              source: 'NETFLIX_DENTAL_SUBSCRIPTION',
+              subscription_id: args.subscriptionId,
+              auto_generated: true
+            }
+          }
+        },
+        context
+      );
+      
+      console.log("✅ GATE 3.5 (PDF Generation) - Receipt created:", receiptData.id);
+    } catch (pdfError) {
+      console.warn(`⚠️ Failed to generate receipt PDF:`, pdfError);
+      // Don't throw - PDF failure shouldn't break billing creation
+    }
+
+    // ================================
+    // 📝 GATE 4: AUDITORÍA (El Cronista - Veritas)
+    // ================================
+    const duration = Date.now() - startTime;
+    
+    if (context.auditLogger) {
+      try {
+        await context.auditLogger.logCreate(
+          'BillingDataV3',
+          billingData.id,
+          {
+            ...billingData,
+            _metadata: {
+              source: 'NETFLIX_DENTAL_SUBSCRIPTION',
+              subscription_id: args.subscriptionId,
+              automation: 'SubscriptionBillingWorker'
+            }
+          },
+          context.user?.id || 'SYSTEM_CRON',
+          context.user?.email || 'system@dentiagest.com',
+          context.ip || 'INTERNAL'
+        );
+        console.log("✅ GATE 4 (Auditoría) - BILLING_FROM_SUBSCRIPTION_CREATED logged");
+      } catch (auditError) {
+        console.warn(`⚠️ Failed to log audit trail:`, auditError);
+        // Don't throw - audit failure shouldn't break the mutation
+      }
+    }
+    
+    // Publicar evento WebSocket (opcional)
+    if (context.pubsub) {
+      context.pubsub.publish('BILLING_FROM_SUBSCRIPTION_CREATED', {
+        billingFromSubscriptionCreated: billingData,
+      });
+    }
+
+    console.log(
+      `✅ createBillingFromSubscriptionV3: Invoice ${invoiceNumber} created ` +
+      `for subscription ${args.subscriptionId} (${duration}ms)`
+    );
+    
+    // Retornar billing con receipt embebido (si se generó)
+    return {
+      ...billingData,
+      receipt: receiptData // Puede ser null si falló PDF generation
+    };
+  } catch (error) {
+    // Registrar error en auditoría
+    if (context.auditLogger) {
+      try {
+        await context.auditLogger.logIntegrityViolation(
+          'BillingDataV3',
+          args.subscriptionId || 'N/A',
+          'createBillingFromSubscription',
+          args,
+          (error as Error).message,
+          'CRITICAL',
+          context.user?.id || 'SYSTEM_CRON',
+          context.user?.email || 'system@dentiagest.com',
+          context.ip || 'INTERNAL'
+        );
+      } catch (auditError) {
+        console.warn(`⚠️ Failed to log audit violation:`, auditError);
+      }
+    }
+    
+    console.error("❌ createBillingFromSubscriptionV3 error:", error as Error);
+    throw error;
+  }
+};
+
 // Export consolidated billing mutations object
 export const billingMutations = {
   createBillingDataV3,
   updateBillingDataV3,
   deleteBillingDataV3,
+  createBillingFromSubscriptionV3, // 🎬 ENDER-D1-001
   createPaymentPlan,
   updatePaymentPlanStatus,
   cancelPaymentPlan,

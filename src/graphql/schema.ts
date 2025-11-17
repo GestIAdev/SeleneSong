@@ -32,6 +32,32 @@ export const typeDefs = `#graphql
     updatedAt: String!
   }
 
+  # 🩹 KAMIKAZE PATCH: PatientV3 SINCRONIZACIÓN TOTAL con FieldResolvers
+  # Generado por Operación Directiva Final - 21 campos exactos de patient.ts
+  # TODO DEUDA TÉCNICA: Eliminar cuando se limpien exports incorrectos de resolvers
+  type PatientV3 {
+    id: ID!
+    firstName: String
+    lastName: String
+    email: String
+    phone: String
+    dateOfBirth: DateString
+    gender: String
+    address: String
+    emergencyContact: String
+    insurance: String  # JSON string - resolver devuelve parent.insurance
+    allergies: [String]  # Array - resolver devuelve parent.allergies || []
+    medications: [String]  # Array - resolver devuelve parent.medications || []
+    preferredLanguage: String
+    isActive: Boolean
+    lastVisit: DateString
+    nextAppointment: DateString
+    policyNumber: String  # Extrae parent.insurance?.policyNumber
+    medicalHistory: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
   input PatientInput {
     firstName: String!
     lastName: String!
