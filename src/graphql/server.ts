@@ -15,6 +15,7 @@ import * as v8 from "v8";
 import * as fs from "fs";
 import * as path from "path";
 import { createDocumentUploadRouter } from "../routes/documentRoutes.js";
+import { authMiddleware } from "./authMiddleware.js";
 
 import { GraphQLContext } from "./types.js";
 import { SeleneDatabase } from "../core/Database.ts";
@@ -458,6 +459,9 @@ export class SeleneNuclearGraphQL {
       console.log("🔍 Selene Server instance:", !!this.server);
       console.log("🔍 Selene Server type:", typeof this.server);
 
+      // 🔐 AUTH MIDDLEWARE PRIMERO
+      mainApp.use("/graphql", authMiddleware);
+
       mainApp.use(
         "/graphql",
         expressMiddleware(this.server, {
@@ -484,6 +488,7 @@ export class SeleneNuclearGraphQL {
               predict: this.predict,
               offline: this.offline,
               auditDatabase: this.auditDatabase, // 📚 The Historian for audit queries
+              user: req.user, // 🔐 Usuario autenticado por authMiddleware
             };
           },
         }),

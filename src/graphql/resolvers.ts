@@ -142,6 +142,12 @@ import {
 } from './resolvers/Mutation/compliance.js';
 import { ComplianceV3 } from "./resolvers/FieldResolvers/compliance.js";
 
+// ✅ NETFLIX-DENTAL SUBSCRIPTION SYSTEM (V3)
+import {
+  subscriptionPlansV3,
+  subscriptionsV3
+} from './resolvers/Query/subscription.js';
+
 import { ReactorQuery, ReactorMutation } from "../Reactor/resolvers.js";
 import { AuthQuery, AuthMutation, User } from "./resolvers/Auth/index.js";
 import { marketplaceQueries } from './resolvers/Query/marketplace.js';
@@ -264,6 +270,12 @@ const ComplianceMutation = {
   deleteComplianceV3
 };
 
+// ✅ NETFLIX-DENTAL SUBSCRIPTIONS (V3)
+const SubscriptionQuery = {
+  subscriptionPlansV3,
+  subscriptionsV3
+};
+
 const TreatmentQuery = {
   treatments,
   treatment,
@@ -301,6 +313,7 @@ export const Query = {
   ...InventoryQuery,
   ...BillingQuery,
   ...ComplianceQuery,
+  ...SubscriptionQuery,
   ...marketplaceQueries,
   ...auditQueryResolvers,
 };

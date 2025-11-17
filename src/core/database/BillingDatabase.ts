@@ -26,14 +26,17 @@ export class BillingDatabase extends BaseDatabase {
     if (patientId) {
       query += ` WHERE patient_id = $1`;
       params.push(patientId);
+    }
+
+    query += ` ORDER BY issue_date DESC`;
+
+    if (patientId) {
       query += ` LIMIT $2 OFFSET $3`;
       params.push(limit, offset);
     } else {
       query += ` LIMIT $1 OFFSET $2`;
       params.push(limit, offset);
     }
-
-    query += ` ORDER BY issue_date DESC`;
 
     return this.getAll(query, params);
   }

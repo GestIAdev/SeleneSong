@@ -1318,7 +1318,12 @@ export class SeleneServer {
     // CORS
     this.app!.use(
       cors({
-        origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+        origin: [
+          "http://localhost:3000", 
+          "http://127.0.0.1:3000",
+          "http://localhost:3001",  // Patient Portal
+          "http://127.0.0.1:3001"   // Patient Portal
+        ],
         credentials: true,
       }),
     );
@@ -2895,6 +2900,11 @@ export class SeleneServer {
       // Store cleanup function for graceful shutdown
       (this as any).wsCleanup = serverCleanup;
 
+      // 🔐 AUTH MIDDLEWARE - Extract JWT and add user to request
+      const { authMiddleware } = await import("../graphql/authMiddleware.js");
+      console.log("🔐 Setting up HTTP authentication middleware...");
+      this.app!.use("/graphql", authMiddleware);
+
       // Apply GraphQL middleware to Express app
       console.log("� � � Applying GraphQL middleware to /graphql...");
       this.app!.use(
@@ -2902,6 +2912,8 @@ export class SeleneServer {
         expressMiddleware(server, {
           context: async ({ req }: any) => {
             console.log("🔄 BUILDING GRAPHQL CONTEXT...");
+            console.log("🔍 req.user from middleware?", req.user ? req.user.email : 'NO USER');
+            console.log("🔍 req.user object:", req.user);
             console.log("🔍 this.veritas available?", { available: !!this.veritas });
             console.log("🔍 this.veritas type:", { type: typeof this.veritas });
             // Note: quantumResurrection method not implemented in current Veritas version
@@ -2915,6 +2927,7 @@ export class SeleneServer {
               veritas: this.veritas, // 🔥 CRITICAL: Add Veritas component to GraphQL context
               pubsub: this.pubsub, // 🔥 PHASE D: Add PubSub for real-time subscriptions
               quantumEngine: this.quantumEngine, // ⚛️ PHASE E: Add quantum engine for enhanced processing
+              user: req.user, // 🔐 AUTHENTICATED USER FROM HTTP AUTH MIDDLEWARE
               req: req,
             };
           },

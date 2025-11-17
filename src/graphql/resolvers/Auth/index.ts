@@ -169,6 +169,7 @@ export const AuthMutation = {
     try {
       const { refreshToken } = input;
       const jwt = await import('jsonwebtoken');
+      const { default: pg } = await import('pg');
       const jwtSecret = process.env.JWT_SECRET || 'selene-secret-key';
 
       // Verify refresh token
@@ -178,30 +179,60 @@ export const AuthMutation = {
         throw new Error('Invalid refresh token');
       }
 
-      // Generate new access token
+      // 🔥 FETCH USER FROM DATABASE to get latest data (including username)
+      const client = new pg.Client({
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '5432'),
+        database: process.env.DB_NAME || 'dentiagest',
+        user: process.env.DB_USER || 'postgres',
+        password: process.env.DB_PASSWORD || '11111111',
+      });
+
+      await client.connect();
+      
+      const result = await client.query(
+        'SELECT id, email, username, role, first_name, last_name, is_active, created_at FROM users WHERE id = $1',
+        [decoded.userId]
+      );
+
+      await client.end();
+
+      if (result.rows.length === 0) {
+        throw new Error('User not found');
+      }
+
+      const user = result.rows[0];
+
+      // Generate new access token with fresh user data
       const newAccessToken = jwt.default.sign(
         {
-          userId: decoded.userId,
-          email: decoded.email,
-          role: decoded.role,
+          userId: user.id,
+          email: user.email,
+          username: user.username,
+          role: user.role,
+          firstName: user.first_name,
+          lastName: user.last_name,
           permissions: ['read', 'write']
         },
         jwtSecret,
         { expiresIn: '15m' }
       );
 
-      console.log(`🔄 Token refreshed for user: ${decoded.email}`);
+      console.log(`🔄 Token refreshed for user: ${user.email}`);
       
       return {
         accessToken: newAccessToken,
         refreshToken, // Return same refresh token
         expiresIn: 900,
         user: {
-          id: decoded.userId,
-          email: decoded.email,
-          role: decoded.role,
-          isActive: true,
-          createdAt: new Date().toISOString(),
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          isActive: user.is_active,
+          createdAt: user.created_at,
         }
       };
 
