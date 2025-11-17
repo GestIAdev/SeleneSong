@@ -437,6 +437,11 @@ export const typeDefs = `#graphql
     createdBy: ID
     createdAt: String!
     updatedAt: String!
+    
+    # 💰 ECONOMIC SINGULARITY (Directiva #005)
+    treatmentId: ID
+    materialCost: Float
+    profitMargin: Float
   }
 
   # 📋 COMPLIANCE V3 - VERITAS CRITICAL PROTECTION
@@ -580,6 +585,9 @@ export const typeDefs = `#graphql
     paymentTerms: String
     notes: String
     createdBy: ID
+    
+    # 💰 ECONOMIC SINGULARITY (Directiva #005)
+    treatmentId: ID
   }
 
   input UpdateBillingDataV3Input {
@@ -2651,6 +2659,99 @@ export const typeDefs = `#graphql
     sendReminder(reminderId: ID!): PaymentReminder!
     generateReceipt(input: GenerateReceiptInput!): PaymentReceipt!
     regenerateReceipt(receiptId: ID!): PaymentReceipt!
+  }
+
+  # ============================================================================
+  # DIRECTIVA #004: AI-Assisted Appointment Scheduling (GeminiEnder CEO)
+  # Fecha: 17-Nov-2025
+  # ============================================================================
+
+  enum AppointmentType {
+    normal
+    urgent
+  }
+
+  enum UrgencyLevel {
+    low
+    medium
+    high
+    critical
+  }
+
+  enum SuggestionStatus {
+    pending_approval
+    approved
+    rejected
+  }
+
+  type IADiagnosisResponse {
+    urgency_score: Int!
+    urgency_level: UrgencyLevel!
+    preliminary_diagnosis: String
+    confidence: Float!
+    suggested_duration: Int
+    recommended_specialist: String
+    notes: String
+  }
+
+  type AppointmentSuggestion {
+    id: ID!
+    patient_id: ID!
+    patient: PatientV3
+    clinic_id: ID
+    appointment_type: AppointmentType!
+    suggested_date: String!
+    suggested_time: String!
+    suggested_duration: Int!
+    suggested_practitioner_id: ID
+    confidence_score: Float!
+    reasoning: String
+    ia_diagnosis: IADiagnosisResponse
+    patient_request: String
+    status: SuggestionStatus!
+    reviewed_by: ID
+    reviewed_at: String
+    rejection_reason: String
+    created_at: String!
+    updated_at: String!
+  }
+
+  input AppointmentRequestInput {
+    patientId: ID!
+    appointmentType: AppointmentType!
+    consultationType: String
+    preferredDates: [String!]
+    preferredTimes: [String!]
+    urgency: String
+    notes: String
+    symptoms: String
+  }
+
+  input AppointmentAdjustments {
+    date: String
+    time: String
+    duration: Int
+    practitionerId: ID
+  }
+
+  extend type Query {
+    appointmentSuggestionsV3(
+      status: String
+      patientId: ID
+      clinicId: ID
+    ): [AppointmentSuggestion!]!
+  }
+
+  extend type Mutation {
+    requestAppointment(input: AppointmentRequestInput!): AppointmentSuggestion!
+    approveAppointmentSuggestion(
+      suggestionId: ID!
+      adjustments: AppointmentAdjustments
+    ): AppointmentV3!
+    rejectAppointmentSuggestion(
+      suggestionId: ID!
+      reason: String!
+    ): String!
   }
 `;
 

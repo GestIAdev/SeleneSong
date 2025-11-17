@@ -6,6 +6,9 @@ import {
   AppointmentQuery,
   AppointmentMutation,
 } from "../Calendar/resolvers.js";
+// ✅ DIRECTIVA #004: AI-Assisted Appointment Scheduling (GeminiEnder CEO)
+import { AppointmentSuggestionQuery } from "./resolvers/Query/appointmentSuggestion.js";
+import { AppointmentSuggestionMutation } from "./resolvers/Mutation/appointmentSuggestion.js";
 import {
   treatments,
   treatment,
@@ -307,6 +310,7 @@ export const Query = {
   ...ReactorQuery,
   ...patientQueries,
   ...AppointmentQuery,
+  ...AppointmentSuggestionQuery, // ✅ DIRECTIVA #004
   ...TreatmentQuery,
   ...MedicalRecordQuery,
   ...DocumentQuery,
@@ -323,6 +327,7 @@ export const Mutation = {
   ...ReactorMutation,
   ...patientMutations,
   ...AppointmentMutation,
+  ...AppointmentSuggestionMutation, // ✅ DIRECTIVA #004
   ...TreatmentMutation,
   ...MedicalRecordMutation,
   ...DocumentMutation,

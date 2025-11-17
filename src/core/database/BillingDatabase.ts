@@ -50,9 +50,9 @@ export class BillingDatabase extends BaseDatabase {
   }
 
   /**
-   * Crea un nuevo dato de facturación (SCHEMA COMPLETO)
-   * Alineado con: BILLING_V_ALL_MIGRATION.md
-   * Tabla: billing_data (invoice_number, subtotal, tax_amount, total_amount, etc.)
+   * 💰 Crea un nuevo dato de facturación con ECONOMIC SINGULARITY (DIRECTIVA #005)
+   * Alineado con: BILLING_V_ALL_MIGRATION.md + Economic Singularity
+   * Tabla: billing_data (invoice_number, subtotal, tax_amount, total_amount, treatment_id, material_cost, profit_margin, etc.)
    */
   async createBillingDataV3(input: any): Promise<any> {
     const {
@@ -69,15 +69,53 @@ export class BillingDatabase extends BaseDatabase {
       status,
       paymentTerms,
       notes,
-      createdBy
+      createdBy,
+      treatmentId  // 🔥 NUEVO: vincula factura con tratamiento
     } = input;
+
+    // 💰 ECONOMIC SINGULARITY: Calcular material_cost y profit_margin
+    let materialCost = 0;
+    let profitMargin = null;
+
+    if (treatmentId) {
+      console.log(`💰 [Economic Singularity] Calculando costos para treatment ${treatmentId}...`);
+
+      // Recuperar cost_snapshot de treatment_materials
+      const materialCostQuery = await this.runQuery(
+        `SELECT 
+          COALESCE(SUM(quantity * cost_snapshot), 0) AS total_material_cost,
+          COUNT(*) AS material_count
+         FROM treatment_materials
+         WHERE treatment_id = $1`,
+        [treatmentId]
+      );
+
+      const materialData = materialCostQuery.rows[0];
+      materialCost = parseFloat(materialData?.total_material_cost || '0');
+      const materialCount = parseInt(materialData?.material_count || '0');
+
+      // 🚨 GATE 2 VERIFICATION: Grito de guerra si no hay materiales
+      if (materialCount === 0) {
+        console.warn(`⚠️ [Economic Singularity] WARNING: Treatment ${treatmentId} has NO materials in treatment_materials table. Profit margin will be 100% (likely incorrect).`);
+      } else {
+        console.log(`💰 [Economic Singularity] Found ${materialCount} material entries for treatment.`);
+      }
+
+      // Calcular profit_margin solo si hay totalAmount > 0
+      if (totalAmount && totalAmount > 0) {
+        profitMargin = (totalAmount - materialCost) / totalAmount;
+        console.log(`💰 Material Cost: €${materialCost.toFixed(2)}, Profit Margin: ${(profitMargin * 100).toFixed(2)}%`);
+      }
+    }
 
     const query = `
       INSERT INTO billing_data (
         patient_id, invoice_number, subtotal, tax_rate, tax_amount,
         discount_amount, total_amount, currency, issue_date, due_date,
-        status, payment_terms, notes, created_by, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+        status, payment_terms, notes, created_by, 
+        treatment_id, material_cost, profit_margin,
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW())
       RETURNING *
     `;
 
@@ -95,10 +133,21 @@ export class BillingDatabase extends BaseDatabase {
       status || 'PENDING',
       paymentTerms || null,
       notes || null,
-      createdBy || null
+      createdBy || null,
+      treatmentId || null,        // 🔥 ECONOMIC SINGULARITY
+      materialCost || 0,           // 🔥 ECONOMIC SINGULARITY
+      profitMargin                 // 🔥 ECONOMIC SINGULARITY (puede ser NULL)
     ]);
 
-    return result.rows[0];
+    const row = result.rows[0];
+    
+    // 🔥 ECONOMIC SINGULARITY: Map snake_case to camelCase for GraphQL
+    return {
+      ...row,
+      materialCost: row.material_cost,
+      profitMargin: row.profit_margin,
+      treatmentId: row.treatment_id
+    };
   }
 
   /**

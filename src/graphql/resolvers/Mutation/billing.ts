@@ -13,34 +13,41 @@ export const createBillingDataV3 = async (
   console.log("🎯 [BILLING] createBillingDataV3 - Creating with FOUR-GATE protection");
   
   try {
-    // ✅ GATE 1: VERIFICACIÓN - Input validation
+    // ✅ GATE 1: VERIFICACIÓN - Input validation (ECONOMIC SINGULARITY aligned)
     if (!args.input || typeof args.input !== 'object') {
       throw new Error('Invalid input: must be a non-null object');
     }
-    if (!args.input.description) {
-      throw new Error('Validation failed: description is required');
+    if (!args.input.patientId) {
+      throw new Error('Validation failed: patientId is required');
     }
-    if (args.input.amount <= 0) {
-      throw new Error('Validation failed: amount must be positive');
+    if (!args.input.invoiceNumber) {
+      throw new Error('Validation failed: invoiceNumber is required');
     }
-    console.log("✅ GATE 1 (Verificación) - Input validated");
+    if (!args.input.totalAmount || args.input.totalAmount <= 0) {
+      throw new Error('Validation failed: totalAmount must be positive');
+    }
+    console.log("✅ GATE 1 (Verificación) - Input validated (patientId, invoiceNumber, totalAmount)");
 
     // ✅ GATE 3: TRANSACCIÓN DB - Real database operation
     const billingData = await context.database.createBillingDataV3(args.input);
     console.log("✅ GATE 3 (Transacción DB) - Created:", billingData.id);
 
-    // ✅ GATE 4: AUDITORÍA - Log to audit trail
+    // ✅ GATE 4: AUDITORÍA - Log to audit trail (NON-BLOCKING)
     if (context.auditLogger) {
-      await context.auditLogger.logMutation({
-        entityType: 'BillingDataV3',
-        entityId: billingData.id,
-        operationType: 'CREATE',
-        userId: context.user?.id,
-        userEmail: context.user?.email,
-        ipAddress: context.ip,
-        newValues: billingData,
-      });
-      console.log("✅ GATE 4 (Auditoría) - Mutation logged");
+      try {
+        await context.auditLogger.logMutation({
+          entityType: 'BillingDataV3',
+          entityId: billingData.id,
+          operationType: 'CREATE',
+          userId: context.user?.id,
+          userEmail: context.user?.email,
+          ipAddress: context.ip,
+          newValues: billingData,
+        });
+        console.log("✅ GATE 4 (Auditoría) - Mutation logged");
+      } catch (auditError) {
+        console.warn("⚠️ GATE 4 (Auditoría) - Logging failed (non-blocking):", (auditError as Error).message);
+      }
     }
 
     if (context.pubsub) {

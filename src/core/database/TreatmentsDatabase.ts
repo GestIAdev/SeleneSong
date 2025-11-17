@@ -6,6 +6,52 @@ export class TreatmentsDatabase extends BaseDatabase {
   constructor(pool: Pool, redis?: RedisClientType, redisConnectionId?: string) {
     super(pool, redis, redisConnectionId);
   }
+
+  /**
+   * 💰 PERSIST TREATMENT MATERIALS (Economic Singularity - Directiva #005)
+   * Inserta registros en treatment_materials con snapshot de costos
+   */
+  private async persistTreatmentMaterials(
+    client: any,
+    treatmentId: string,
+    materials: Array<{ inventoryItemId: string | number; quantity: number }>,
+    createdBy?: string
+  ): Promise<void> {
+    if (!materials || materials.length === 0) {
+      return;
+    }
+
+    for (const material of materials) {
+      try {
+        // Recuperar material_id y unit_cost desde dental_materials
+        const materialInfo = await client.query(
+          `SELECT id, unit_cost FROM dental_materials WHERE id = $1`,
+          [material.inventoryItemId]
+        );
+
+        if (materialInfo.rows.length === 0) {
+          console.warn(`⚠️ Material no encontrado: ${material.inventoryItemId}`);
+          continue;
+        }
+
+        const { id: materialId, unit_cost: unitCost } = materialInfo.rows[0];
+
+        // Insertar en treatment_materials con cost_snapshot
+        await client.query(
+          `INSERT INTO treatment_materials (
+            treatment_id, material_id, quantity, cost_snapshot, created_by, created_at
+          ) VALUES ($1, $2, $3, $4, $5, NOW())`,
+          [treatmentId, materialId, material.quantity, unitCost || 0, createdBy]
+        );
+
+        console.log(`✅ Material persistido: ${materialId} (qty: ${material.quantity}, cost_snapshot: ${unitCost})`);
+      } catch (error) {
+        console.error(`❌ Error persistiendo material ${material.inventoryItemId}:`, error);
+        // Continuar con otros materiales (no fallar toda la transacción)
+      }
+    }
+  }
+
   /**
    * 🩺 GET TREATMENTS - GraphQL Migration v1.0
    * ✅ MAPEO COMPLETO: snake_case DB → camelCase GraphQL
@@ -109,9 +155,21 @@ export class TreatmentsDatabase extends BaseDatabase {
         ],
       );
 
+      const dbRow = result.rows[0];
+
+      // 💰 ECONOMIC SINGULARITY: Persistir materiales con cost_snapshot
+      if (data.materialsUsed && data.materialsUsed.length > 0) {
+        console.log(`💰 [Economic Singularity] Persistiendo ${data.materialsUsed.length} materiales...`);
+        await this.persistTreatmentMaterials(
+          client,
+          dbRow.id,
+          data.materialsUsed,
+          data.practitionerId
+        );
+      }
+
       await client.query("COMMIT");
 
-      const dbRow = result.rows[0];
 
       // ✅ MAPEO COMPLETO
       return {
