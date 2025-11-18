@@ -2916,7 +2916,18 @@ export class SeleneServer {
             console.log("🔍 req.user object:", req.user);
             console.log("🔍 this.veritas available?", { available: !!this.veritas });
             console.log("🔍 this.veritas type:", { type: typeof this.veritas });
-            // Note: quantumResurrection method not implemented in current Veritas version
+            
+            // 🔐 PHASE 2: INJECT RLS CONTEXT FROM JWT
+            let rlsContext = null;
+            if (req.user?.userId && req.user?.role) {
+              rlsContext = {
+                userId: req.user.userId,
+                role: req.user.role, // Ya viene como PATIENT | STAFF | ADMIN
+              };
+              console.log("🔒 RLS Context injected:", rlsContext);
+            } else {
+              console.log("⚠️  No RLS context (unauthenticated request)");
+            }
 
             return {
               // 🏴‍☠️ EL PUENTE DE CRISTAL: Context with REAL database connection
@@ -2928,6 +2939,7 @@ export class SeleneServer {
               pubsub: this.pubsub, // 🔥 PHASE D: Add PubSub for real-time subscriptions
               quantumEngine: this.quantumEngine, // ⚛️ PHASE E: Add quantum engine for enhanced processing
               user: req.user, // 🔐 AUTHENTICATED USER FROM HTTP AUTH MIDDLEWARE
+              rlsContext, // 🔒 GDPR COMPLIANCE: Row-Level Security context
               req: req,
             };
           },

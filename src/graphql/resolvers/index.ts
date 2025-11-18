@@ -43,6 +43,9 @@ import {
 import { documentSubscriptions } from "./Subscription/document.js";
 import { DocumentV3 } from "./FieldResolvers/document.js";
 
+// 🔐 Patient Registration (GDPR Compliant)
+import { registerPatient } from './Mutation/registerPatient.js';
+
 // Import all Patient domain resolvers
 import { patientQueries } from "./Query/patient.js";
 import { patientMutations } from "./Mutation/patient.js";
@@ -755,6 +758,9 @@ export const AllResolvers = {
     customCalendarViewV3,
   },
   Mutation: {
+    // 🔐 Authentication & Registration
+    registerPatient,
+    
     createDocumentV3,
     updateDocumentV3,
     deleteDocumentV3,

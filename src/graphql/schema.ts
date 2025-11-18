@@ -182,6 +182,39 @@ export const typeDefs = `#graphql
     refreshToken: String!
   }
 
+  # 🔐 PATIENT REGISTRATION (GDPR Article 9 Compliant)
+  input RegisterPatientInput {
+    email: String!
+    password: String!
+    firstName: String!
+    lastName: String!
+    phone: String
+    dateOfBirth: DateString
+    address: String
+    termsAccepted: Boolean! # GDPR consent - MUST be true
+  }
+
+  type RegisterPatientResponse {
+    success: Boolean!
+    message: String!
+    accessToken: String!
+    refreshToken: String!
+    user: RegisteredUser!
+    patient: RegisteredPatient!
+  }
+
+  type RegisteredUser {
+    id: ID!
+    email: String!
+    role: String!
+  }
+
+  type RegisteredPatient {
+    id: ID!
+    firstName: String!
+    lastName: String!
+  }
+
   # 🏥 MEDICAL RECORDS
   # 🏥 MEDICAL RECORDS - V169 Schema Bridge Compatible  
   type MedicalRecord {
@@ -1210,6 +1243,9 @@ export const typeDefs = `#graphql
     login(input: LoginInput!): AuthResponse!
     logout: Boolean!
     refreshToken(input: RefreshTokenInput!): AuthResponse!
+    
+    # 🔐 Patient Registration (GDPR Article 9 Compliant)
+    registerPatient(input: RegisterPatientInput!): RegisterPatientResponse!
     
     # Patients
     createPatient(input: PatientInput!): Patient!

@@ -51,8 +51,15 @@ export interface GraphQLContext {
     id?: string;
     email?: string;
     role?: string;
+    userId?: number; // Added for RLS compatibility
   };
   ip?: string; // Client IP address for audit trail
+  
+  // 🔒 GDPR COMPLIANCE: Row-Level Security Context
+  rlsContext?: {
+    userId: number;
+    role: string; // PATIENT | STAFF | ADMIN
+  } | null;
   
   quantumEngine?: any; // Quantum subscription engine for Phase E
 }
