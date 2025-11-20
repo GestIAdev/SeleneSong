@@ -1,19 +1,24 @@
 // ============================================================================
-// 👥 PATIENT MUTATIONS V3 - VERITAS ENHANCED
+// 👥 PATIENT MUTATIONS V3 - VERITAS ENHANCED + EMPIRE ARCHITECTURE V2
 // ============================================================================
 
 import { GraphQLContext } from "../../types.js";
+import { requireClinicAccess } from "../../utils/clinicHelpers.js";
 
 export const patientMutations = {
-  // 🔥 CREATE PATIENT V3 - FOUR-GATE PATTERN (GATE 1 + 3 + 4)
+  // 🔥 CREATE PATIENT V3 - FOUR-GATE PATTERN (GATE 1 + 3 + 4) + EMPIRE V2
   createPatientV3: async (
     _: any,
     { input }: any,
     { pubsub, database, auditLogger, user, ip }: any,
   ) => {
-    console.log("🎯 [PATIENT] createPatientV3 - Creating with FOUR-GATE protection");
+    console.log("🎯 [PATIENT] createPatientV3 - Creating with FOUR-GATE protection + EMPIRE V2");
     
     try {
+      // 🏛️ EMPIRE V2: GATE 0 - Require clinic access
+      const clinicId = requireClinicAccess({ user }, false);
+      console.log(`🏛️ Creating patient for clinic: ${clinicId}`);
+      
       // ✅ GATE 1: VERIFICACIÓN - Input validation
       if (!input || typeof input !== 'object') {
         throw new Error('Invalid input: must be a non-null object');
@@ -34,7 +39,7 @@ export const patientMutations = {
         throw new Error('Validation failed: invalid email format');
       }
       
-      // Email uniqueness check
+      // Email uniqueness check (GLOBAL - patients table has no clinic_id)
       const existingPatients = await database.getPatients({ search: input.email });
       const exactMatch = existingPatients.find(p => p.email === input.email);
       if (exactMatch) {
@@ -44,8 +49,19 @@ export const patientMutations = {
       console.log("✅ GATE 1 (Verificación) - Input validated");
 
       // ✅ GATE 3: TRANSACCIÓN DB - Real database operation
+      // Step 1: Create patient in GLOBAL table (patients)
       const patient = await database.createPatient(input);
-      console.log("✅ GATE 3 (Transacción DB) - Created:", patient.id);
+      console.log("✅ GATE 3.1 (Transacción DB) - Patient created:", patient.id);
+
+      // 🏛️ EMPIRE V2: Step 2: Create relationship in patient_clinic_access
+      const accessQuery = `
+        INSERT INTO patient_clinic_access (patient_id, clinic_id, first_visit_date, is_active)
+        VALUES ($1, $2, CURRENT_DATE, TRUE)
+        RETURNING *
+      `;
+      
+      await database.executeQuery(accessQuery, [patient.id, clinicId]);
+      console.log(`✅ GATE 3.2 (Transacción DB) - Patient linked to clinic ${clinicId}`);
 
       // ✅ GATE 4: AUDITORÍA - Log to audit trail
       if (auditLogger) {
@@ -56,7 +72,7 @@ export const patientMutations = {
           userId: user?.id,
           userEmail: user?.email,
           ipAddress: ip,
-          newValues: patient,
+          newValues: { ...patient, clinicId }, // Include clinic context in audit
         });
         console.log("✅ GATE 4 (Auditoría) - Mutation logged");
       }
@@ -75,15 +91,19 @@ export const patientMutations = {
     }
   },
 
-  // 🔥 UPDATE PATIENT V3 - FOUR-GATE PATTERN (GATE 1 + 3 + 4)
+  // 🔥 UPDATE PATIENT V3 - FOUR-GATE PATTERN (GATE 1 + 3 + 4) + EMPIRE V2
   updatePatientV3: async (
     _: any,
     { id, input }: any,
     { pubsub, database, auditLogger, user, ip }: any,
   ) => {
-    console.log("🎯 [PATIENT] updatePatientV3 - Updating with FOUR-GATE protection");
+    console.log("🎯 [PATIENT] updatePatientV3 - Updating with FOUR-GATE protection + EMPIRE V2");
     
     try {
+      // 🏛️ EMPIRE V2: GATE 0 - Require clinic access
+      const clinicId = requireClinicAccess({ user }, false);
+      console.log(`🏛️ Verifying patient ${id} belongs to clinic ${clinicId}`);
+      
       // ✅ GATE 1: VERIFICACIÓN - Input validation
       if (!id) {
         throw new Error('Validation failed: id is required');
@@ -92,6 +112,18 @@ export const patientMutations = {
         throw new Error('Invalid input: must be a non-null object');
       }
       
+      // 🏛️ EMPIRE V2: Verify patient belongs to this clinic via patient_clinic_access
+      const accessCheckQuery = `
+        SELECT * FROM patient_clinic_access
+        WHERE patient_id = $1 AND clinic_id = $2 AND is_active = TRUE
+      `;
+      const accessResult = await database.executeQuery(accessCheckQuery, [id, clinicId]);
+      
+      if (accessResult.rows.length === 0) {
+        throw new Error('Patient not accessible in your clinic - cannot update');
+      }
+      console.log(`✅ EMPIRE V2 - Patient belongs to clinic ${clinicId}`);
+      
       // Email format validation (if email is being updated)
       if (input.email) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -99,7 +131,7 @@ export const patientMutations = {
           throw new Error('Validation failed: invalid email format');
         }
         
-        // Email uniqueness check (exclude current patient)
+        // Email uniqueness check (exclude current patient) - GLOBAL check
         const existingPatients = await database.getPatients({ search: input.email });
         const exactMatch = existingPatients.find(p => p.email === input.email && p.id !== id);
         if (exactMatch) {
@@ -129,7 +161,7 @@ export const patientMutations = {
           userEmail: user?.email,
           ipAddress: ip,
           oldValues: oldPatient,
-          newValues: patient,
+          newValues: { ...patient, clinicId }, // Include clinic context
           changedFields: Object.keys(input),
         });
         console.log("✅ GATE 4 (Auditoría) - Mutation logged");
@@ -149,19 +181,35 @@ export const patientMutations = {
     }
   },
 
-  // 🔥 DELETE PATIENT V3 - FOUR-GATE PATTERN (GATE 1 + 3 + 4)
+  // 🔥 DELETE PATIENT V3 - FOUR-GATE PATTERN (GATE 1 + 3 + 4) + EMPIRE V2
   deletePatientV3: async (
     _: any,
     { id }: any,
     { pubsub, database, auditLogger, user, ip }: any,
   ) => {
-    console.log("🎯 [PATIENT] deletePatientV3 - Deleting with FOUR-GATE protection");
+    console.log("🎯 [PATIENT] deletePatientV3 - Deleting with FOUR-GATE protection + EMPIRE V2");
     
     try {
+      // 🏛️ EMPIRE V2: GATE 0 - Require clinic access
+      const clinicId = requireClinicAccess({ user }, false);
+      console.log(`🏛️ Verifying patient ${id} belongs to clinic ${clinicId}`);
+      
       // ✅ GATE 1: VERIFICACIÓN - Input validation
       if (!id) {
         throw new Error('Validation failed: id is required');
       }
+      
+      // 🏛️ EMPIRE V2: Verify patient belongs to this clinic
+      const accessCheckQuery = `
+        SELECT * FROM patient_clinic_access
+        WHERE patient_id = $1 AND clinic_id = $2 AND is_active = TRUE
+      `;
+      const accessResult = await database.executeQuery(accessCheckQuery, [id, clinicId]);
+      
+      if (accessResult.rows.length === 0) {
+        throw new Error('Patient not accessible in your clinic - cannot delete');
+      }
+      console.log(`✅ EMPIRE V2 - Patient belongs to clinic ${clinicId}`);
       console.log("✅ GATE 1 (Verificación) - Input validated");
 
       // Capture old values for audit trail
@@ -170,9 +218,19 @@ export const patientMutations = {
         throw new Error(`Patient ${id} not found`);
       }
 
-      // ✅ GATE 3: TRANSACCIÓN DB - Real database operation (soft delete)
+      // ✅ GATE 3: TRANSACCIÓN DB - Real database operation
+      // 🏛️ EMPIRE V2: Soft delete from patient_clinic_access (deactivate link)
+      const deactivateQuery = `
+        UPDATE patient_clinic_access
+        SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+        WHERE patient_id = $1 AND clinic_id = $2
+      `;
+      await database.executeQuery(deactivateQuery, [id, clinicId]);
+      console.log(`✅ GATE 3.1 (Transacción DB) - Deactivated in patient_clinic_access for clinic ${clinicId}`);
+      
+      // Soft delete from patients table (global)
       await database.deletePatient(id);
-      console.log("✅ GATE 3 (Transacción DB) - Deleted (soft delete):", id);
+      console.log("✅ GATE 3.2 (Transacción DB) - Soft deleted from patients table:", id);
 
       // ✅ GATE 4: AUDITORÍA - Log to audit trail
       if (auditLogger) {
@@ -183,7 +241,7 @@ export const patientMutations = {
           userId: user?.id,
           userEmail: user?.email,
           ipAddress: ip,
-          oldValues: oldPatient,
+          oldValues: { ...oldPatient, clinicId }, // Include clinic context
         });
         console.log("✅ GATE 4 (Auditoría) - Mutation logged");
       }

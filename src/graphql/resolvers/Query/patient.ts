@@ -1,8 +1,9 @@
 // ============================================================================
-// 👥 PATIENT QUERIES V3 - VERITAS ENHANCED
+// 👥 PATIENT QUERIES V3 - VERITAS ENHANCED + EMPIRE ARCHITECTURE V2
 // ============================================================================
 
 import { GraphQLContext } from "../../types.js";
+import { getClinicIdFromContext } from "../../utils/clinicHelpers.js";
 
 
 export const patientQueries = {
@@ -17,36 +18,54 @@ export const patientQueries = {
         `🔍 PATIENTS query called with limit: ${limit}, offset: ${offset}`,
       );
 
-      // Query real PostgreSQL database - FULL SCHEMA ALIGNED
+      // 🏛️ EMPIRE V2: THE GREAT FILTER - CERO ABSOLUTO
+      const clinicId = getClinicIdFromContext(_context);
+      
+      if (!clinicId) {
+        console.warn('⚠️ PATIENTS query: No clinic_id in context. Owner in lobby mode or unauthorized access. Returning []');
+        return []; // REGLA 1: CERO ABSOLUTO - NEVER return all records
+      }
+
+      // 🏛️ EMPIRE V2: Query patients via patient_clinic_access (REGLA 3)
+      // patients table = GLOBAL (no clinic_id)
+      // patient_clinic_access = FILTER by clinic
       const query = `
         SELECT 
-          id,
-          first_name as "firstName",
-          last_name as "lastName", 
-          CONCAT(first_name, ' ', last_name) as name,
-          email,
-          phone_primary as phone,
-          date_of_birth as "dateOfBirth",
-          CONCAT_WS(', ', address_street, address_city, address_state, address_postal_code, address_country) as address,
-          emergency_contact_name as "emergencyContact",
-          insurance_provider as "insuranceProvider",
-          policy_number as "policyNumber",
-          medical_conditions as "medicalHistory",
+          p.id,
+          p.first_name as "firstName",
+          p.last_name as "lastName", 
+          CONCAT(p.first_name, ' ', p.last_name) as name,
+          p.email,
+          p.phone_primary as phone,
+          p.date_of_birth as "dateOfBirth",
+          CONCAT_WS(', ', p.address_street, p.address_city, p.address_state, p.address_postal_code, p.address_country) as address,
+          p.emergency_contact_name as "emergencyContact",
+          p.insurance_provider as "insuranceProvider",
+          p.policy_number as "policyNumber",
+          p.medical_conditions as "medicalHistory",
           'active' as "billingStatus",
-          is_active as "isActive",
-          created_at as "createdAt",
-          updated_at as "updatedAt"
-        FROM patients 
-        WHERE is_active = true AND deleted_at IS NULL
-        ORDER BY created_at DESC
-        LIMIT $1 OFFSET $2
+          p.is_active as "isActive",
+          p.created_at as "createdAt",
+          p.updated_at as "updatedAt",
+          pca.first_visit_date as "firstVisitDate",
+          pca.medical_record_number as "medicalRecordNumber"
+        FROM patients p
+        INNER JOIN patient_clinic_access pca ON pca.patient_id = p.id
+        WHERE pca.clinic_id = $1 
+          AND pca.is_active = TRUE
+          AND p.is_active = true 
+          AND p.deleted_at IS NULL
+        ORDER BY p.created_at DESC
+        LIMIT $2 OFFSET $3
       `;
 
       const result = await _context.database.executeQuery(query, [
+        clinicId,
         limit,
         offset,
       ]);
-      console.log(`🔍 PATIENTS found ${result.rows.length} patients`);
+      
+      console.log(`✅ PATIENTS (clinic ${clinicId}): Found ${result.rows.length} patients`);
 
       return result.rows;
     } catch (error) {
@@ -64,37 +83,52 @@ export const patientQueries = {
     try {
       console.log(`🔍 PATIENT query called with id: ${id}`);
 
-      // Query real PostgreSQL database - FULL SCHEMA ALIGNED
+      // 🏛️ EMPIRE V2: THE GREAT FILTER
+      const clinicId = getClinicIdFromContext(_context);
+      
+      if (!clinicId) {
+        console.warn(`⚠️ PATIENT query: No clinic_id in context. Denying access to patient ${id}`);
+        return null; // REGLA 1: CERO ABSOLUTO
+      }
+
+      // 🏛️ EMPIRE V2: Verify patient belongs to this clinic via patient_clinic_access
       const query = `
         SELECT 
-          id,
-          first_name as "firstName",
-          last_name as "lastName", 
-          CONCAT(first_name, ' ', last_name) as name,
-          email,
-          phone_primary as phone,
-          date_of_birth as "dateOfBirth",
-          CONCAT_WS(', ', address_street, address_city, address_state, address_postal_code, address_country) as address,
-          emergency_contact_name as "emergencyContact",
-          insurance_provider as "insuranceProvider",
-          policy_number as "policyNumber",
-          medical_conditions as "medicalHistory",
+          p.id,
+          p.first_name as "firstName",
+          p.last_name as "lastName", 
+          CONCAT(p.first_name, ' ', p.last_name) as name,
+          p.email,
+          p.phone_primary as phone,
+          p.date_of_birth as "dateOfBirth",
+          CONCAT_WS(', ', p.address_street, p.address_city, p.address_state, p.address_postal_code, p.address_country) as address,
+          p.emergency_contact_name as "emergencyContact",
+          p.insurance_provider as "insuranceProvider",
+          p.policy_number as "policyNumber",
+          p.medical_conditions as "medicalHistory",
           'active' as "billingStatus",
-          is_active as "isActive",
-          created_at as "createdAt",
-          updated_at as "updatedAt"
-        FROM patients 
-        WHERE id = $1 AND is_active = true AND deleted_at IS NULL
+          p.is_active as "isActive",
+          p.created_at as "createdAt",
+          p.updated_at as "updatedAt",
+          pca.first_visit_date as "firstVisitDate",
+          pca.medical_record_number as "medicalRecordNumber"
+        FROM patients p
+        INNER JOIN patient_clinic_access pca ON pca.patient_id = p.id
+        WHERE p.id = $1 
+          AND pca.clinic_id = $2
+          AND pca.is_active = TRUE
+          AND p.is_active = true 
+          AND p.deleted_at IS NULL
       `;
 
-      const result = await _context.database.executeQuery(query, [id]);
+      const result = await _context.database.executeQuery(query, [id, clinicId]);
       
       if (result.rows.length === 0) {
-        console.log(`🔍 PATIENT not found with id: ${id}`);
+        console.log(`🔍 PATIENT not found or not accessible in clinic ${clinicId}: ${id}`);
         return null;
       }
 
-      console.log(`🔍 PATIENT found:`, result.rows[0]);
+      console.log(`✅ PATIENT found in clinic ${clinicId}:`, result.rows[0].name);
       return result.rows[0];
     } catch (error) {
       console.error("Patient query error:", error as Error);
@@ -114,8 +148,46 @@ export const patientQueries = {
       );
       console.log(`🔍 Context veritas available: ${!!context.veritas}`);
 
-      // Use specialized PatientsDatabase class
-      return await context.database.patients.getPatients({ limit, offset });
+      // 🏛️ EMPIRE V2: THE GREAT FILTER
+      const clinicId = getClinicIdFromContext(context);
+      
+      if (!clinicId) {
+        console.warn('⚠️ PATIENTS V3 query: No clinic_id in context. Returning []');
+        return []; // REGLA 1: CERO ABSOLUTO
+      }
+
+      // TODO: Update PatientsDatabase class to accept clinicId parameter
+      // For now, use direct query with clinic filtering
+      const query = `
+        SELECT 
+          p.id,
+          p.first_name as "firstName",
+          p.last_name as "lastName", 
+          CONCAT(p.first_name, ' ', p.last_name) as name,
+          p.email,
+          p.phone_primary as phone,
+          p.date_of_birth as "dateOfBirth",
+          p.is_active as "isActive",
+          p.created_at as "createdAt",
+          p.updated_at as "updatedAt"
+        FROM patients p
+        INNER JOIN patient_clinic_access pca ON pca.patient_id = p.id
+        WHERE pca.clinic_id = $1 
+          AND pca.is_active = TRUE
+          AND p.is_active = true 
+          AND p.deleted_at IS NULL
+        ORDER BY p.created_at DESC
+        LIMIT $2 OFFSET $3
+      `;
+
+      const result = await context.database.executeQuery(query, [
+        clinicId,
+        limit,
+        offset,
+      ]);
+
+      console.log(`✅ PATIENTS V3 (clinic ${clinicId}): Found ${result.rows.length} patients`);
+      return result.rows;
     } catch (error) {
       console.error("PatientsV3 query error:", error as Error);
       return [];
@@ -132,13 +204,48 @@ export const patientQueries = {
       console.log(`🔍 PATIENT V3 query called with id: ${id}`);
       console.log(`🔍 Context veritas available: ${!!_context.veritas}`);
 
-      // Use specialized PatientsDatabase class
-      return await _context.database.patients.getPatientById(id);
+      // 🏛️ EMPIRE V2: THE GREAT FILTER
+      const clinicId = getClinicIdFromContext(_context);
+      
+      if (!clinicId) {
+        console.warn(`⚠️ PATIENT V3 query: No clinic_id in context. Denying access to patient ${id}`);
+        return null; // REGLA 1: CERO ABSOLUTO
+      }
+
+      // Verify patient belongs to this clinic
+      const query = `
+        SELECT 
+          p.id,
+          p.first_name as "firstName",
+          p.last_name as "lastName", 
+          CONCAT(p.first_name, ' ', p.last_name) as name,
+          p.email,
+          p.phone_primary as phone,
+          p.date_of_birth as "dateOfBirth",
+          p.is_active as "isActive",
+          p.created_at as "createdAt",
+          p.updated_at as "updatedAt"
+        FROM patients p
+        INNER JOIN patient_clinic_access pca ON pca.patient_id = p.id
+        WHERE p.id = $1 
+          AND pca.clinic_id = $2
+          AND pca.is_active = TRUE
+          AND p.is_active = true 
+          AND p.deleted_at IS NULL
+      `;
+
+      const result = await _context.database.executeQuery(query, [id, clinicId]);
+      
+      if (result.rows.length === 0) {
+        console.log(`🔍 PATIENT V3 not found or not accessible in clinic ${clinicId}: ${id}`);
+        return null;
+      }
+
+      console.log(`✅ PATIENT V3 found in clinic ${clinicId}`);
+      return result.rows[0];
     } catch (error) {
       console.error("PatientV3 query error:", error as Error);
       return null;
     }
   },
 };
-
-
