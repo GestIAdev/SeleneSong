@@ -1,5 +1,10 @@
+import { registerPatient } from "./resolvers/Mutation/registerPatient.js";
 import { patientQueries, patientMutations } from "./resolvers/index.js";
 import { PatientV3 } from "./resolvers/FieldResolvers/patient.js";
+
+// 🏛️ EMPIRE ARCHITECTURE V2 - CLINIC MUTATIONS
+import { selectClinic, exitClinic } from "./resolvers/Mutation/clinic.js";
+
 import {
   Appointment,
   AppointmentV3,
@@ -60,6 +65,16 @@ import {
 } from './resolvers/Mutation/document.js';
 import { documentSubscriptions } from "./resolvers/Subscription/document.js";
 import { DocumentV3 } from "./resolvers/FieldResolvers/document.js";
+
+// 🔔 NOTIFICATIONS V3 RESOLVERS
+import {
+  patientNotifications,
+  notificationPreferences
+} from './resolvers/Query/notification.js';
+import {
+  markNotificationAsRead,
+  updateNotificationPreferences
+} from './resolvers/Mutation/notification.js';
 
 import {
   inventoriesV3,
@@ -199,6 +214,17 @@ const DocumentMutation = {
   uploadUnifiedDocumentV3
 };
 
+// 🔔 NOTIFICATIONS V3
+const NotificationQuery = {
+  patientNotifications,
+  notificationPreferences
+};
+
+const NotificationMutation = {
+  markNotificationAsRead,
+  updateNotificationPreferences
+};
+
 const InventoryQuery = {
   inventoriesV3,
   inventoryV3,
@@ -314,6 +340,7 @@ export const Query = {
   ...TreatmentQuery,
   ...MedicalRecordQuery,
   ...DocumentQuery,
+  ...NotificationQuery, // 🔔 NOTIFICATIONS V3
   ...InventoryQuery,
   ...BillingQuery,
   ...ComplianceQuery,
@@ -331,10 +358,15 @@ export const Mutation = {
   ...TreatmentMutation,
   ...MedicalRecordMutation,
   ...DocumentMutation,
+  ...NotificationMutation, // 🔔 NOTIFICATIONS V3
   ...InventoryMutation,
   ...BillingMutation,
   ...ComplianceMutation,
   ...marketplaceMutations,
+  
+  // 🏛️ EMPIRE ARCHITECTURE V2 - CLINIC SWITCHING
+  selectClinic,
+  exitClinic,
 };
 
 export const Subscription = {

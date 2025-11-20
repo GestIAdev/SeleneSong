@@ -167,6 +167,31 @@ export const typeDefs = `#graphql
     user: User!
   }
 
+  # 🏛️ EMPIRE ARCHITECTURE V2 - CLINIC SWITCHING
+  type ClinicSwitchResponse {
+    accessToken: String!
+    expiresIn: Int!
+    user: User!
+    selectedClinic: Clinic
+  }
+
+  # 🏛️ EMPIRE ARCHITECTURE V2 - CLINIC TYPE
+  type Clinic {
+    id: ID!
+    name: String!
+    cifNif: String
+    address: String
+    city: String
+    country: String
+    defaultCurrency: String
+    phone: String
+    email: String
+    logoUrl: String
+    isActive: Boolean!
+    createdAt: String!
+    updatedAt: String!
+  }
+
   # 🗑️ DELETE RESULT TYPE (V3 - CONSISTENT RESPONSE)
   type DeleteResult {
     success: Boolean!
@@ -579,6 +604,79 @@ export const typeDefs = `#graphql
     encryptionKey: String
     accessLevel: AccessLevel
     expiresAt: String
+  }
+
+  # 🔔 NOTIFICATIONS V3 - REAL DATA + GDPR AUDIT TRAIL
+  type NotificationV3 {
+    id: ID!
+    patientId: ID!
+    type: NotificationType!
+    channel: NotificationChannel!
+    title: String!
+    message: String!
+    priority: NotificationPriority!
+    status: NotificationStatus!
+    sentAt: String!
+    readAt: String
+    metadata: JSON
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type NotificationPreferencesV3 {
+    id: ID!
+    patientId: ID!
+    smsEnabled: Boolean!
+    emailEnabled: Boolean!
+    pushEnabled: Boolean!
+    appointmentReminders: Boolean!
+    billingAlerts: Boolean!
+    treatmentUpdates: Boolean!
+    marketingEmails: Boolean!
+    updatedAt: String!
+  }
+
+  enum NotificationType {
+    APPOINTMENT_REMINDER
+    APPOINTMENT_CONFIRMED
+    APPOINTMENT_CANCELLED
+    BILLING_DUE
+    BILLING_PAID
+    TREATMENT_UPDATED
+    DOCUMENT_SHARED
+    SYSTEM_ALERT
+    PRESCRIPTION_READY
+  }
+
+  enum NotificationChannel {
+    EMAIL
+    SMS
+    IN_APP
+    PUSH
+  }
+
+  enum NotificationPriority {
+    LOW
+    NORMAL
+    HIGH
+    URGENT
+  }
+
+  enum NotificationStatus {
+    PENDING
+    SENT
+    READ
+    FAILED
+  }
+
+  input NotificationPreferencesInput {
+    smsEnabled: Boolean
+    emailEnabled: Boolean
+    pushEnabled: Boolean
+    appointmentReminders: Boolean
+    billingAlerts: Boolean
+    treatmentUpdates: Boolean
+    marketingEmails: Boolean
   }
 
   input InventoryV3Input {
@@ -1243,6 +1341,10 @@ export const typeDefs = `#graphql
     login(input: LoginInput!): AuthResponse!
     logout: Boolean!
     refreshToken(input: RefreshTokenInput!): AuthResponse!
+    
+    # 🏛️ EMPIRE ARCHITECTURE V2 - CLINIC SWITCHING (Owner Mode)
+    selectClinic(clinicId: ID!): ClinicSwitchResponse!
+    exitClinic: ClinicSwitchResponse!
     
     # 🔐 Patient Registration (GDPR Article 9 Compliant)
     registerPatient(input: RegisterPatientInput!): RegisterPatientResponse!
@@ -2171,7 +2273,9 @@ export const typeDefs = `#graphql
   type Query {
     # ... existing queries ...
     
-    # Subscriptions V3 - Netflix-Dental System
+    # Subscriptions V3 - Netflix-Dental System (MULTI-TENANT)
+    # Note: clinicId is automatically extracted from user context (user.clinic_id)
+    # Staff sees their clinic's plans, Patients see their clinic's plans
     subscriptionPlansV3(activeOnly: Boolean): [SubscriptionPlanV3!]!
     subscriptionPlanV3(id: ID!): SubscriptionPlanV3
     
@@ -2788,6 +2892,27 @@ export const typeDefs = `#graphql
       suggestionId: ID!
       reason: String!
     ): String!
+  }
+
+  # 🔔 NOTIFICATIONS - Query & Mutation Extensions
+  extend type Query {
+    patientNotifications(
+      patientId: ID!
+      status: NotificationStatus
+      limit: Int
+      offset: Int
+    ): [NotificationV3!]!
+    
+    notificationPreferences(patientId: ID!): NotificationPreferencesV3
+  }
+
+  extend type Mutation {
+    markNotificationAsRead(id: ID!): NotificationV3!
+    
+    updateNotificationPreferences(
+      patientId: ID!
+      input: NotificationPreferencesInput!
+    ): NotificationPreferencesV3!
   }
 `;
 

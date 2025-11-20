@@ -4,6 +4,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'selene-secret-key';
 
@@ -12,8 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'selene-secret-key';
  */
 export async function verifyAuthToken(token: string): Promise<any> {
   try {
-    const jwt = await import('jsonwebtoken');
-    const decoded = jwt.default.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     return decoded;
   } catch (error) {
     console.log('❌ JWT verification failed:', error instanceof Error ? error.message : String(error));
@@ -65,7 +65,13 @@ export function authMiddleware(req: Request, _res: Response, next: NextFunction)
         username: decoded.username,
         firstName: decoded.firstName,
         lastName: decoded.lastName,
-        permissions: decoded.permissions || ['read', 'write']
+        permissions: decoded.permissions || ['read', 'write'],
+        
+        // 🏛️ EMPIRE ARCHITECTURE V2: Multi-tenant fields
+        is_owner: decoded.is_owner || decoded.isOwner || false,
+        clinic_id: decoded.clinic_id || decoded.clinicId || null,
+        current_clinic_id: decoded.current_clinic_id || decoded.currentClinicId || null,
+        organization_name: decoded.organization_name || decoded.organizationName || null
       };
 
       console.log(`✅ Auth middleware: User authenticated`);

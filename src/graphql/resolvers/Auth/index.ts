@@ -6,6 +6,9 @@
  * TARGET: Secure login/logout/refresh with JWT tokens
  */
 
+import jwt from 'jsonwebtoken';
+import { registerPatient } from '../Mutation/registerPatient.js';
+
 // 🔐 AUTH QUERIES
 export const AuthQuery = {
   me: async (_: any, __: any, context: any): Promise<any> => {
@@ -42,14 +45,27 @@ export const AuthQuery = {
 
 // 🔐 AUTH MUTATIONS
 export const AuthMutation = {
+  registerPatient: async (_: any, { input }: any, context: any): Promise<any> => {
+    // Wrapper que adapta los parámetros para la función registerPatient
+    console.log('🔐 [AuthMutation] registerPatient wrapper called with input:', input);
+    try {
+      const result = await registerPatient(_, { input }, context);
+      console.log('🔐 [AuthMutation] registerPatient result:', result);
+      return result;
+    } catch (error: any) {
+      console.error('🔐 [AuthMutation] registerPatient error:', error);
+      throw error;
+    }
+  },
+  
   login: async (_: any, { input }: any): Promise<any> => {
     try {
       const { email, password } = input;
       console.log(`🔐 Login attempt: ${email}`);
 
       // 🎯 REAL DATABASE AUTHENTICATION
-      const { default: pg } = await import('pg');
-      const { default: bcrypt } = await import('bcrypt');
+      const pg = await import('pg');
+      const bcrypt = await import('bcrypt');
       
       const client = new pg.Client({
         host: process.env.DB_HOST || 'localhost',
@@ -91,20 +107,32 @@ export const AuthMutation = {
       }
 
       // 🔐 Generate JWT tokens
-      const jwt = await import('jsonwebtoken');
       const jwtSecret = process.env.JWT_SECRET || 'selene-secret-key';
       
       // Map DB role to GraphQL schema role enum
       const roleMap: Record<string, string> = {
+        'ADMIN': 'ADMIN',
         'admin': 'ADMIN',
+        'PROFESSIONAL': 'DENTIST',
         'professional': 'DENTIST',
+        'RECEPTIONIST': 'RECEPTIONIST',
         'receptionist': 'RECEPTIONIST',
+        'PATIENT': 'PATIENT',
         'patient': 'PATIENT'
       };
       
-      const graphqlRole = roleMap[user.role] || 'DENTIST';
+      const graphqlRole = roleMap[user.role] || 'PATIENT';
       
-      const accessToken = jwt.default.sign(
+      // 🏛️ EMPIRE ARCHITECTURE V2: Determine clinic_id for JWT
+      // - Owner in lobby mode: clinic_id = null
+      // - Owner operating: clinic_id = current_clinic_id
+      // - Staff: clinic_id = their assigned clinic
+      // - Patient: clinic_id = null (uses patient_clinic_access)
+      const clinicIdForToken = user.is_owner 
+        ? user.current_clinic_id  // Owner: use current_clinic_id (can be null = lobby)
+        : user.clinic_id;         // Staff: use fixed clinic_id
+      
+      const accessToken = jwt.sign(
         {
           userId: user.id,
           email: user.email,
@@ -112,13 +140,19 @@ export const AuthMutation = {
           username: user.username,
           firstName: user.first_name,
           lastName: user.last_name,
-          permissions: ['read', 'write']
+          permissions: ['read', 'write'],
+          
+          // 🏛️ EMPIRE ARCHITECTURE V2: Multi-tenant fields in JWT
+          isOwner: user.is_owner || false,
+          clinicId: clinicIdForToken,
+          currentClinicId: user.current_clinic_id || null,
+          organizationName: user.organization_name || null
         },
         jwtSecret,
         { expiresIn: '15m' } // 15 minutes
       );
 
-      const refreshToken = jwt.default.sign(
+      const refreshToken = jwt.sign(
         {
           userId: user.id,
           email: user.email,
@@ -168,12 +202,11 @@ export const AuthMutation = {
   refreshToken: async (_: any, { input }: any): Promise<any> => {
     try {
       const { refreshToken } = input;
-      const jwt = await import('jsonwebtoken');
-      const { default: pg } = await import('pg');
+      const pg = await import('pg');
       const jwtSecret = process.env.JWT_SECRET || 'selene-secret-key';
 
       // Verify refresh token
-      const decoded: any = jwt.default.verify(refreshToken, jwtSecret);
+      const decoded: any = jwt.verify(refreshToken, jwtSecret);
       
       if (decoded.type !== 'refresh') {
         throw new Error('Invalid refresh token');
@@ -204,7 +237,7 @@ export const AuthMutation = {
       const user = result.rows[0];
 
       // Generate new access token with fresh user data
-      const newAccessToken = jwt.default.sign(
+      const newAccessToken = jwt.sign(
         {
           userId: user.id,
           email: user.email,
