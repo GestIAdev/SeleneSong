@@ -127,13 +127,20 @@ export const updateInventoryV3 = async (
   let verificationFailed = false;
 
   try {
+    // 🏛️ EMPIRE V2: Extract clinic_id from context
+    const clinicId = getClinicIdFromContext(context);
+    
+    if (!clinicId) {
+      throw new Error('🏛️ EMPIRE V2: clinic_id required for inventory update');
+    }
+
     // --------------------------------------------------------------------------
     // 🔥 PUERTA 1: VERIFICACIÓN (El Guardián - VerificationEngine)
     // --------------------------------------------------------------------------
-    // Primero, obtenemos el estado actual para la auditoría
-    const oldRecord = await database.inventory.getInventoryV3ById(id);
+    // Primero, obtenemos el estado actual para la auditoría (WITH OWNERSHIP CHECK)
+    const oldRecord = await database.inventory.getInventoryV3ById(id, clinicId);
     if (!oldRecord) {
-      throw new Error(`Registro de inventario no encontrado: ${id}`);
+      throw new Error(`Registro de inventario no encontrado o acceso denegado: ${id}`);
     }
 
     // Verificar el input contra las reglas de 'integrity_checks'
@@ -184,9 +191,11 @@ export const updateInventoryV3 = async (
     // --------------------------------------------------------------------------
     // 💾 PUERTA 3: TRANSACCIÓN DB (El Ejecutor)
     // --------------------------------------------------------------------------
-    const updatedRecord = await database.inventory.updateInventoryV3(id, input);
+    const updatedRecord = await database.inventory.updateInventoryV3(id, input, clinicId);
 
-    // --------------------------------------------------------------------------
+    if (!updatedRecord) {
+      throw new Error(`🏛️ EMPIRE V2: Update failed - ownership violation`);
+    }    // --------------------------------------------------------------------------
     // 📝 PUERTA 4: AUDITORÍA (El Cronista - AuditLogger)
     // --------------------------------------------------------------------------
     const duration = Date.now() - startTime;
@@ -241,13 +250,20 @@ export const deleteInventoryV3 = async (
   const startTime = Date.now();
 
   try {
+    // 🏛️ EMPIRE V2: Extract clinic_id from context
+    const clinicId = getClinicIdFromContext(context);
+    
+    if (!clinicId) {
+      throw new Error('🏛️ EMPIRE V2: clinic_id required for inventory deletion');
+    }
+
     // --------------------------------------------------------------------------
     // 🔥 PUERTA 1: VERIFICACIÓN (El Guardián)
     // --------------------------------------------------------------------------
-    // Obtener el registro actual ANTES de eliminarlo (para auditoría)
-    const oldRecord = await database.inventory.getInventoryV3ById(id);
+    // Obtener el registro actual ANTES de eliminarlo (para auditoría + OWNERSHIP CHECK)
+    const oldRecord = await database.inventory.getInventoryV3ById(id, clinicId);
     if (!oldRecord) {
-      throw new Error(`Registro de inventario no encontrado: ${id}`);
+      throw new Error(`Registro de inventario no encontrado o acceso denegado: ${id}`);
     }
 
     // --------------------------------------------------------------------------
@@ -261,7 +277,7 @@ export const deleteInventoryV3 = async (
     // --------------------------------------------------------------------------
     // 💾 PUERTA 3: TRANSACCIÓN DB (El Ejecutor)
     // --------------------------------------------------------------------------
-    await database.inventory.deleteInventoryV3(id);
+    await database.inventory.deleteInventoryV3(id, clinicId);
 
     // --------------------------------------------------------------------------
     // 📝 PUERTA 4: AUDITORÍA (El Cronista - AuditLogger)
@@ -318,13 +334,20 @@ export const adjustInventoryStockV3 = async (
   let verificationFailed = false;
 
   try {
+    // 🏛️ EMPIRE V2: Extract clinic_id from context
+    const clinicId = getClinicIdFromContext(context);
+    
+    if (!clinicId) {
+      throw new Error('🏛️ EMPIRE V2: clinic_id required for inventory stock adjustment');
+    }
+
     // --------------------------------------------------------------------------
     // 🔥 PUERTA 1: VERIFICACIÓN (El Guardián)
     // --------------------------------------------------------------------------
-    // Obtener inventario actual
-    const oldRecord = await database.inventory.getInventoryV3ById(id);
+    // Obtener inventario actual CON ownership check
+    const oldRecord = await database.inventory.getInventoryV3ById(id, clinicId);
     if (!oldRecord) {
-      throw new Error(`Registro de inventario no encontrado: ${id}`);
+      throw new Error(`Registro de inventario no encontrado o acceso denegado: ${id}`);
     }
 
     // Verificar el ajuste (validar que adjustment sea numérico y válido)
@@ -362,7 +385,11 @@ export const adjustInventoryStockV3 = async (
     // --------------------------------------------------------------------------
     // 💾 PUERTA 3: TRANSACCIÓN DB (El Ejecutor)
     // --------------------------------------------------------------------------
-    const inventory = await database.adjustInventoryStockV3(id, adjustment, reason);
+    const inventory = await database.inventory.adjustInventoryStockV3(id, adjustment, reason, clinicId);
+
+    if (!inventory) {
+      throw new Error('🏛️ EMPIRE V2: Stock adjustment failed - ownership violation');
+    }
 
     // --------------------------------------------------------------------------
     // 📝 PUERTA 4: AUDITORÍA (El Cronista)

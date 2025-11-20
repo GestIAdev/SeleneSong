@@ -132,10 +132,13 @@ export const inventoryDashboardV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
+    // 🏛️ EMPIRE V2: Extract clinic_id from context
+    const clinicId = getClinicIdFromContext(context);
+    
     // Use specialized InventoryDatabase class
-    const dashboard = await context.database.inventory.getInventoryDashboardV3();
+    const dashboard = await context.database.inventory.getInventoryDashboardV3(clinicId);
 
-    console.log(`✅ inventoryDashboardV3 query returned dashboard metrics`);
+    console.log(`✅ inventoryDashboardV3 query returned dashboard metrics (clinic: ${clinicId || 'ALL'})`);
     return dashboard;
   } catch (error) {
     console.error("❌ inventoryDashboardV3 query error:", error as Error);
@@ -151,10 +154,13 @@ export const inventoryAlertsV3 = async (
   try {
     const { limit = 20 } = args;
 
-    // Use specialized InventoryDatabase class
-    const alerts = await context.database.inventory.getInventoryAlertsV3({ limit });
+    // 🏛️ EMPIRE V2: Extract clinic_id from context
+    const clinicId = getClinicIdFromContext(context);
 
-    console.log(`✅ inventoryAlertsV3 query returned ${alerts.length} alerts`);
+    // Use specialized InventoryDatabase class
+    const alerts = await context.database.inventory.getInventoryAlertsV3({ limit, clinicId });
+
+    console.log(`✅ inventoryAlertsV3 query returned ${alerts.length} alerts (clinic: ${clinicId || 'ALL'})`);
     return alerts;
   } catch (error) {
     console.error("❌ inventoryAlertsV3 query error:", error as Error);

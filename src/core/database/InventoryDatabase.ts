@@ -347,24 +347,42 @@ export class InventoryDatabase extends BaseDatabase {
   // DASHBOARD & ALERTS METHODS
   // ============================================================================
 
-  async getInventoryDashboardV3(): Promise<any> {
+  async getInventoryDashboardV3(clinicId?: string): Promise<any> {
     // Get comprehensive dashboard metrics
-    const query = `
+    let query = `
       SELECT
         COUNT(*) as total_items,
         COUNT(CASE WHEN current_stock <= minimum_stock THEN 1 END) as low_stock_items,
         COUNT(CASE WHEN current_stock = 0 THEN 1 END) as out_of_stock_items,
         COUNT(CASE WHEN expiry_date <= NOW() + INTERVAL '30 days' THEN 1 END) as expiring_soon_items,
         0 as total_value
-      FROM inventory
+      FROM dental_materials
+      WHERE 1=1
     `;
 
-    const result = await this.runQuery(query);
+    const params: any[] = [];
+    if (clinicId) {
+      query += ` AND clinic_id = $1`;
+      params.push(clinicId);
+    }
+
+    const result = await this.runQuery(query, params);
     return result.rows[0];
   }
 
-  async getInventoryAlertsV3(args: { limit?: number }): Promise<any[]> {
-    const { limit = 20 } = args;
+  async getInventoryAlertsV3(args: { limit?: number; clinicId?: string }): Promise<any[]> {
+    const { limit = 20, clinicId } = args;
+
+    let clinicFilter = '';
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (clinicId) {
+      clinicFilter = ` AND clinic_id = $${paramIndex++}`;
+      params.push(clinicId);
+    }
+
+    params.push(limit);
 
     const query = `
       SELECT
@@ -375,8 +393,8 @@ export class InventoryDatabase extends BaseDatabase {
         minimum_stock,
         'Low stock alert' as message,
         created_at as alert_date
-      FROM inventory
-      WHERE current_stock <= minimum_stock
+      FROM dental_materials
+      WHERE current_stock <= minimum_stock${clinicFilter}
 
       UNION ALL
 
@@ -388,8 +406,8 @@ export class InventoryDatabase extends BaseDatabase {
         minimum_stock,
         'Out of stock alert' as message,
         created_at as alert_date
-      FROM inventory
-      WHERE current_stock = 0
+      FROM dental_materials
+      WHERE current_stock = 0${clinicFilter}
 
       UNION ALL
 
@@ -401,14 +419,14 @@ export class InventoryDatabase extends BaseDatabase {
         minimum_stock,
         'Expiring soon alert' as message,
         expiry_date as alert_date
-      FROM inventory
-      WHERE expiry_date <= NOW() + INTERVAL '30 days'
+      FROM dental_materials
+      WHERE expiry_date <= NOW() + INTERVAL '30 days'${clinicFilter}
 
       ORDER BY alert_date DESC
-      LIMIT $1
+      LIMIT $${paramIndex}
     `;
 
-    return this.getAll(query, [limit]);
+    return this.getAll(query, params);
   }
 
   async acknowledgeInventoryAlertV3(alertId: string): Promise<void> {
@@ -797,8 +815,8 @@ export class InventoryDatabase extends BaseDatabase {
     return this.getAll(query, [materialId]);
   }
 
-  async getMaterialStockLevelsV3(materialId: string): Promise<any[]> {
-    const query = `
+  async getMaterialStockLevelsV3(materialId: string, clinicId?: string): Promise<any[]> {
+    let query = `
       SELECT
         i.id,
         i.name,
@@ -806,11 +824,18 @@ export class InventoryDatabase extends BaseDatabase {
         i.minimum_stock,
         i.location,
         i.expiry_date
-      FROM inventory i
+      FROM dental_materials i
       WHERE i.material_id = $1
     `;
 
-    return this.getAll(query, [materialId]);
+    const params: any[] = [materialId];
+
+    if (clinicId) {
+      query += ` AND i.clinic_id = $2`;
+      params.push(clinicId);
+    }
+
+    return this.getAll(query, params);
   }
 
   async getUserById(id: string): Promise<any> {
@@ -1210,16 +1235,23 @@ export class InventoryDatabase extends BaseDatabase {
     return this.getAll(query, [supplierId, limit]);
   }
 
-  async getSupplierMaterials(supplierId: string): Promise<any[]> {
-    const query = `
+  async getSupplierMaterials(supplierId: string, clinicId?: string): Promise<any[]> {
+    let query = `
       SELECT DISTINCT i.*
-      FROM inventory i
+      FROM dental_materials i
       JOIN purchase_order_items poi ON i.id = poi.material_id
       JOIN purchase_orders po ON poi.purchase_order_id = po.id
       WHERE po.supplier_id = $1
     `;
 
-    return this.getAll(query, [supplierId]);
+    const params: any[] = [supplierId];
+
+    if (clinicId) {
+      query += ` AND i.clinic_id = $2`;
+      params.push(clinicId);
+    }
+
+    return this.getAll(query, params);
   }
 
   async getSupplierTotalOrders(supplierId: string): Promise<number> {
