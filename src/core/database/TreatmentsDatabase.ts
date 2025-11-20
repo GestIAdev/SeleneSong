@@ -80,6 +80,13 @@ export class TreatmentsDatabase extends BaseDatabase {
       const params: any[] = [];
 
       if (filters) {
+        // 🏛️ EMPIRE V2: CRITICAL - Filter by clinic_id (LANDMINE 2 DEFUSED)
+        if (filters.clinicId) {
+          query += ` AND clinic_id = $${params.length + 1}`;
+          params.push(filters.clinicId);
+          console.log(`🔒 TreatmentsDatabase: Filtering by clinic_id = ${filters.clinicId}`);
+        }
+        
         if (filters.patientId) {
           query += ` AND patient_id = $${params.length + 1}`;
           params.push(filters.patientId);
@@ -87,6 +94,12 @@ export class TreatmentsDatabase extends BaseDatabase {
         if (filters.status) {
           query += ` AND treatment_status = $${params.length + 1}`;
           params.push(filters.status);
+        }
+        
+        // 🏛️ EMPIRE V2: Filter by ID for single treatment queries
+        if (filters.id) {
+          query += ` AND id = $${params.length + 1}`;
+          params.push(filters.id);
         }
       }
 
