@@ -212,25 +212,25 @@ export const patientMutations = {
       console.log(`✅ EMPIRE V2 - Patient belongs to clinic ${clinicId}`);
       console.log("✅ GATE 1 (Verificación) - Input validated");
 
-      // Capture old values for audit trail
-      const oldPatient = await database.getPatientById(id);
-      if (!oldPatient) {
-        throw new Error(`Patient ${id} not found`);
-      }
-
+      // Capture old values for audit trail (before deactivation)
+      const accessRecord = accessResult.rows[0];
+      
       // ✅ GATE 3: TRANSACCIÓN DB - Real database operation
-      // 🏛️ EMPIRE V2: Soft delete from patient_clinic_access (deactivate link)
+      // 🏛️ EMPIRE V2 - PORTABLE RECORDS™: 
+      // ONLY deactivate patient_clinic_access (unlink from THIS clinic)
+      // NEVER touch global patients table (patient may exist in other clinics)
       const deactivateQuery = `
         UPDATE patient_clinic_access
         SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
         WHERE patient_id = $1 AND clinic_id = $2
+        RETURNING *
       `;
-      await database.executeQuery(deactivateQuery, [id, clinicId]);
-      console.log(`✅ GATE 3.1 (Transacción DB) - Deactivated in patient_clinic_access for clinic ${clinicId}`);
+      const deactivateResult = await database.executeQuery(deactivateQuery, [id, clinicId]);
+      console.log(`✅ GATE 3 (Transacción DB) - Patient ${id} UNLINKED from clinic ${clinicId}`);
+      console.log(`📋 Portable Records™: Patient still exists globally, just invisible to this clinic`);
       
-      // Soft delete from patients table (global)
-      await database.deletePatient(id);
-      console.log("✅ GATE 3.2 (Transacción DB) - Soft deleted from patients table:", id);
+      // 🚨 GDPR NOTE: To permanently delete patient identity (Art. 17 "Right to be Forgotten"),
+      // use forgetPatientGDPR() mutation instead (requires patient consent + legal compliance)
 
       // ✅ GATE 4: AUDITORÍA - Log to audit trail
       if (auditLogger) {
@@ -241,7 +241,13 @@ export const patientMutations = {
           userId: user?.id,
           userEmail: user?.email,
           ipAddress: ip,
-          oldValues: { ...oldPatient, clinicId }, // Include clinic context
+          oldValues: { 
+            patientId: id,
+            clinicId: clinicId,
+            wasActive: accessRecord.is_active,
+            firstVisitDate: accessRecord.first_visit_date,
+            action: 'UNLINKED_FROM_CLINIC'
+          },
         });
         console.log("✅ GATE 4 (Auditoría) - Mutation logged");
       }
@@ -249,11 +255,20 @@ export const patientMutations = {
       // 📡 Publish WebSocket event for real-time subscriptions
       if (pubsub) {
         pubsub.publish("PATIENT_V3_DELETED", {
-          patientV3Deleted: id,
+          patientV3Deleted: { 
+            id, 
+            clinicId,
+            action: 'UNLINKED_FROM_CLINIC' 
+          },
         });
       }
 
-      return { success: true, message: "Patient deleted successfully", id };
+      return { 
+        success: true, 
+        message: `Patient ${id} removed from clinic ${clinicId} (still exists globally)`,
+        id,
+        action: 'UNLINKED_FROM_CLINIC'
+      };
     } catch (error) {
       console.error("❌ deletePatientV3 error:", error);
       throw new Error(`Failed to delete patient: ${(error as Error).message}`);
