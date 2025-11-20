@@ -2,9 +2,12 @@
  * 📦 INVENTORY MUTATION RESOLVERS V3 - SUBMODULE 2A
  * Dashboard + Materials Management
  * Mission: Provide inventory and materials mutations with @veritas verification
+ * 
+ * 🏛️ EMPIRE V2: Multi-tenant isolation enforced (LANDMINE 4 DEFUSED)
  */
 
 import type { GraphQLContext } from '../../types.js';
+import { getClinicIdFromContext } from "../../utils/clinicHelpers.js";
 
 // ============================================================================
 // MUTATION RESOLVERS - INVENTORY MANAGEMENT
@@ -21,13 +24,23 @@ export const createInventoryV3 = async (
   let verificationFailed = false;
 
   try {
+    // 🏛️ EMPIRE V2: Extract clinic_id from context
+    const clinicId = getClinicIdFromContext(context);
+    
+    if (!clinicId) {
+      throw new Error('🏛️ EMPIRE V2: clinic_id required for inventory creation');
+    }
+
+    // 🏛️ EMPIRE V2: Inject clinic_id into input
+    const inputWithClinic = { ...input, clinicId };
+
     // --------------------------------------------------------------------------
     // 🔥 PUERTA 1: VERIFICACIÓN (El Guardián - VerificationEngine)
     // --------------------------------------------------------------------------
     // Verificar el input contra las reglas de 'integrity_checks'
     const verification = await verificationEngine.verifyBatch(
       'InventoryV3',
-      input
+      inputWithClinic
     );
 
     if (!verification.valid) {
@@ -36,7 +49,7 @@ export const createInventoryV3 = async (
         'InventoryV3',
         'N/A (CREATE)',
         verification.criticalFields[0] || 'batch',
-        input,
+        inputWithClinic,
         verification.errors[0] || verification.errors.join(', '),
         (verification.severity || 'CRITICAL') as 'WARNING' | 'ERROR' | 'CRITICAL',
         user?.id,
@@ -56,7 +69,7 @@ export const createInventoryV3 = async (
     // --------------------------------------------------------------------------
     // 💾 PUERTA 3: TRANSACCIÓN DB (El Ejecutor)
     // --------------------------------------------------------------------------
-    const newRecord = await database.inventory.createInventoryV3(input);
+    const newRecord = await database.inventory.createInventoryV3(inputWithClinic);
 
     // --------------------------------------------------------------------------
     // 📝 PUERTA 4: AUDITORÍA (El Cronista - AuditLogger)
@@ -79,7 +92,8 @@ export const createInventoryV3 = async (
       });
     }
 
-    console.log(`✅ createInventoryV3 mutation created: ${newRecord.name} (${duration}ms)`);
+    console.log(`✅ createInventoryV3 mutation created inventory item: ${newRecord.name} (clinic: ${clinicId}, duration: ${duration}ms)`);
+    return newRecord;    console.log(`✅ createInventoryV3 mutation created: ${newRecord.name} (${duration}ms)`);
     return newRecord;
   } catch (error) {
     // Registrar error como violación de integridad (solo si no fue registrado en GATE 1)

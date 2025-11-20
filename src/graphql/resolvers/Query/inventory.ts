@@ -2,9 +2,12 @@
  * 📦 INVENTORY QUERY RESOLVERS V3 - SUBMODULE 2A
  * Dashboard + Materials Management
  * Mission: Provide inventory dashboard and materials queries with @veritas verification
+ * 
+ * 🏛️ EMPIRE V2: Multi-tenant isolation enforced (LANDMINE 4 DEFUSED)
  */
 
 import type { GraphQLContext } from '../../types.js';
+import { getClinicIdFromContext } from "../../utils/clinicHelpers.js";
 
 // ============================================================================
 // QUERY RESOLVERS - INVENTORY DASHBOARD
@@ -18,14 +21,23 @@ export const inventoriesV3 = async (
   try {
     const { limit = 50, offset = 0, category } = args;
 
+    // 🏛️ EMPIRE V2: Extract clinic_id from context
+    const clinicId = getClinicIdFromContext(context);
+    
+    if (!clinicId) {
+      console.warn('⚠️ inventoriesV3: No clinic_id - returning empty array');
+      return [];
+    }
+
     // Use specialized InventoryDatabase class
     const inventories = await context.database.inventory.getInventoriesV3({
       limit,
       offset,
-      category
+      category,
+      clinicId // 🏛️ EMPIRE V2: Filter by clinic
     });
 
-    console.log(`✅ inventoriesV3 query returned ${inventories.length} inventory items`);
+    console.log(`✅ inventoriesV3 query returned ${inventories.length} inventory items for clinic ${clinicId}`);
     return inventories;
   } catch (error) {
     console.error("❌ inventoriesV3 query error:", error as Error);
@@ -39,14 +51,21 @@ export const inventoryV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    // Use specialized InventoryDatabase class
-    const inventory = await context.database.inventory.getInventoryV3ById(args.id);
-
-    if (!inventory) {
-      throw new Error(`Inventory item not found: ${args.id}`);
+    // 🏛️ EMPIRE V2: Extract clinic_id from context
+    const clinicId = getClinicIdFromContext(context);
+    
+    if (!clinicId) {
+      throw new Error('🏛️ EMPIRE V2: clinic_id required for inventory access');
     }
 
-    console.log(`✅ inventoryV3 query returned: ${inventory.name}`);
+    // Use specialized InventoryDatabase class
+    const inventory = await context.database.inventory.getInventoryV3ById(args.id, clinicId);
+
+    if (!inventory) {
+      throw new Error(`Inventory item not found or access denied: ${args.id}`);
+    }
+
+    console.log(`✅ inventoryV3 query returned: ${inventory.name} (clinic: ${clinicId})`);
     return inventory;
   } catch (error) {
     console.error("❌ inventoryV3 query error:", error as Error);

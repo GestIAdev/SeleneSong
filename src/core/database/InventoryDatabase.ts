@@ -9,37 +9,52 @@ export class InventoryDatabase extends BaseDatabase {
     limit?: number;
     offset?: number;
     category?: string;
+    clinicId?: string; // 🏛️ EMPIRE V2: Multi-tenant filter
   }): Promise<any[]> {
-    const { limit = 50, offset = 0, category } = args;
+    const { limit = 50, offset = 0, category, clinicId } = args;
 
     let query = `
       SELECT
         id, name, category, current_stock, minimum_stock,
         unit, location, supplier_id, last_restocked, expiry_date,
-        created_at, updated_at
-      FROM inventory
+        created_at, updated_at, clinic_id
+      FROM dental_materials
+      WHERE 1=1
     `;
 
     const params: any[] = [];
+    let paramIndex = 1;
+
+    // 🏛️ EMPIRE V2: CRITICAL - Filter by clinic_id (LANDMINE 4 DEFUSED)
+    if (clinicId) {
+      query += ` AND clinic_id = $${paramIndex++}`;
+      params.push(clinicId);
+      console.log(`🔒 InventoryDatabase: Filtering by clinic_id = ${clinicId}`);
+    }
 
     if (category) {
-      query += ` WHERE category = $1`;
+      query += ` AND category = $${paramIndex++}`;
       params.push(category);
-      query += ` LIMIT $2 OFFSET $3`;
-      params.push(limit, offset);
-    } else {
-      query += ` LIMIT $1 OFFSET $2`;
-      params.push(limit, offset);
     }
 
     query += ` ORDER BY name ASC`;
+    query += ` LIMIT $${paramIndex++} OFFSET $${paramIndex}`;
+    params.push(limit, offset);
 
     return this.getAll(query, params);
   }
 
-  async getInventoryV3ById(id: string): Promise<any> {
-    const query = `SELECT * FROM inventory WHERE id = $1`;
-    return this.getOne(query, [id]);
+  async getInventoryV3ById(id: string, clinicId?: string): Promise<any> {
+    let query = `SELECT * FROM dental_materials WHERE id = $1`;
+    const params: any[] = [id];
+
+    // 🏛️ EMPIRE V2: Verify ownership
+    if (clinicId) {
+      query += ` AND clinic_id = $2`;
+      params.push(clinicId);
+    }
+
+    return this.getOne(query, params);
   }
 
   async createInventoryV3(input: any): Promise<any> {
@@ -51,25 +66,31 @@ export class InventoryDatabase extends BaseDatabase {
       unit,
       location,
       supplierId,
-      expiryDate
+      expiryDate,
+      clinicId // 🏛️ EMPIRE V2: REQUIRED for multi-tenant
     } = input;
 
+    if (!clinicId) {
+      throw new Error('🏛️ EMPIRE V2: clinicId is REQUIRED for inventory creation');
+    }
+
     const query = `
-      INSERT INTO inventory (
+      INSERT INTO dental_materials (
         name, category, current_stock, minimum_stock,
-        unit, location, supplier_id, expiry_date, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+        unit, location, supplier_id, expiry_date, clinic_id,
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
       RETURNING *
     `;
 
     const result = await this.runQuery(query, [
-      name, category, currentStock, minimumStock, unit, location, supplierId, expiryDate
+      name, category, currentStock, minimumStock, unit, location, supplierId, expiryDate, clinicId
     ]);
 
     return result.rows[0];
   }
 
-  async updateInventoryV3(id: string, input: any): Promise<any> {
+  async updateInventoryV3(id: string, input: any, clinicId?: string): Promise<any> {
     const updates: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
@@ -110,38 +131,59 @@ export class InventoryDatabase extends BaseDatabase {
     updates.push(`updated_at = NOW()`);
     values.push(id);
 
-    const query = `
-      UPDATE inventory
+    let query = `
+      UPDATE dental_materials
       SET ${updates.join(', ')}
       WHERE id = $${paramIndex}
-      RETURNING *
     `;
+
+    // 🏛️ EMPIRE V2: Verify ownership before update
+    if (clinicId) {
+      query += ` AND clinic_id = $${paramIndex + 1}`;
+      values.push(clinicId);
+    }
+
+    query += ` RETURNING *`;
 
     const result = await this.runQuery(query, values);
     return result.rows[0];
   }
 
-  async deleteInventoryV3(id: string): Promise<void> {
-    const query = `DELETE FROM inventory WHERE id = $1`;
-    await this.runQuery(query, [id]);
+  async deleteInventoryV3(id: string, clinicId?: string): Promise<void> {
+    let query = `DELETE FROM dental_materials WHERE id = $1`;
+    const params: any[] = [id];
+
+    // 🏛️ EMPIRE V2: Verify ownership before delete
+    if (clinicId) {
+      query += ` AND clinic_id = $2`;
+      params.push(clinicId);
+    }
+
+    await this.runQuery(query, params);
   }
 
-  async adjustInventoryStockV3(id: string, adjustment: number, reason: string): Promise<any> {
+  async adjustInventoryStockV3(id: string, adjustment: number, reason: string, clinicId?: string): Promise<any> {
     // First get current stock
-    const current = await this.getOne(
-      `SELECT current_stock FROM inventory WHERE id = $1`,
-      [id]
-    );
+    let query = `SELECT current_stock, clinic_id FROM dental_materials WHERE id = $1`;
+    const params: any[] = [id];
+
+    // 🏛️ EMPIRE V2: Verify ownership
+    if (clinicId) {
+      query += ` AND clinic_id = $2`;
+      params.push(clinicId);
+    }
+
+    const current = await this.getOne(query, params);
 
     if (!current) {
-      throw new Error(`Inventory item not found: ${id}`);
+      throw new Error(`Inventory item not found or access denied: ${id}`);
     }
 
     const newStock = current.current_stock + adjustment;
 
     // Update stock and record adjustment
     await this.runQuery(
-      `UPDATE inventory SET current_stock = $1, last_restocked = NOW(), updated_at = NOW() WHERE id = $2`,
+      `UPDATE dental_materials SET current_stock = $1, last_restocked = NOW(), updated_at = NOW() WHERE id = $2`,
       [newStock, id]
     );
 
