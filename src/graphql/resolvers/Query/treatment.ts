@@ -1,4 +1,5 @@
 import { GraphQLContext } from "../../types.js";
+import { getClinicIdFromContext } from "../../utils/clinicHelpers.js";
 
 // ============================================================================
 // 🩺 TREATMENT QUERIES - LEGACY (for GraphQL migration compatibility)
@@ -10,9 +11,25 @@ export const treatments = async (
   context: GraphQLContext,
 ) => {
   try {
-    // Use specialized TreatmentsDatabase class
-    const allTreatments = await context.database.treatments.getTreatments({ patientId, limit, offset });
-    console.log(`🔍 getTreatments returned ${allTreatments.length} treatments`);
+    // 🏛️ EMPIRE V2: CERO ABSOLUTO - No clinic_id = MASSIVE REVENUE DATA BREACH
+    const clinicId = getClinicIdFromContext(context);
+    if (!clinicId) {
+      console.warn("⚠️ treatments() called WITHOUT clinic_id - CERO ABSOLUTO enforced - returning []");
+      console.warn("💰 FINANCIAL INTEGRITY: Preventing cross-clinic revenue data exposure");
+      return [];
+    }
+
+    console.log(`🔍 treatments() - Filtering by clinic_id: ${clinicId}`);
+
+    // Use specialized TreatmentsDatabase class WITH clinic filter
+    const allTreatments = await context.database.treatments.getTreatments({ 
+      patientId, 
+      clinicId, // 🔥 CRITICAL: Filter by clinic
+      limit, 
+      offset 
+    });
+    
+    console.log(`🔍 getTreatments returned ${allTreatments.length} treatments for clinic ${clinicId}`);
     if (allTreatments.length > 0) {
       console.log(`🔍 First treatment sample:`, JSON.stringify(allTreatments[0], null, 2));
     }
@@ -29,9 +46,30 @@ export const treatment = async (
   context: GraphQLContext,
 ) => {
   try {
-    // Use specialized TreatmentsDatabase class - filter by ID
-    const treatments = await context.database.treatments.getTreatments({ id, limit: 1 });
+    // 🏛️ EMPIRE V2: Ownership verification before returning treatment
+    const clinicId = getClinicIdFromContext(context);
+    if (!clinicId) {
+      console.warn(`⚠️ treatment(${id}) called WITHOUT clinic_id - CERO ABSOLUTO - returning null`);
+      return null;
+    }
+
+    console.log(`🔍 treatment(${id}) - Verifying ownership for clinic ${clinicId}`);
+
+    // Use specialized TreatmentsDatabase class - filter by ID AND clinic_id
+    const treatments = await context.database.treatments.getTreatments({ 
+      id, 
+      clinicId, // 🔥 CRITICAL: Verify ownership
+      limit: 1 
+    });
+    
     const treatment = treatments.length > 0 ? treatments[0] : null;
+    
+    if (!treatment) {
+      console.warn(`⚠️ Treatment ${id} not found or not accessible in clinic ${clinicId}`);
+    } else {
+      console.log(`✅ Treatment ${id} ownership verified for clinic ${clinicId}`);
+    }
+    
     return treatment;
   } catch (error) {
     console.error("Treatment query error:", error as Error);
@@ -49,12 +87,25 @@ export const treatmentsV3 = async (
   _context: GraphQLContext,
 ) => {
   try {
+    // 🏛️ EMPIRE V2: CERO ABSOLUTO - Multi-tenant isolation
+    const clinicId = getClinicIdFromContext(_context);
+    if (!clinicId) {
+      console.warn("⚠️ treatmentsV3() called WITHOUT clinic_id - CERO ABSOLUTO enforced - returning []");
+      console.warn("💰 FINANCIAL INTEGRITY: Preventing cross-clinic treatment list exposure");
+      return [];
+    }
+
     console.log(
-      `🔍 TREATMENTS V3 query called with patientId: ${patientId}, limit: ${limit}, offset: ${offset}`,
+      `🔍 TREATMENTS V3 query called - patientId: ${patientId}, clinic: ${clinicId}, limit: ${limit}, offset: ${offset}`,
     );
 
-    // Use specialized TreatmentsDatabase class
-    return await _context.database.treatments.getTreatments({ patientId, limit, offset });
+    // Use specialized TreatmentsDatabase class WITH clinic filter
+    return await _context.database.treatments.getTreatments({ 
+      patientId, 
+      clinicId, // 🔥 CRITICAL: Filter by clinic
+      limit, 
+      offset 
+    });
   } catch (error) {
     console.error("TreatmentsV3 query error:", error as Error);
     return [];
@@ -68,11 +119,32 @@ export const treatmentV3 = async (
   _info: any,
 ) => {
   try {
-    console.log(`🔍 TREATMENT V3 query called with id: ${id}`);
+    // 🏛️ EMPIRE V2: Ownership verification before returning treatment
+    const clinicId = getClinicIdFromContext(context);
+    if (!clinicId) {
+      console.warn(`⚠️ treatmentV3(${id}) called WITHOUT clinic_id - CERO ABSOLUTO - returning null`);
+      return null;
+    }
+
+    console.log(`🔍 TREATMENT V3 query called with id: ${id}, verifying clinic: ${clinicId}`);
     console.log(`🔍 Context veritas available: ${!!context.veritas}`);
 
-    // Use specialized TreatmentsDatabase class
-    return await context.database.treatments.getTreatmentByIdV3(id);
+    // Use specialized TreatmentsDatabase class WITH ownership verification
+    const treatments = await context.database.treatments.getTreatments({ 
+      id, 
+      clinicId, // 🔥 CRITICAL: Verify ownership
+      limit: 1 
+    });
+    
+    const treatment = treatments.length > 0 ? treatments[0] : null;
+    
+    if (!treatment) {
+      console.warn(`⚠️ Treatment ${id} not found or not accessible in clinic ${clinicId}`);
+    } else {
+      console.log(`✅ Treatment ${id} ownership verified for clinic ${clinicId}`);
+    }
+    
+    return treatment;
   } catch (error) {
     console.error("TreatmentV3 query error:", error as Error);
     return null;
