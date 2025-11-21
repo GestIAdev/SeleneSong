@@ -8,20 +8,21 @@
 
 import { Pool } from "pg";
 import { RedisClientType } from "redis";
-import { redisManager } from "../RedisConnectionManager.ts";
+import { redisManager } from "../RedisConnectionManager.js";
 
 // Import specialized database classes
-import { AppointmentsDatabase } from "./database/AppointmentsDatabase.ts";
-import { PatientsDatabase } from "./database/PatientsDatabase.ts";
-import { MedicalRecordsDatabase } from "./database/MedicalRecordsDatabase.ts";
-import { TreatmentsDatabase } from "./database/TreatmentsDatabase.ts";
-import { DocumentsDatabase } from "./database/DocumentsDatabase.ts";
-import { BillingDatabase } from "./database/BillingDatabase.ts";
-import { InventoryDatabase } from "./database/InventoryDatabase.ts";
-import { ComplianceDatabase } from "./database/ComplianceDatabase.ts";
-import { MarketplaceDatabase } from "./database/MarketplaceDatabase.ts";
-import { SubscriptionsDatabase } from "./database/SubscriptionsDatabase.ts";
-import { CustomCalendarDatabase } from "./database/CustomCalendarDatabase.ts";
+import { AppointmentsDatabase } from "./database/AppointmentsDatabase.js";
+import { PatientsDatabase } from "./database/PatientsDatabase.js";
+import { MedicalRecordsDatabase } from "./database/MedicalRecordsDatabase.js";
+import { TreatmentsDatabase } from "./database/TreatmentsDatabase.js";
+import { DocumentsDatabase } from "./database/DocumentsDatabase.js";
+import { BillingDatabase } from "./database/BillingDatabase.js";
+import { InventoryDatabase } from "./database/InventoryDatabase.js";
+import { ComplianceDatabase } from "./database/ComplianceDatabase.js";
+import { MarketplaceDatabase } from "./database/MarketplaceDatabase.js";
+import { SubscriptionsDatabase } from "./database/SubscriptionsDatabase.js";
+import { CustomCalendarDatabase } from "./database/CustomCalendarDatabase.js";
+import { NotificationsDatabase } from "./database/NotificationsDatabase.js";
 
 interface DatabaseConfig {
   host: string;
@@ -68,6 +69,7 @@ export class SeleneDatabase {
   public marketplace!: MarketplaceDatabase;
   public subscriptions!: SubscriptionsDatabase;
   public customCalendar!: CustomCalendarDatabase;
+  public notifications!: NotificationsDatabase;
 
   constructor() {
     console.log("🗄️ Initializing Selene Database...");
@@ -194,6 +196,7 @@ export class SeleneDatabase {
     this.marketplace = new MarketplaceDatabase(this.pool, this.redis);
     this.subscriptions = new SubscriptionsDatabase(this.pool, this.redis);
     this.customCalendar = new CustomCalendarDatabase(this.pool, this.redis);
+    this.notifications = new NotificationsDatabase(this.pool, this.redis); // 🔔 NOTIFICATIONS V3
 
     console.log("✅ All specialized database classes initialized WITH REDIS");
   }
@@ -1370,5 +1373,253 @@ export class SeleneDatabase {
    */
   public getPool(): Pool {
     return this.pool;
+  }
+
+  // ================================================================
+  // 👥 USER MODULE - MULTI-TENANT SECURED (LANDMINE 7 FIX)
+  // ================================================================
+  // By PunkClaude - 2025-01-17
+  // Mission: Implement User queries with clinic isolation from day 1
+  // Architecture: THE EMPEROR'S WAY - no legacy debt, perfect from line 1
+  // ================================================================
+
+  /**
+   * 👥 Get users with multi-tenant filtering
+   * 
+   * Rules:
+   * - Staff: See only users from their clinic (clinic_id filter)
+   * - Owners: See users from all their clinics (owner_clinics JOIN)
+   * - Patients are GLOBAL (no clinic_id filter for patients)
+   * 
+   * @param clinicId - Clinic ID for staff filtering
+   * @param isOwner - Whether requesting user is an owner
+   * @param ownerId - Owner's user ID (for owner_clinics JOIN)
+   */
+  async getUsers(args: { 
+    clinicId?: string; 
+    isOwner?: boolean; 
+    ownerId?: string;
+    role?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<any[]> {
+    try {
+      const { clinicId, isOwner, ownerId, role, limit = 50, offset = 0 } = args;
+
+      let query = `
+        SELECT DISTINCT
+          u.id,
+          u.email,
+          u.username,
+          u.role,
+          u.first_name,
+          u.last_name,
+          u.is_active,
+          u.is_owner,
+          u.clinic_id,
+          u.current_clinic_id,
+          u.created_at,
+          u.updated_at
+        FROM users u
+      `;
+
+      const conditions: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      // 🔐 MULTI-TENANT FILTERING
+      if (isOwner && ownerId) {
+        // Owners: JOIN with owner_clinics to see users from their clinics
+        query += `
+          LEFT JOIN owner_clinics oc ON oc.clinic_id = u.clinic_id
+        `;
+        conditions.push(`oc.owner_id = $${paramIndex++}`);
+        params.push(ownerId);
+      } else if (clinicId) {
+        // Staff: Filter by their clinic_id
+        conditions.push(`u.clinic_id = $${paramIndex++}`);
+        params.push(clinicId);
+      } else {
+        // ❌ NO CLINIC CONTEXT: Return empty (security first)
+        console.warn('⚠️ getUsers called without clinic context - returning empty');
+        return [];
+      }
+
+      // Optional role filter
+      if (role) {
+        conditions.push(`u.role = $${paramIndex++}`);
+        params.push(role);
+      }
+
+      // Apply WHERE clause
+      if (conditions.length > 0) {
+        query += ` WHERE ${conditions.join(' AND ')}`;
+      }
+
+      // Ordering & pagination
+      query += ` ORDER BY u.created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
+      params.push(limit, offset);
+
+      const result = await this.pool.query(query, params);
+
+      console.log(`👥 getUsers: Found ${result.rows.length} users (clinicId: ${clinicId}, isOwner: ${isOwner})`);
+
+      return result.rows;
+    } catch (error) {
+      console.error('❌ getUsers error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 👤 Get single user by ID with ownership verification
+   * 
+   * Rules:
+   * - Staff: Can only see users from their clinic
+   * - Owners: Can see users from any of their clinics
+   * 
+   * @param userId - User ID to fetch
+   * @param clinicId - Requesting user's clinic ID (for staff)
+   * @param isOwner - Whether requesting user is an owner
+   * @param ownerId - Owner's user ID (for owner_clinics verification)
+   */
+  async getUser(args: {
+    userId: string;
+    clinicId?: string;
+    isOwner?: boolean;
+    ownerId?: string;
+  }): Promise<any | null> {
+    try {
+      const { userId, clinicId, isOwner, ownerId } = args;
+
+      let query = `
+        SELECT DISTINCT
+          u.id,
+          u.email,
+          u.username,
+          u.role,
+          u.first_name,
+          u.last_name,
+          u.is_active,
+          u.is_owner,
+          u.clinic_id,
+          u.current_clinic_id,
+          u.created_at,
+          u.updated_at
+        FROM users u
+      `;
+
+      const conditions: string[] = [`u.id = $1`];
+      const params: any[] = [userId];
+      let paramIndex = 2;
+
+      // 🔐 OWNERSHIP VERIFICATION
+      if (isOwner && ownerId) {
+        // Owners: Verify target user belongs to one of their clinics
+        query += `
+          LEFT JOIN owner_clinics oc ON oc.clinic_id = u.clinic_id
+        `;
+        conditions.push(`oc.owner_id = $${paramIndex++}`);
+        params.push(ownerId);
+      } else if (clinicId) {
+        // Staff: Verify target user is from same clinic
+        conditions.push(`u.clinic_id = $${paramIndex++}`);
+        params.push(clinicId);
+      } else {
+        // ❌ NO CLINIC CONTEXT: Security violation
+        console.warn(`⚠️ getUser(${userId}) called without clinic context - BLOCKED`);
+        return null;
+      }
+
+      // Apply WHERE clause
+      query += ` WHERE ${conditions.join(' AND ')}`;
+
+      const result = await this.pool.query(query, params);
+
+      if (result.rows.length === 0) {
+        console.log(`❌ getUser(${userId}): NOT FOUND or ACCESS DENIED (clinicId: ${clinicId})`);
+        return null;
+      }
+
+      console.log(`👤 getUser(${userId}): Found user ${result.rows[0].email}`);
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ getUser error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 👥 Get staff members (non-owners, non-patients) with clinic filtering
+   * 
+   * @param clinicId - Clinic ID to filter staff
+   * @param isOwner - Whether requesting user is an owner
+   * @param ownerId - Owner's user ID (for multi-clinic access)
+   */
+  async getStaffV3(args: {
+    clinicId?: string;
+    isOwner?: boolean;
+    ownerId?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<any[]> {
+    try {
+      const { clinicId, isOwner, ownerId, limit = 50, offset = 0 } = args;
+
+      let query = `
+        SELECT DISTINCT
+          u.id,
+          u.email,
+          u.username,
+          u.role,
+          u.first_name,
+          u.last_name,
+          u.is_active,
+          u.clinic_id,
+          u.created_at
+        FROM users u
+      `;
+
+      const conditions: string[] = [
+        `(u.is_owner = false OR u.is_owner IS NULL)`, // Exclude owners
+        `u.role != 'PATIENT'` // Exclude patients
+      ];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      // 🔐 MULTI-TENANT FILTERING
+      if (isOwner && ownerId) {
+        // Owners: See staff from all their clinics
+        query += `
+          LEFT JOIN owner_clinics oc ON oc.clinic_id = u.clinic_id
+        `;
+        conditions.push(`oc.owner_id = $${paramIndex++}`);
+        params.push(ownerId);
+      } else if (clinicId) {
+        // Staff: See only their clinic's staff
+        conditions.push(`u.clinic_id = $${paramIndex++}`);
+        params.push(clinicId);
+      } else {
+        // ❌ NO CLINIC CONTEXT: Return empty
+        console.warn('⚠️ getStaffV3 called without clinic context - returning empty');
+        return [];
+      }
+
+      // Apply WHERE clause
+      query += ` WHERE ${conditions.join(' AND ')}`;
+
+      // Ordering & pagination
+      query += ` ORDER BY u.created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
+      params.push(limit, offset);
+
+      const result = await this.pool.query(query, params);
+
+      console.log(`👥 getStaffV3: Found ${result.rows.length} staff members (clinicId: ${clinicId})`);
+
+      return result.rows;
+    } catch (error) {
+      console.error('❌ getStaffV3 error:', error);
+      throw error;
+    }
   }
 }

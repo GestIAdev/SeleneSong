@@ -83,6 +83,9 @@ import { billingQueries } from './Query/billing.js';
 import { billingMutations } from './Mutation/billing.js';
 import { BillingDataV3 } from "./FieldResolvers/billing.js";
 
+// Import all User domain resolvers (LANDMINE 7 FIX - Multi-Tenant Secured)
+import { users, user, staff } from './Query/user.js';
+
 // Import all Compliance domain resolvers
 import {
   compliancesV3,
@@ -703,6 +706,10 @@ export const CustomCalendarResolvers = {
 // Consolidated all domain exports
 export const AllResolvers = {
   Query: {
+    // 👥 User Module (LANDMINE 7 FIX - Multi-Tenant Secured)
+    users,
+    user,
+    staff,
     documentsV3,
     documentV3,
     unifiedDocumentsV3,
