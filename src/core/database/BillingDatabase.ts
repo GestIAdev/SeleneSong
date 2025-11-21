@@ -7,36 +7,38 @@ export class BillingDatabase extends BaseDatabase {
    */
   async getBillingDataV3(args: {
     patientId?: string;
+    clinicId?: string;
     limit?: number;
     offset?: number;
   }): Promise<any[]> {
-    const { patientId, limit = 50, offset = 0 } = args;
+    const { patientId, clinicId, limit = 50, offset = 0 } = args;
 
     let query = `
       SELECT
         id, patient_id, invoice_number, subtotal, tax_rate, tax_amount,
         discount_amount, total_amount, currency, issue_date, due_date,
         paid_date, status, payment_terms, notes, veritas_signature,
-        blockchain_tx_hash, created_by, created_at, updated_at
+        blockchain_tx_hash, created_by, created_at, updated_at, clinic_id
       FROM billing_data
+      WHERE 1=1
     `;
 
     const params: any[] = [];
+    let paramIndex = 1;
+
+    // 🏛️ EMPIRE V2: Filter by clinic
+    if (clinicId) {
+      query += ` AND clinic_id = $${paramIndex++}`;
+      params.push(clinicId);
+    }
 
     if (patientId) {
-      query += ` WHERE patient_id = $1`;
+      query += ` AND patient_id = $${paramIndex++}`;
       params.push(patientId);
     }
 
-    query += ` ORDER BY issue_date DESC`;
-
-    if (patientId) {
-      query += ` LIMIT $2 OFFSET $3`;
-      params.push(limit, offset);
-    } else {
-      query += ` LIMIT $1 OFFSET $2`;
-      params.push(limit, offset);
-    }
+    query += ` ORDER BY issue_date DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
+    params.push(limit, offset);
 
     return this.getAll(query, params);
   }
@@ -44,9 +46,56 @@ export class BillingDatabase extends BaseDatabase {
   /**
    * Obtiene un dato de facturación por ID
    */
-  async getBillingDatumV3ById(id: string): Promise<any> {
-    const query = `SELECT * FROM billing_data WHERE id = $1`;
-    return this.getOne(query, [id]);
+  async getBillingDatumV3ById(id: string, clinicId?: string): Promise<any> {
+    let query = `SELECT * FROM billing_data WHERE id = $1`;
+    const params: any[] = [id];
+
+    // 🏛️ EMPIRE V2: Ownership check
+    if (clinicId) {
+      query += ` AND clinic_id = $2`;
+      params.push(clinicId);
+    }
+
+    return this.getOne(query, params);
+  }
+
+  /**
+   * 💰 OPERATION CASHFLOW: Genera invoice_number secuencial PER CLINIC
+   * 
+   * FISCAL COMPLIANCE:
+   * - Cada clínica tiene su propia secuencia: FAC-2025-001, FAC-2025-002, etc.
+   * - La secuencia se reinicia cada año fiscal
+   * - Row locking (FOR UPDATE) previene race conditions en concurrencia
+   * 
+   * @param clinicId - ID de la clínica
+   * @returns Invoice number en formato FAC-{YEAR}-{SEQ}
+   */
+  private async generateInvoiceNumber(clinicId: string): Promise<string> {
+    const currentYear = new Date().getFullYear();
+    
+    // 🔒 ROW LOCKING: SELECT FOR UPDATE previene duplicados en concurrencia
+    const result = await this.runQuery(`
+      SELECT COALESCE(MAX(
+        CAST(
+          SUBSTRING(invoice_number FROM 'FAC-[0-9]{4}-([0-9]+)') 
+          AS INTEGER
+        )
+      ), 0) AS max_seq
+      FROM billing_data
+      WHERE clinic_id = $1
+        AND invoice_number LIKE $2
+      FOR UPDATE
+    `, [clinicId, `FAC-${currentYear}-%`]);
+
+    const maxSeq = parseInt(result.rows[0]?.max_seq || '0');
+    const nextSeq = maxSeq + 1;
+    
+    // Formato: FAC-2025-001 (padding 3 dígitos)
+    const invoiceNumber = `FAC-${currentYear}-${String(nextSeq).padStart(3, '0')}`;
+    
+    console.log(`💰 Generated invoice number: ${invoiceNumber} (clinic: ${clinicId})`);
+    
+    return invoiceNumber;
   }
 
   /**
@@ -57,7 +106,7 @@ export class BillingDatabase extends BaseDatabase {
   async createBillingDataV3(input: any): Promise<any> {
     const {
       patientId,
-      invoiceNumber,
+      clinicId,  // 🏛️ EMPIRE V2: REQUIRED
       subtotal,
       taxRate,
       taxAmount,
@@ -70,8 +119,16 @@ export class BillingDatabase extends BaseDatabase {
       paymentTerms,
       notes,
       createdBy,
-      treatmentId  // 🔥 NUEVO: vincula factura con tratamiento
+      treatmentId  // 🔥 ECONOMIC SINGULARITY: vincula factura con tratamiento
     } = input;
+
+    // 🏛️ EMPIRE V2: Validate clinicId
+    if (!clinicId) {
+      throw new Error('🏛️ EMPIRE V2: clinicId is REQUIRED for invoice creation');
+    }
+
+    // 💰 OPERATION CASHFLOW: Generate sequential invoice number
+    const invoiceNumber = await this.generateInvoiceNumber(clinicId);
 
     // 💰 ECONOMIC SINGULARITY: Calcular material_cost y profit_margin
     let materialCost = 0;
@@ -110,18 +167,19 @@ export class BillingDatabase extends BaseDatabase {
 
     const query = `
       INSERT INTO billing_data (
-        patient_id, invoice_number, subtotal, tax_rate, tax_amount,
+        patient_id, clinic_id, invoice_number, subtotal, tax_rate, tax_amount,
         discount_amount, total_amount, currency, issue_date, due_date,
         status, payment_terms, notes, created_by, 
         treatment_id, material_cost, profit_margin,
         created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW())
       RETURNING *
     `;
 
     const result = await this.runQuery(query, [
       patientId,
-      invoiceNumber,
+      clinicId,            // 🏛️ EMPIRE V2
+      invoiceNumber,       // 💰 OPERATION CASHFLOW (auto-generated)
       subtotal || 0,
       taxRate || null,
       taxAmount || 0,
@@ -152,77 +210,137 @@ export class BillingDatabase extends BaseDatabase {
 
   /**
    * Actualiza un dato de facturación existente (SCHEMA COMPLETO)
+   * 
+   * 💰 IMMUTABILITY RULES:
+   * - Facturas con status PAID/SENT NO permiten modificar: total_amount, subtotal, tax_amount, discount_amount, issue_date
+   * - Solo permiten: status transitions, notes updates
+   * - Para corregir facturas emitidas: usar Notas de Crédito (workflow separado)
    */
-  async updateBillingDataV3(id: string, input: any): Promise<any> {
+  async updateBillingDataV3(id: string, input: any, clinicId?: string): Promise<any> {
+    // 🏛️ EMPIRE V2: Get old record WITH ownership check
+    const oldRecord = await this.getBillingDatumV3ById(id, clinicId);
+    
+    if (!oldRecord) {
+      throw new Error(`🏛️ EMPIRE V2: Invoice not found or access denied: ${id}`);
+    }
+
+    // 💰 IMMUTABILITY: Check if invoice is locked
+    const lockedStatuses = ['PAID', 'SENT'];
+    const isLocked = lockedStatuses.includes(oldRecord.status);
+
+    // Fields that CANNOT be modified on locked invoices
+    const immutableFields = ['subtotal', 'taxAmount', 'discountAmount', 'totalAmount', 'issueDate'];
+    
+    if (isLocked) {
+      const attemptedImmutableChanges = immutableFields.filter(field => input[field] !== undefined);
+      
+      if (attemptedImmutableChanges.length > 0) {
+        throw new Error(
+          `💰 IMMUTABILITY VIOLATION: Invoice ${oldRecord.invoice_number} is ${oldRecord.status}. ` +
+          `Cannot modify: ${attemptedImmutableChanges.join(', ')}. ` +
+          `Use credit note workflow for corrections.`
+        );
+      }
+    }
+
     const updates: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
 
-    if (input.subtotal !== undefined) {
-      updates.push(`subtotal = $${paramIndex++}`);
-      values.push(input.subtotal);
-    }
-    if (input.taxRate !== undefined) {
-      updates.push(`tax_rate = $${paramIndex++}`);
-      values.push(input.taxRate);
-    }
-    if (input.taxAmount !== undefined) {
-      updates.push(`tax_amount = $${paramIndex++}`);
-      values.push(input.taxAmount);
-    }
-    if (input.discountAmount !== undefined) {
-      updates.push(`discount_amount = $${paramIndex++}`);
-      values.push(input.discountAmount);
-    }
-    if (input.totalAmount !== undefined) {
-      updates.push(`total_amount = $${paramIndex++}`);
-      values.push(input.totalAmount);
-    }
-    if (input.currency !== undefined) {
-      updates.push(`currency = $${paramIndex++}`);
-      values.push(input.currency);
-    }
-    if (input.issueDate !== undefined) {
-      updates.push(`issue_date = $${paramIndex++}`);
-      values.push(input.issueDate);
-    }
-    if (input.dueDate !== undefined) {
-      updates.push(`due_date = $${paramIndex++}`);
-      values.push(input.dueDate);
-    }
+    // Allow these updates even on locked invoices
     if (input.status !== undefined) {
       updates.push(`status = $${paramIndex++}`);
       values.push(input.status);
-    }
-    if (input.paymentTerms !== undefined) {
-      updates.push(`payment_terms = $${paramIndex++}`);
-      values.push(input.paymentTerms);
     }
     if (input.notes !== undefined) {
       updates.push(`notes = $${paramIndex++}`);
       values.push(input.notes);
     }
+    if (input.paymentTerms !== undefined) {
+      updates.push(`payment_terms = $${paramIndex++}`);
+      values.push(input.paymentTerms);
+    }
+
+    // Only allow these if NOT locked
+    if (!isLocked) {
+      if (input.subtotal !== undefined) {
+        updates.push(`subtotal = $${paramIndex++}`);
+        values.push(input.subtotal);
+      }
+      if (input.taxRate !== undefined) {
+        updates.push(`tax_rate = $${paramIndex++}`);
+        values.push(input.taxRate);
+      }
+      if (input.taxAmount !== undefined) {
+        updates.push(`tax_amount = $${paramIndex++}`);
+        values.push(input.taxAmount);
+      }
+      if (input.discountAmount !== undefined) {
+        updates.push(`discount_amount = $${paramIndex++}`);
+        values.push(input.discountAmount);
+      }
+      if (input.totalAmount !== undefined) {
+        updates.push(`total_amount = $${paramIndex++}`);
+        values.push(input.totalAmount);
+      }
+      if (input.currency !== undefined) {
+        updates.push(`currency = $${paramIndex++}`);
+        values.push(input.currency);
+      }
+      if (input.issueDate !== undefined) {
+        updates.push(`issue_date = $${paramIndex++}`);
+        values.push(input.issueDate);
+      }
+      if (input.dueDate !== undefined) {
+        updates.push(`due_date = $${paramIndex++}`);
+        values.push(input.dueDate);
+      }
+    }
+
+    if (updates.length === 0) {
+      return oldRecord; // No changes
+    }
 
     updates.push(`updated_at = NOW()`);
     values.push(id);
 
-    const query = `
+    // 🏛️ EMPIRE V2: Add clinic_id to WHERE
+    let query = `
       UPDATE billing_data
       SET ${updates.join(', ')}
-      WHERE id = $${paramIndex}
-      RETURNING *
+      WHERE id = $${paramIndex++}
     `;
 
+    if (clinicId) {
+      query += ` AND clinic_id = $${paramIndex++}`;
+      values.push(clinicId);
+    }
+
+    query += ` RETURNING *`;
+
     const result = await this.runQuery(query, values);
+    
+    if (result.rows.length === 0) {
+      throw new Error(`🏛️ EMPIRE V2: Update failed - ownership violation`);
+    }
+
     return result.rows[0];
   }
 
   /**
    * Elimina un dato de facturación
    */
-  async deleteBillingDataV3(id: string): Promise<void> {
-    const query = `DELETE FROM billing_data WHERE id = $1`;
-    await this.runQuery(query, [id]);
+  async deleteBillingDataV3(id: string, clinicId?: string): Promise<void> {
+    let query = `DELETE FROM billing_data WHERE id = $1`;
+    const params: any[] = [id];
+
+    // 🏛️ EMPIRE V2: Ownership check
+    if (clinicId) {
+      query += ` AND clinic_id = $2`;
+      params.push(clinicId);
+    }
+
+    await this.runQuery(query, params);
   }
 
   // ============================================================================
@@ -276,20 +394,27 @@ export class BillingDatabase extends BaseDatabase {
 
   /**
    * Obtiene planes de pagos por filtros
-   * Filtros: billingId, patientId, status
+   * Filtros: billingId, patientId, status, clinicId
    */
   async getPaymentPlans(filters: {
     billingId?: string;
     patientId?: string;
     status?: string;
+    clinicId?: string;
     limit?: number;
     offset?: number;
   }): Promise<any[]> {
-    const { billingId, patientId, status, limit = 50, offset = 0 } = filters;
+    const { billingId, patientId, status, clinicId, limit = 50, offset = 0 } = filters;
 
     let query = `SELECT * FROM payment_plans WHERE 1=1`;
     const values: any[] = [];
     let paramIndex = 1;
+
+    // 🏛️ EMPIRE V2: Filter by clinic
+    if (clinicId) {
+      query += ` AND clinic_id = $${paramIndex++}`;
+      values.push(clinicId);
+    }
 
     if (billingId) {
       query += ` AND billing_id = $${paramIndex++}`;
@@ -521,14 +646,21 @@ export class BillingDatabase extends BaseDatabase {
     invoiceId: string;
     patientId?: string;
     status?: string;
+    clinicId?: string;
     limit?: number;
     offset?: number;
   }): Promise<any[]> {
-    const { invoiceId, patientId, status, limit = 50, offset = 0 } = filters;
+    const { invoiceId, patientId, status, clinicId, limit = 50, offset = 0 } = filters;
 
     let query = `SELECT * FROM partial_payments WHERE invoice_id = $1`;
     const values: any[] = [invoiceId];
     let paramIndex = 2;
+
+    // 🏛️ EMPIRE V2: Filter by clinic
+    if (clinicId) {
+      query += ` AND clinic_id = $${paramIndex++}`;
+      values.push(clinicId);
+    }
 
     if (patientId) {
       query += ` AND patient_id = $${paramIndex++}`;
