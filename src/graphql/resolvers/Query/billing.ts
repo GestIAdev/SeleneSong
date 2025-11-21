@@ -4,6 +4,7 @@
  */
 
 import type { GraphQLContext } from '../../types.js';
+import { getClinicIdFromContext } from '../../utils/clinicHelpers.js';
 
 // ============================================================================
 // QUERY RESOLVERS
@@ -17,14 +18,23 @@ export const billingDataV3 = async (
   try {
     const { patientId, limit = 50, offset = 0 } = args;
 
+    // 🏛️ EMPIRE V2: Extract clinic_id from context
+    const clinicId = getClinicIdFromContext(context);
+
+    if (!clinicId) {
+      console.warn('⚠️  billingDataV3: No clinic_id in context, returning empty array');
+      return [];
+    }
+
     // Use specialized BillingDatabase class
     const billingData = await context.database.billing.getBillingDataV3({
       patientId,
+      clinicId,
       limit,
       offset
     });
 
-    console.log(`✅ billingDataV3 query returned ${billingData.length} billing records`);
+    console.log(`✅ billingDataV3 query returned ${billingData.length} billing records (clinic: ${clinicId})`);
     return billingData;
   } catch (error) {
     console.error("❌ billingDataV3 query error:", error as Error);
@@ -38,14 +48,17 @@ export const billingDatumV3 = async (
   context: GraphQLContext
 ): Promise<any> => {
   try {
-    // Use specialized BillingDatabase class
-    const billingData = await context.database.billing.getBillingDatumV3ById(args.id);
+    // 🏛️ EMPIRE V2: Extract clinic_id from context
+    const clinicId = getClinicIdFromContext(context);
+
+    // Use specialized BillingDatabase class (with ownership check)
+    const billingData = await context.database.billing.getBillingDatumV3ById(args.id, clinicId);
 
     if (!billingData) {
-      throw new Error(`Billing data not found: ${args.id}`);
+      throw new Error(`Billing data not found or access denied: ${args.id}`);
     }
 
-    console.log(`✅ billingDatumV3 query returned billing data: ${billingData.id}`);
+    console.log(`✅ billingDatumV3 query returned billing data: ${billingData.id} (clinic: ${clinicId || 'ANY'})`);
     return billingData;
   } catch (error) {
     console.error("❌ billingDatumV3 query error:", error as Error);
@@ -72,13 +85,17 @@ export const getPaymentPlans = async (
   try {
     const { billingId, patientId, status } = args;
 
+    // 🏛️ EMPIRE V2: Extract clinic_id from context
+    const clinicId = getClinicIdFromContext(context);
+
     const plans = await context.database.billing.getPaymentPlans({
       billingId,
       patientId,
-      status
+      status,
+      clinicId
     });
 
-    console.log(`✅ getPaymentPlans query returned ${plans.length} payment plans`);
+    console.log(`✅ getPaymentPlans query returned ${plans.length} payment plans (clinic: ${clinicId || 'ANY'})`);
     return plans;
   } catch (error) {
     console.error("❌ getPaymentPlans query error:", error as Error);

@@ -1,4 +1,5 @@
 import type { GraphQLContext } from '../../types.js';
+import { getClinicIdFromContext } from '../../utils/clinicHelpers.js';
 
 // ============================================================================
 // BILLING MUTATION RESOLVERS V3 - FOUR-GATE PATTERN
@@ -20,17 +21,26 @@ export const createBillingDataV3 = async (
     if (!args.input.patientId) {
       throw new Error('Validation failed: patientId is required');
     }
-    if (!args.input.invoiceNumber) {
-      throw new Error('Validation failed: invoiceNumber is required');
-    }
     if (!args.input.totalAmount || args.input.totalAmount <= 0) {
       throw new Error('Validation failed: totalAmount must be positive');
     }
-    console.log("✅ GATE 1 (Verificación) - Input validated (patientId, invoiceNumber, totalAmount)");
 
-    // ✅ GATE 3: TRANSACCIÓN DB - Real database operation
-    const billingData = await context.database.createBillingDataV3(args.input);
-    console.log("✅ GATE 3 (Transacción DB) - Created:", billingData.id);
+    // 🏛️ EMPIRE V2: Extract and inject clinic_id
+    const clinicId = getClinicIdFromContext(context);
+    
+    if (!clinicId) {
+      throw new Error('🏛️ EMPIRE V2: clinic_id required for invoice creation');
+    }
+
+    // 💰 OPERATION CASHFLOW: Remove invoiceNumber from input (auto-generated)
+    const { invoiceNumber, ...inputWithoutInvoiceNumber } = args.input;
+    const inputWithClinic = { ...inputWithoutInvoiceNumber, clinicId };
+
+    console.log(`✅ GATE 1 (Verificación) - Input validated (patientId, totalAmount, clinic: ${clinicId})`);
+
+    // ✅ GATE 3: TRANSACCIÓN DB - Real database operation (will auto-generate invoice number)
+    const billingData = await context.database.billing.createBillingDataV3(inputWithClinic);
+    console.log(`✅ GATE 3 (Transacción DB) - Created: ${billingData.id} (invoice: ${billingData.invoice_number})`);
 
     // ✅ GATE 4: AUDITORÍA - Log to audit trail (NON-BLOCKING)
     if (context.auditLogger) {
@@ -80,17 +90,21 @@ export const updateBillingDataV3 = async (
     if (!args.input || typeof args.input !== 'object') {
       throw new Error('Invalid input: must be a non-null object');
     }
+
+    // 🏛️ EMPIRE V2: Extract clinic_id for ownership check
+    const clinicId = getClinicIdFromContext(context);
+
     console.log("✅ GATE 1 (Verificación) - Input validated");
 
-    // Capture old values for audit trail
-    const oldBillingData = await context.database.getBillingDatumV3ById(args.id);
+    // Capture old values for audit trail (WITH ownership check)
+    const oldBillingData = await context.database.billing.getBillingDatumV3ById(args.id, clinicId);
     if (!oldBillingData) {
-      throw new Error(`Billing data ${args.id} not found`);
+      throw new Error(`Billing data ${args.id} not found or access denied`);
     }
 
-    // ✅ GATE 3: TRANSACCIÓN DB - Real database operation
-    const billingData = await context.database.updateBillingDataV3(args.id, args.input);
-    console.log("✅ GATE 3 (Transacción DB) - Updated:", billingData.id);
+    // ✅ GATE 3: TRANSACCIÓN DB - Real database operation (with immutability + ownership)
+    const billingData = await context.database.billing.updateBillingDataV3(args.id, args.input, clinicId);
+    console.log(`✅ GATE 3 (Transacción DB) - Updated: ${billingData.id} (clinic: ${clinicId || 'ANY'})`);
 
     // ✅ GATE 4: AUDITORÍA - Log to audit trail
     if (context.auditLogger) {
@@ -135,17 +149,21 @@ export const deleteBillingDataV3 = async (
     if (!args.id) {
       throw new Error('Validation failed: id is required');
     }
+
+    // 🏛️ EMPIRE V2: Extract clinic_id for ownership check
+    const clinicId = getClinicIdFromContext(context);
+
     console.log("✅ GATE 1 (Verificación) - Input validated");
 
-    // Capture old values for audit trail
-    const oldBillingData = await context.database.getBillingDatumV3ById(args.id);
+    // Capture old values for audit trail (WITH ownership check)
+    const oldBillingData = await context.database.billing.getBillingDatumV3ById(args.id, clinicId);
     if (!oldBillingData) {
-      throw new Error(`Billing data ${args.id} not found`);
+      throw new Error(`Billing data ${args.id} not found or access denied`);
     }
 
-    // ✅ GATE 3: TRANSACCIÓN DB - Real database operation (soft delete)
-    await context.database.deleteBillingDataV3(args.id);
-    console.log("✅ GATE 3 (Transacción DB) - Deleted (soft delete):", args.id);
+    // ✅ GATE 3: TRANSACCIÓN DB - Real database operation (with ownership check)
+    await context.database.billing.deleteBillingDataV3(args.id, clinicId);
+    console.log(`✅ GATE 3 (Transacción DB) - Deleted: ${args.id} (clinic: ${clinicId || 'ANY'})`);
 
     // ✅ GATE 4: AUDITORÍA - Log to audit trail
     if (context.auditLogger) {
