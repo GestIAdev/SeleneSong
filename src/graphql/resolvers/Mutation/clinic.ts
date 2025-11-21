@@ -7,7 +7,7 @@
 
 import jwt from 'jsonwebtoken';
 import pg from 'pg';
-import { isOwner } from '../utils/clinicHelpers.js';
+import { isOwner } from '../../utils/clinicHelpers.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'selene-secret-key';
 

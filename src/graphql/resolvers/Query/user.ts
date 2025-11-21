@@ -12,7 +12,7 @@
  * - All queries require authentication (context.user)
  */
 
-import { getClinicIdFromContext } from '../utils/clinicHelpers.js';
+import { getClinicIdFromContext } from '../../utils/clinicHelpers.js';
 
 /**
  * 👥 Get all users (with multi-tenant filtering)
