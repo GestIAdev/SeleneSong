@@ -11,6 +11,8 @@ import { ApolloServer } from "@apollo/server";
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default";
 import { expressMiddleware } from "@as-integrations/express4";
 import express from "express";
+import cors from "cors";
+import cookieParser from "cookie-parser";
 import * as v8 from "v8";
 import * as fs from "fs";
 import * as path from "path";
@@ -18,7 +20,7 @@ import { createDocumentUploadRouter } from "../routes/documentRoutes.js";
 import { authMiddleware } from "./authMiddleware.js";
 
 import { GraphQLContext } from "./types.js";
-import { SeleneDatabase } from "../core/Database.ts";
+import { SeleneDatabase } from "../core/Database.js";
 import { AuditDatabase } from "../database/AuditDatabase.js";
 import { SeleneCache } from "../Cache.js";
 import { SeleneMonitoring } from "../Monitoring.js";
@@ -128,6 +130,23 @@ export class SeleneNuclearGraphQL {
    * 🔌 Setup Express middleware on main server app
    */
   public setupMiddleware(mainApp: express.Application): void {
+    // 🔒 SECURITY UPGRADE: CORS Configuration for httpOnly cookies
+    // Permite Patient Portal (VitalPass) enviar cookies de autenticación
+    console.log("🔒 Configuring CORS for httpOnly cookies authentication...");
+    mainApp.use(
+      cors({
+        origin: process.env.PATIENT_PORTAL_URL || "http://localhost:3001",
+        credentials: true, // ⚡ CRITICAL: Permite envío de httpOnly cookies
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+      })
+    );
+    console.log("✅ CORS configured with credentials: true");
+
+    // 🍪 Cookie Parser (required for httpOnly cookies)
+    mainApp.use(cookieParser());
+    console.log("✅ Cookie parser configured");
+
     // Global request counter per worker
     let workerRequestCount = 0;
 
@@ -489,6 +508,7 @@ export class SeleneNuclearGraphQL {
               offline: this.offline,
               auditDatabase: this.auditDatabase, // 📚 The Historian for audit queries
               user: req.user, // 🔐 Usuario autenticado por authMiddleware
+              res, // 🔒 SECURITY UPGRADE: Express Response for httpOnly cookies
             };
           },
         }),

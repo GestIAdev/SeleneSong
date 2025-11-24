@@ -23,30 +23,38 @@ export async function verifyAuthToken(token: string): Promise<any> {
 
 /**
  * 🔐 Express middleware para autenticación HTTP
+ * 🔒 SECURITY UPGRADE: Soporta httpOnly cookies + Bearer token (fallback)
  * Agrega user al request.user si JWT válido
  */
 export function authMiddleware(req: Request, _res: Response, next: NextFunction): void {
   try {
-    // Extraer token del header Authorization
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader) {
-      console.log('⚠️ No Authorization header');
+    let token: string | null = null;
+
+    // 🔒 PRIORITY 1: httpOnly cookie (más seguro)
+    if (req.cookies && req.cookies.accessToken) {
+      token = req.cookies.accessToken;
+      console.log('🔒 Using httpOnly cookie for authentication');
+    }
+    // 🔓 FALLBACK: Bearer token (legacy/dashboard/postman)
+    else if (req.headers.authorization) {
+      const authHeader = req.headers.authorization;
+      const parts = authHeader.split(' ');
+      
+      if (parts.length === 2 && parts[0] === 'Bearer') {
+        token = parts[1];
+        console.log('⚠️ Using Bearer token for authentication (legacy mode)');
+      } else {
+        console.log('⚠️ Invalid Authorization header format');
+      }
+    }
+
+    // No token found
+    if (!token) {
+      console.log('⚠️ No authentication token (cookie or header)');
       (req as any).user = null;
       next();
       return;
     }
-
-    // Bearer <token>
-    const parts = authHeader.split(' ');
-    if (parts.length !== 2 || parts[0] !== 'Bearer') {
-      console.log('⚠️ Invalid Authorization header format');
-      (req as any).user = null;
-      next();
-      return;
-    }
-
-    const token = parts[1];
     
     // Verify token asynchronously in background
     verifyAuthToken(token).then(decoded => {

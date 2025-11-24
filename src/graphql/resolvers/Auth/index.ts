@@ -58,7 +58,7 @@ export const AuthMutation = {
     }
   },
   
-  login: async (_: any, { input }: any): Promise<any> => {
+  login: async (_: any, { input }: any, context: any): Promise<any> => {
     try {
       const { email, password } = input;
       console.log(`🔐 Login attempt: ${email}`);
@@ -179,6 +179,29 @@ export const AuthMutation = {
         }
       };
 
+      // 🔒 SECURITY UPGRADE: Set httpOnly cookies for VitalPass
+      if (context?.res) {
+        const isProduction = process.env.NODE_ENV === 'production';
+        
+        context.res.cookie('accessToken', accessToken, {
+          httpOnly: true,
+          secure: isProduction, // HTTPS only in production
+          sameSite: 'strict',
+          maxAge: 900000, // 15 minutes in milliseconds
+        });
+        
+        context.res.cookie('refreshToken', refreshToken, {
+          httpOnly: true,
+          secure: isProduction,
+          sameSite: 'strict',
+          maxAge: 604800000, // 7 days in milliseconds
+        });
+        
+        console.log('🍪 httpOnly cookies set for VitalPass authentication');
+      } else {
+        console.warn('⚠️ No response object in context - cookies not set (GraphQL Playground?)');
+      }
+
       console.log(`✅ Login successful: ${user.email} (${graphqlRole}) - DB USER`);
       return authResponse;
 
@@ -188,8 +211,27 @@ export const AuthMutation = {
     }
   },
 
-  logout: async (): Promise<boolean> => {
+  logout: async (_: any, __: any, context: any): Promise<boolean> => {
     try {
+      // 🔒 SECURITY UPGRADE: Clear httpOnly cookies for VitalPass
+      if (context?.res) {
+        context.res.cookie('accessToken', '', {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 0, // Expire immediately
+        });
+        
+        context.res.cookie('refreshToken', '', {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 0, // Expire immediately
+        });
+        
+        console.log('🍪 httpOnly cookies cleared for VitalPass logout');
+      }
+
       // TODO: Invalidate token in Redis or token blacklist
       console.log('🚪 Logout successful');
       return true;

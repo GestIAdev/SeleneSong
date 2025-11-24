@@ -61,6 +61,9 @@ export interface GraphQLContext {
     role: string; // PATIENT | STAFF | ADMIN
   } | null;
   
+  // 🔒 SECURITY UPGRADE: Express Response for httpOnly cookies
+  res?: any; // Express Response object for setting httpOnly cookies
+  
   quantumEngine?: any; // Quantum subscription engine for Phase E
 }
 
