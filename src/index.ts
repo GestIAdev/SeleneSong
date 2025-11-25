@@ -3,6 +3,7 @@ import { SeleneNuclearGraphQL } from "./graphql/server.js";
 import { consoleSilencer } from "./ConsoleSilencer.js";
 import { RedisConnectionManager } from "./RedisConnectionManager.js";
 import { redisMonitor } from "./RedisMonitor.js";
+import { blockchainService } from "./services/BlockchainService.js";
 import * as path from "path";
 import * as fs from "fs";
 import * as v8 from "v8";
@@ -736,6 +737,25 @@ async function main() {
     console.log("?? Starting server...");
     await server.start();
     console.log("? Server started successfully");
+
+    // ============================================================================
+    // ?? BLOCKCHAIN INTEGRATION - Initialize Web3 bridge if enabled
+    // ============================================================================
+    if (process.env.BLOCKCHAIN_ENABLED === 'true') {
+      console.log('? Initializing BlockchainService...');
+      try {
+        await blockchainService.initialize();
+        console.log('? BlockchainService initialized successfully');
+        console.log(`?? Network: ${process.env.BLOCKCHAIN_NETWORK || 'sepolia'}`);
+        console.log(`?? DentiaCoin: ${process.env.DENTIA_COIN_ADDRESS || 'NOT_SET'}`);
+        console.log(`?? DentiaRewards: ${process.env.DENTIA_REWARDS_ADDRESS || 'NOT_SET'}`);
+      } catch (blockchainError) {
+        console.warn('? BlockchainService initialization failed (non-critical):', blockchainError);
+        console.warn('?? Blockchain rewards will be disabled for this session');
+      }
+    } else {
+      console.log('? BlockchainService disabled (BLOCKCHAIN_ENABLED != true)');
+    }
 
     console.log("??? Configuring GraphQL with @veritas directive...");
     console.log("?? Creating GraphQL server instance...");
