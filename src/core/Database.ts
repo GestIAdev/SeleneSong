@@ -1071,6 +1071,32 @@ export class SeleneDatabase {
     return this.subscriptions.createSubscriptionV3(input);
   }
 
+  // ⚓ ANCLAJE METHOD (DIRECTIVA #007.5)
+  async anchorPatientToClinic(patientId: string, clinicId: string): Promise<void> {
+    try {
+      // Verificar si ya existe el vínculo
+      const existingAccess = await this.pool.query(
+        `SELECT patient_id FROM patient_clinic_access WHERE patient_id = $1 AND clinic_id = $2`,
+        [patientId, clinicId]
+      );
+
+      // Si no existe, ANCLAR
+      if (existingAccess.rows.length === 0) {
+        await this.pool.query(
+          `INSERT INTO patient_clinic_access (patient_id, clinic_id, created_at)
+           VALUES ($1, $2, NOW())`,
+          [patientId, clinicId]
+        );
+        console.log(`⚓ ANCLAJE: Paciente ${patientId} vinculado a Clínica ${clinicId}`);
+      } else {
+        console.log(`⚓ ANCLAJE: Paciente ${patientId} ya está vinculado a Clínica ${clinicId}`);
+      }
+    } catch (error: any) {
+      console.error(`⚓ ANCLAJE ERROR: ${error.message}`);
+      throw error;
+    }
+  }
+
   async updateSubscriptionV3(id: string, input: any): Promise<any> {
     return this.subscriptions.updateSubscriptionV3(id, input);
   }

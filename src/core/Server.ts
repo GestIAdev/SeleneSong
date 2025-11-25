@@ -23,7 +23,7 @@ import multer from "multer";
 import * as os from "os";
 import path from "path";
 import { SeleneDocumentLogger } from "../Utils/documentLogger.js";
-import { SeleneDatabase } from "./Database.ts";
+import { SeleneDatabase } from "./Database.js";
 import { SeleneCache } from "../Cache.js";
 import { SeleneQueue } from "../Queue.js";
 import { SeleneScheduler } from "../Scheduler.js";
@@ -1322,7 +1322,9 @@ export class SeleneServer {
           "http://localhost:3000", 
           "http://127.0.0.1:3000",
           "http://localhost:3001",  // Patient Portal
-          "http://127.0.0.1:3001"   // Patient Portal
+          "http://127.0.0.1:3001",  // Patient Portal
+          "http://localhost:3002",  // Patient Portal (alternate)
+          "http://127.0.0.1:3002"   // Patient Portal (alternate)
         ],
         credentials: true,
       }),
@@ -2782,7 +2784,7 @@ export class SeleneServer {
 
     // Import the real schema and resolvers from TypeScript sources
     const { typeDefs } = await import("../graphql/schema.js");
-    const { resolvers } = await import("../graphql/resolvers.js");
+    const { resolvers } = await import("../graphql/resolvers.js");  // ✅ Use the stable version
 
     console.log("✅ Real schema and resolvers loaded with @veritas directive");
 

@@ -21,8 +21,48 @@ export const SubscriptionV3 = {
   },
 
   plan: async (parent: any, _: unknown, context: GraphQLContext): Promise<any> => {
+    console.log("🔍🔍🔍 FIELD RESOLVER: SubscriptionV3.plan CALLED");
+    console.log("🔍 parent.plan_id =", parent.plan_id);
+    console.log("🔍 parent keys =", Object.keys(parent));
     try {
-      const plan = await context.database.getSubscriptionPlanV3ById(parent.plan_id);
+      const rawPlan = await context.database.getSubscriptionPlanV3ById(parent.plan_id);
+      console.log("🔍 Raw plan fetched:", rawPlan ? rawPlan.name : "NULL");
+      
+      if (!rawPlan) return null;
+      
+      // 🎯 INFER TIER from code/name (DB doesn't have tier column yet)
+      const inferTier = (plan: any): string => {
+        const code = (plan.code || '').toUpperCase();
+        const name = (plan.name || '').toUpperCase();
+        
+        if (code.includes('ENTERPRISE') || name.includes('ENTERPRISE')) return 'ENTERPRISE';
+        if (code.includes('PREMIUM') || name.includes('PREMIUM')) return 'PREMIUM';
+        if (code.includes('STANDARD') || name.includes('STANDARD')) return 'STANDARD';
+        return 'BASIC';
+      };
+      
+      // 🎯 NORMALIZE: snake_case DB → camelCase GraphQL
+      const plan = {
+        id: rawPlan.id,
+        name: rawPlan.name,
+        description: rawPlan.description,
+        tier: inferTier(rawPlan),  // ← INFERRED until DB migration
+        price: rawPlan.price,
+        currency: rawPlan.currency,
+        billingCycle: rawPlan.billing_cycle,  // ← SNAKE_CASE TO CAMELCASE
+        maxServicesPerMonth: rawPlan.max_services_per_month,
+        maxServicesPerYear: rawPlan.max_services_per_year,
+        popular: rawPlan.popular || false,
+        recommended: rawPlan.recommended || false,
+        active: rawPlan.active || rawPlan.is_active,  // Handle both column names
+        createdAt: rawPlan.created_at?.toISOString?.() || rawPlan.created_at,
+        updatedAt: rawPlan.updated_at?.toISOString?.() || rawPlan.updated_at,
+        // Preserve snake_case for nested resolvers
+        plan_id: rawPlan.id,
+        features: rawPlan.features
+      };
+      
+      console.log("🔍 Normalized plan:", plan);
       return plan;
     } catch (error) {
       console.error("❌ SubscriptionV3.plan resolver error:", error as Error);
@@ -42,26 +82,6 @@ export const SubscriptionV3 = {
       console.error("❌ SubscriptionV3.billingCycles resolver error:", error as Error);
       return [];
     }
-  },
-
-  _veritas: (parent: any): any => {
-    // Generate @veritas checksum for subscription data
-    const checksum = require('crypto').createHash('sha256')
-      .update(JSON.stringify({
-        id: parent.id,
-        patientId: parent.patient_id,
-        planId: parent.plan_id,
-        status: parent.status,
-        startDate: parent.start_date
-      }))
-      .digest('hex');
-
-    return {
-      level: 'HIGH',
-      checksum,
-      lastVerified: new Date().toISOString(),
-      algorithm: 'SHA-256'
-    };
   }
 };
 

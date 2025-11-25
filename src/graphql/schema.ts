@@ -2328,6 +2328,7 @@ export const typeDefs = `#graphql
   input CreateSubscriptionInputV3 {
     patientId: ID!
     planId: ID!
+    clinicId: ID!          # ⚓ ANCLAJE: Clínica a la que se vincula el paciente
     paymentMethodId: ID
     autoRenew: Boolean
     startDate: String

@@ -11,8 +11,9 @@
  * By PunkClaude - November 2025
  */
 
-import bcrypt from 'bcrypt';
+import * as bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
 import { GraphQLContext } from '../../types.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'selene-secret-key';
@@ -87,27 +88,40 @@ export async function registerPatient(
   { input }: { input: RegisterPatientInput },
   context: GraphQLContext
 ): Promise<RegisterPatientResponse> {
+  console.log('🔷 registerPatient called with input:', {
+    email: input.email,
+    firstName: input.firstName,
+    lastName: input.lastName,
+    termsAccepted: input.termsAccepted,
+  });
+  
   const { database } = context;
   const pool = database.getPool();
   const client = await pool.connect();
   
   try {
+    console.log('✅ Database client acquired');
+    
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // GATE 1: VALIDATION
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     
     // 1.1 - GDPR Consent (CRÍTICO)
+    console.log('🔍 Checking GDPR consent...');
     if (!input.termsAccepted) {
       throw new Error(
         'GDPR Compliance: Debes aceptar los términos y condiciones para registrarte'
       );
     }
+    console.log('✅ GDPR consent validated');
     
     // 1.2 - Email format
+    console.log('🔍 Validating email format...');
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(input.email)) {
       throw new Error('Email inválido');
     }
+    console.log('✅ Email format valid');
     
     // 1.3 - Password strength (mínimo 8 chars, 1 upper, 1 lower, 1 number)
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
@@ -143,7 +157,10 @@ export async function registerPatient(
     // 2.1 - Hash password (bcrypt)
     const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
     
-    // 2.2 - Generar username único (first_last_timestamp)
+    // 2.2 - Generar UUID para el usuario
+    const userId = uuidv4();
+    
+    // 2.3 - Generar username único (first_last_timestamp)
     const username = `${input.firstName.toLowerCase()}_${input.lastName.toLowerCase()}_${Date.now()}`;
     
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -153,6 +170,7 @@ export async function registerPatient(
     // 3.1 - Crear registro en users
     const userResult = await client.query(
       `INSERT INTO users (
+        id,
         email, 
         password_hash, 
         username, 
@@ -160,11 +178,14 @@ export async function registerPatient(
         last_name, 
         role,
         is_active,
+        is_admin,
+        is_mfa_enabled,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, true, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, true, false, false, NOW(), NOW())
       RETURNING id, email, role`,
       [
+        userId,
         input.email.toLowerCase(),
         passwordHash,
         username,
@@ -176,23 +197,25 @@ export async function registerPatient(
     
     const newUser = userResult.rows[0];
     
-    // 3.2 - Crear registro en patients (linked al user)
+    // 3.2 - Crear registro en patients (linked por email, NO por user_id)
+    const patientId = uuidv4();
     const patientResult = await client.query(
       `INSERT INTO patients (
-        user_id,
+        id,
         first_name,
         last_name,
         email,
-        phone,
+        phone_primary,
         date_of_birth,
-        address,
+        address_street,
+        is_active,
         terms_accepted_at,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, true, NOW(), NOW(), NOW())
       RETURNING id, first_name, last_name, email`,
       [
-        newUser.id,
+        patientId,
         input.firstName,
         input.lastName,
         input.email.toLowerCase(),
@@ -272,7 +295,8 @@ export async function registerPatient(
       { expiresIn: '30d' }
     );
     
-    return {
+    console.log('🎉 Registration complete! Returning response...');
+    const response = {
       success: true,
       message: 'Cuenta creada exitosamente',
       accessToken,
@@ -288,12 +312,15 @@ export async function registerPatient(
         lastName: newPatient.last_name,
       },
     };
+    console.log('📦 Response object:', response);
+    return response;
     
   } catch (error: any) {
     // Rollback si algo falló
     await client.query('ROLLBACK');
     
     console.error('❌ Patient registration failed:', error);
+    console.error('❌ Error stack:', error.stack);
     throw new Error(error.message || 'Error al registrar paciente');
     
   } finally {

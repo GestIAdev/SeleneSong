@@ -73,18 +73,23 @@ export class BillingDatabase extends BaseDatabase {
   private async generateInvoiceNumber(clinicId: string): Promise<string> {
     const currentYear = new Date().getFullYear();
     
-    // 🔒 ROW LOCKING: SELECT FOR UPDATE previene duplicados en concurrencia
+    // 🔒 ROW LOCKING FIX: Use subquery to avoid "FOR UPDATE with aggregate" error
     const result = await this.runQuery(`
-      SELECT COALESCE(MAX(
-        CAST(
-          SUBSTRING(invoice_number FROM 'FAC-[0-9]{4}-([0-9]+)') 
-          AS INTEGER
-        )
-      ), 0) AS max_seq
-      FROM billing_data
-      WHERE clinic_id = $1
-        AND invoice_number LIKE $2
-      FOR UPDATE
+      WITH latest_invoice AS (
+        SELECT 
+          CAST(
+            SUBSTRING(invoice_number FROM 'FAC-[0-9]{4}-([0-9]+)') 
+            AS INTEGER
+          ) AS seq_num
+        FROM billing_data
+        WHERE clinic_id = $1
+          AND invoice_number LIKE $2
+        ORDER BY invoice_number DESC
+        LIMIT 1
+        FOR UPDATE
+      )
+      SELECT COALESCE(MAX(seq_num), 0) AS max_seq
+      FROM latest_invoice
     `, [clinicId, `FAC-${currentYear}-%`]);
 
     const maxSeq = parseInt(result.rows[0]?.max_seq || '0');

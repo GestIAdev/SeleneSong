@@ -21,8 +21,6 @@
     "emitDecoratorMetadata": true,
     "moduleResolution": "NodeNext",
     "noEmit": false,
-    "allowImportingTsExtensions": true,
-    "rewriteRelativeImportExtensions": true,
     "ignoreDeprecations": "5.0"
   },
   "include": [

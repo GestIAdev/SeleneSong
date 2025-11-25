@@ -9,7 +9,7 @@ import { EventEmitter } from "events"; // 🚀 PHASE 2.1.3a: EventEmitter-based 
  */
 
 import { SeleneServer } from "../core/Server.js";
-import { SeleneDatabase } from "../core/Database.ts";
+import { SeleneDatabase } from "../core/Database.js";
 import { SeleneCache } from "../Cache.js";
 import { SeleneMonitoring } from "../Monitoring.js";
 import { SeleneVeritas } from "../Veritas/Veritas.js";

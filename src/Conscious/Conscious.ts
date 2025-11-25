@@ -8,7 +8,7 @@ import { deterministicRandom } from "../../shared/deterministic-utils.js";
  */
 
 import { SeleneServer } from "../core/Server.js";
-import { SeleneDatabase } from "../core/Database.ts";
+import { SeleneDatabase } from "../core/Database.js";
 import { SeleneCache } from "../Cache.js";
 import { SeleneMonitoring } from "../Monitoring.js";
 import { SeleneVeritas } from "../Veritas/Veritas.js";

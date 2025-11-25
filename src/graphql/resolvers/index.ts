@@ -84,7 +84,7 @@ import { billingMutations } from './Mutation/billing.js';
 import { BillingDataV3 } from "./FieldResolvers/billing.js";
 
 // Import all User domain resolvers (LANDMINE 7 FIX - Multi-Tenant Secured)
-import { users, user, staff } from './Query/user.js';
+import { users, user /*, staff */ } from './Query/user.js';  // staff commented out - not in schema
 
 // Import all Compliance domain resolvers
 import {
@@ -709,7 +709,7 @@ export const AllResolvers = {
     // 👥 User Module (LANDMINE 7 FIX - Multi-Tenant Secured)
     users,
     user,
-    staff,
+    // staff,  // ❌ COMMENTED OUT: Not in schema
     documentsV3,
     documentV3,
     unifiedDocumentsV3,

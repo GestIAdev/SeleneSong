@@ -6,56 +6,85 @@ export class SubscriptionsDatabase extends BaseDatabase {
   // ============================================================================
 
   async getSubscriptionPlansV3(args: {
+    clinicId?: string;
     isActive?: boolean;
     limit?: number;
     offset?: number;
   }): Promise<any[]> {
-    const { isActive = true, limit = 50, offset = 0 } = args;
+    const { clinicId, isActive = true, limit = 50, offset = 0 } = args;
 
-    const query = `
+    // DIRECTIVA ENDER-D1-006.9-B: Multi-tenant query
+    // Filter by clinic_id for tenant isolation
+    let query = `
       SELECT
-        id, name, description, price_monthly, price_yearly,
-        features, max_users, max_patients, max_storage_gb,
-        is_active, is_popular, trial_days, created_at, updated_at
-      FROM subscription_plans
-      WHERE is_active = $1
-      ORDER BY price_monthly ASC
-      LIMIT $2 OFFSET $3
+        id, name, description, price, currency,
+        code, max_services_per_month, max_services_per_year,
+        features, billing_cycle, is_active,
+        clinic_id, created_at, updated_at
+      FROM subscription_plans_v3
+      WHERE deleted_at IS NULL
     `;
-    return await this.getAll(query, [isActive, limit, offset]);
+
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    // Filter by clinic_id (REQUIRED for multi-tenant)
+    if (clinicId) {
+      query += ` AND clinic_id = $${paramIndex++}`;
+      params.push(clinicId);
+    }
+
+    // Filter by is_active
+    if (isActive !== undefined) {
+      query += ` AND is_active = $${paramIndex++}`;
+      params.push(isActive);
+    }
+
+    query += ` ORDER BY price ASC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
+    params.push(limit, offset);
+
+    return await this.getAll(query, params);
   }
 
   async getSubscriptionPlanV3ById(id: string): Promise<any> {
-    const query = `SELECT * FROM subscription_plans WHERE id = $1`;
+    const query = `SELECT * FROM subscription_plans_v3 WHERE id = $1 AND deleted_at IS NULL`;
     return await this.getOne(query, [id]);
   }
 
   async createSubscriptionPlanV3(input: any): Promise<any> {
+    // DIRECTIVA ENDER-D1-006.9-B: Multi-tenant create with clinic_id
     const {
+      clinic_id,  // REQUIRED from user context
       name,
       description,
-      priceMonthly,
-      priceYearly,
-      features,
-      maxUsers,
-      maxPatients,
-      maxStorageGb,
-      isPopular,
-      trialDays
+      price,
+      currency = 'EUR',
+      code,
+      consultas_incluidas = 0,  // 0 = unlimited
+      max_services_per_month,
+      max_services_per_year,
+      features = [],
+      billing_cycle = 'monthly',
+      is_active = true
     } = input;
 
+    if (!clinic_id) {
+      throw new Error('clinic_id is required for multi-tenant plan creation');
+    }
+
     const query = `
-      INSERT INTO subscription_plans (
-        name, description, price_monthly, price_yearly,
-        features, max_users, max_patients, max_storage_gb,
-        is_active, is_popular, trial_days, created_at, updated_at
+      INSERT INTO subscription_plans_v3 (
+        clinic_id, name, description, price, currency,
+        code, max_services_per_month, max_services_per_year,
+        features, billing_cycle, is_active,
+        created_at, updated_at
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
       RETURNING *
     `;
     const params = [
-      name, description, priceMonthly, priceYearly,
-      JSON.stringify(features), maxUsers, maxPatients, maxStorageGb,
-      true, isPopular || false, trialDays || 0
+      clinic_id, name, description, price, currency,
+      code, max_services_per_month, max_services_per_year,
+      JSON.stringify(features), billing_cycle, is_active
     ];
 
     const result = await this.runQuery(query, params);
@@ -63,6 +92,7 @@ export class SubscriptionsDatabase extends BaseDatabase {
   }
 
   async updateSubscriptionPlanV3(id: string, input: any): Promise<any> {
+    // DIRECTIVA ENDER-D1-006.9-B: Dynamic update with new schema
     const updates: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
@@ -75,48 +105,48 @@ export class SubscriptionsDatabase extends BaseDatabase {
       updates.push(`description = $${paramIndex++}`);
       values.push(input.description);
     }
-    if (input.priceMonthly !== undefined) {
-      updates.push(`price_monthly = $${paramIndex++}`);
-      values.push(input.priceMonthly);
+    if (input.price !== undefined) {
+      updates.push(`price = $${paramIndex++}`);
+      values.push(input.price);
     }
-    if (input.priceYearly !== undefined) {
-      updates.push(`price_yearly = $${paramIndex++}`);
-      values.push(input.priceYearly);
+    if (input.currency !== undefined) {
+      updates.push(`currency = $${paramIndex++}`);
+      values.push(input.currency);
+    }
+    if (input.code !== undefined) {
+      updates.push(`code = $${paramIndex++}`);
+      values.push(input.code);
+    }
+    if (input.consultas_incluidas !== undefined) {
+      updates.push(`max_services_per_month = $${paramIndex++}`);
+      values.push(input.consultas_incluidas);
+    }
+    if (input.max_services_per_year !== undefined) {
+      updates.push(`max_services_per_year = $${paramIndex++}`);
+      values.push(input.max_services_per_year);
     }
     if (input.features !== undefined) {
       updates.push(`features = $${paramIndex++}`);
       values.push(JSON.stringify(input.features));
     }
-    if (input.maxUsers !== undefined) {
-      updates.push(`max_users = $${paramIndex++}`);
-      values.push(input.maxUsers);
+    if (input.billing_cycle !== undefined) {
+      updates.push(`billing_cycle = $${paramIndex++}`);
+      values.push(input.billing_cycle);
     }
-    if (input.maxPatients !== undefined) {
-      updates.push(`max_patients = $${paramIndex++}`);
-      values.push(input.maxPatients);
-    }
-    if (input.maxStorageGb !== undefined) {
-      updates.push(`max_storage_gb = $${paramIndex++}`);
-      values.push(input.maxStorageGb);
-    }
-    if (input.isActive !== undefined) {
+    if (input.is_active !== undefined) {
       updates.push(`is_active = $${paramIndex++}`);
-      values.push(input.isActive);
+      values.push(input.is_active);
     }
-    if (input.isPopular !== undefined) {
-      updates.push(`is_popular = $${paramIndex++}`);
-      values.push(input.isPopular);
-    }
-    if (input.trialDays !== undefined) {
-      updates.push(`trial_days = $${paramIndex++}`);
-      values.push(input.trialDays);
+
+    if (updates.length === 0) {
+      throw new Error('No fields to update');
     }
 
     updates.push(`updated_at = NOW()`);
     values.push(id);
 
     const query = `
-      UPDATE subscription_plans
+      UPDATE subscription_plans_v3
       SET ${updates.join(', ')}
       WHERE id = $${paramIndex}
       RETURNING *
@@ -127,7 +157,8 @@ export class SubscriptionsDatabase extends BaseDatabase {
   }
 
   async deleteSubscriptionPlanV3(id: string): Promise<void> {
-    const query = `DELETE FROM subscription_plans WHERE id = $1`;
+    // Soft delete (set deleted_at timestamp)
+    const query = `UPDATE subscription_plans_v3 SET deleted_at = NOW() WHERE id = $1`;
     await this.runQuery(query, [id]);
   }
 
@@ -191,11 +222,14 @@ export class SubscriptionsDatabase extends BaseDatabase {
   }
 
   async createSubscriptionV3(input: any): Promise<any> {
+    console.log('🎯 [SUBSCRIPTIONS] createSubscriptionV3 INPUT:', JSON.stringify(input, null, 2));
+    
     const {
-      userId,
+      patientId,  // ✅ FIXED: was 'userId'
       planId,
-      paymentMethodId,
-      trialDays
+      clinicId,   // ✅ ADDED: for ANCLAJE tracking
+      autoRenew = true,
+      startDate
     } = input;
 
     // Get plan details
@@ -203,43 +237,53 @@ export class SubscriptionsDatabase extends BaseDatabase {
     if (!plan) {
       throw new Error('Subscription plan not found');
     }
+    console.log('💎 [SUBSCRIPTIONS] Plan found:', plan.name, plan.price, plan.billing_cycle);
 
-    // Calculate trial period
-    const trialStart = new Date();
-    const trialEnd = trialDays > 0 ? new Date(trialStart.getTime() + trialDays * 24 * 60 * 60 * 1000) : null;
+    // Calculate billing dates based on plan cycle
+    const start = startDate ? new Date(startDate) : new Date();
+    let nextBilling = new Date(start);
+    
+    if (plan.billing_cycle === 'MONTHLY') {
+      nextBilling.setMonth(nextBilling.getMonth() + 1);
+    } else if (plan.billing_cycle === 'YEARLY') {
+      nextBilling.setFullYear(nextBilling.getFullYear() + 1);
+    }
 
-    // Calculate billing period
-    const currentPeriodStart = trialEnd || new Date();
-    const currentPeriodEnd = new Date(currentPeriodStart.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
-
+    // ✅ FIXED: Insert into subscriptions_v3 (not 'subscriptions')
     const query = `
-      INSERT INTO subscriptions (
-        user_id, plan_id, status, current_period_start,
-        current_period_end, cancel_at_period_end, trial_start,
-        trial_end, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+      INSERT INTO subscriptions_v3 (
+        patient_id, plan_id, status, start_date,
+        next_billing_date, total_amount, currency,
+        auto_renew, metadata, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
       RETURNING *
     `;
     const params = [
-      userId, planId, trialDays > 0 ? 'TRIALING' : 'ACTIVE',
-      currentPeriodStart, currentPeriodEnd, false,
-      trialStart, trialEnd
+      patientId,
+      planId,
+      'ACTIVE',
+      start,
+      nextBilling,
+      plan.price,      // ✅ total_amount from plan
+      plan.currency || 'EUR',
+      autoRenew,
+      JSON.stringify({ clinicId, source: 'ANCLAJE_V3' })  // ⚓ Track clinic
     ];
 
-    const result = await this.runQuery(query, params);
-    const subscription = result.rows[0];
+    console.log('📝 [SUBSCRIPTIONS] Executing INSERT with params:', params.map((p, i) => 
+      `$${i+1}: ${p instanceof Date ? p.toISOString() : JSON.stringify(p)}`
+    ).join(', '));
 
-    // Create initial billing cycle
-    await this.createBillingCycleV3({
-      subscriptionId: subscription.id,
-      amount: plan.price_monthly,
-      currency: 'EUR',
-      periodStart: currentPeriodStart,
-      periodEnd: currentPeriodEnd,
-      status: trialDays > 0 ? 'TRIAL' : 'PENDING'
-    });
-
-    return subscription;
+    try {
+      const result = await this.runQuery(query, params);
+      const subscription = result.rows[0];
+      console.log('✅ [SUBSCRIPTIONS] Created:', subscription.id);
+      return subscription;
+    } catch (error: any) {
+      console.error('❌ [SUBSCRIPTIONS] INSERT FAILED:', error.message);
+      console.error('📋 Error details:', error);
+      throw new Error(`Failed to create subscription: ${error.message}`);
+    }
   }
 
   async updateSubscriptionV3(id: string, input: any): Promise<any> {

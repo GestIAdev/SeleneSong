@@ -17,17 +17,32 @@ export const subscriptionPlansV3 = async (
   try {
     const { activeOnly = true } = args;
 
-    // Use specialized SubscriptionsDatabase class
+    // DIRECTIVA ENDER-D1-006.9-B: Extract clinic_id from user context
+    // SECURITY: User must be authenticated and have clinic_id
+    if (!context.user) {
+      console.warn('⚠️  No authenticated user. Returning empty plans.');
+      return [];
+    }
+
+    // Get clinic_id from user context (staff users should have this)
+    const clinicId = (context.user as any).clinic_id || (context.user as any).clinicId;
+
+    if (!clinicId) {
+      console.warn(`⚠️  User ${context.user.id} (${context.user.role}) has no clinic_id. Returning empty plans.`);
+      return [];
+    }
+
+    // Query plans filtered by clinic_id (multi-tenant isolation)
     const plans = await context.database.subscriptions.getSubscriptionPlansV3({
+      clinicId,
       isActive: activeOnly
     });
 
-    console.log(`✅ subscriptionPlansV3 query returned ${plans.length} plans`);
+    console.log(`✅ subscriptionPlansV3: ${plans.length} plans for clinic ${clinicId} (user: ${context.user.email})`);
     return plans || [];
   } catch (error) {
     console.error("❌ subscriptionPlansV3 query error:", error as Error);
-    // Return empty array instead of throwing to avoid breaking non-nullable field
-    console.warn("⚠️  Returning empty array due to error (table might not exist)");
+    console.warn("⚠️  Returning empty array due to error");
     return [];
   }
 };

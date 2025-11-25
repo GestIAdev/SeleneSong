@@ -10,7 +10,7 @@
  */
 
 import { SeleneServer } from "../core/Server.js";
-import { SeleneDatabase } from "../core/Database.ts";
+import { SeleneDatabase } from "../core/Database.js";
 import { SeleneCache } from "../Cache.js";
 import { SeleneMonitoring } from "../Monitoring.js";
 import * as crypto from "crypto";

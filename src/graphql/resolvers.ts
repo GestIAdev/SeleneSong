@@ -51,6 +51,15 @@ import {
 import { medicalRecordSubscriptions } from "./resolvers/Subscription/medicalRecord.js";
 import { MedicalRecordV3 } from "./resolvers/FieldResolvers/medicalRecord.js";
 
+// ⚡ SUBSCRIPTIONS V3 - Netflix-Dental System (DIRECTIVA #007.5 - ANCLAJE)
+import {
+  createSubscriptionV3,
+  updateSubscriptionV3,
+  cancelSubscriptionV3,
+  renewSubscriptionV3,
+} from "./resolvers/Mutation/subscription.js";
+import { SubscriptionV3 } from "./resolvers/FieldResolvers/subscription.js";
+
 import {
   documentsV3,
   documentV3,
@@ -360,6 +369,11 @@ export const Mutation = {
   ...DocumentMutation,
   ...NotificationMutation, // 🔔 NOTIFICATIONS V3
   ...InventoryMutation,
+  // ⚡ SUBSCRIPTIONS V3 - Netflix-Dental System (DIRECTIVA #007.5)
+  createSubscriptionV3,
+  updateSubscriptionV3,
+  cancelSubscriptionV3,
+  renewSubscriptionV3,
   ...BillingMutation,
   ...ComplianceMutation,
   ...marketplaceMutations,
@@ -391,6 +405,7 @@ export const resolvers = {
   // ✅ PHASE 2: ALL FIELD RESOLVERS FROM SSoT (FieldResolvers/)
   MedicalRecordV3,
   DocumentV3,
+  SubscriptionV3,
   InventoryV3,
   MaterialV3,
   EquipmentV3,

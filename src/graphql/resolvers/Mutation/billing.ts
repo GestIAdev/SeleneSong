@@ -25,8 +25,29 @@ export const createBillingDataV3 = async (
       throw new Error('Validation failed: totalAmount must be positive');
     }
 
-    // 🏛️ EMPIRE V2: Extract and inject clinic_id
-    const clinicId = getClinicIdFromContext(context);
+    // 🏛️ EMPIRE V2: Extract clinic_id from context OR from patient's latest subscription
+    let clinicId = getClinicIdFromContext(context);
+    
+    // 🎯 ANCLAJE SUPPORT: If user is PATIENT, get clinic_id from their active subscription
+    if (!clinicId && context.user?.role === 'PATIENT') {
+      console.log("🔍 [BILLING] User is PATIENT, fetching clinic_id from active subscription...");
+      try {
+        const pool = (context.database as any).pool;  // Access internal pool
+        const result = await pool.query(
+          `SELECT metadata FROM subscriptions_v3 
+           WHERE patient_id = $1 AND status = 'ACTIVE' AND deleted_at IS NULL 
+           ORDER BY created_at DESC LIMIT 1`,
+          [args.input.patientId]
+        );
+        
+        if (result.rows.length > 0 && result.rows[0].metadata?.clinicId) {
+          clinicId = result.rows[0].metadata.clinicId;
+          console.log(`✅ [BILLING] Clinic ID from ANCLAJE: ${clinicId}`);
+        }
+      } catch (err) {
+        console.error("⚠️ [BILLING] Failed to fetch clinic_id from subscription:", (err as Error).message);
+      }
+    }
     
     if (!clinicId) {
       throw new Error('🏛️ EMPIRE V2: clinic_id required for invoice creation');

@@ -15,7 +15,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 import { GraphQLContext } from "./types.js";
-import { SeleneDatabase } from "../core/Database.ts";
+import { SeleneDatabase } from "../core/Database.js";
 import { SeleneCache } from "../Cache.js";
 import { SeleneMonitoring } from "../Monitoring.js";
 import { SeleneReactor } from "../Reactor/Reactor.js";
