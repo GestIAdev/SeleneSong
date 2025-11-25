@@ -1,5 +1,6 @@
 import type { GraphQLContext } from '../../types.js';
 import { getClinicIdFromContext } from '../../utils/clinicHelpers.js';
+import { blockchainService } from '../../../services/BlockchainService.js';
 
 // ============================================================================
 // BILLING MUTATION RESOLVERS V3 - FOUR-GATE PATTERN
@@ -682,6 +683,62 @@ export const recordPartialPayment = async (
       context.pubsub.publish('INVOICE_UPDATED', {
         invoiceUpdated: updatedInvoice
       });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // 🔗 BLOCKCHAIN INTEGRATION: Reward patient with $DENTIA tokens
+    // ══════════════════════════════════════════════════════════════════════════
+    // When invoice is FULLY PAID, trigger blockchain reward
+    if (updatedInvoice.status === 'PAID') {
+      try {
+        // Get patient's wallet address from their profile
+        const patient = await context.database.patients.getPatientById(input.patientId);
+        
+        if (patient?.wallet_address) {
+          console.log(`🔗 [BLOCKCHAIN] Invoice ${updatedInvoice.id} PAID - Triggering reward...`);
+          
+          // Calculate reward based on invoice total (in cents)
+          const paymentAmountCents = Math.round(
+            parseFloat(updatedInvoice.total_amount) * 100
+          );
+          
+          // Async reward - don't block the payment confirmation
+          blockchainService.rewardPatientForPayment(
+            patient.wallet_address,
+            paymentAmountCents,
+            updatedInvoice.id,
+            input.patientId
+          ).then(result => {
+            if (result.success) {
+              console.log(`✅ [BLOCKCHAIN] Reward sent: ${result.rewardAmount} DENTIA`);
+              console.log(`   Transaction: ${result.transactionHash}`);
+              
+              // Optionally publish WebSocket event for frontend
+              if (context.pubsub) {
+                context.pubsub.publish('REWARD_DISTRIBUTED', {
+                  rewardDistributed: {
+                    patientId: input.patientId,
+                    invoiceId: updatedInvoice.id,
+                    amount: result.rewardAmount,
+                    transactionHash: result.transactionHash,
+                  }
+                });
+              }
+            } else {
+              console.warn(`⚠️ [BLOCKCHAIN] Reward failed: ${result.error}`);
+              // Log for manual retry - don't break the payment flow
+            }
+          }).catch(err => {
+            console.error(`❌ [BLOCKCHAIN] Reward error:`, err.message);
+            // Silent fail - payment was successful, blockchain is secondary
+          });
+        } else {
+          console.log(`ℹ️ [BLOCKCHAIN] Patient ${input.patientId} has no wallet, skipping reward`);
+        }
+      } catch (blockchainError: any) {
+        // Silent fail - blockchain integration should never break payments
+        console.warn(`⚠️ [BLOCKCHAIN] Integration error:`, blockchainError.message);
+      }
     }
 
     console.log(
