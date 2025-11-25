@@ -741,20 +741,26 @@ async function main() {
     // ============================================================================
     // ?? BLOCKCHAIN INTEGRATION - Initialize Web3 bridge if enabled
     // ============================================================================
-    if (process.env.BLOCKCHAIN_ENABLED === 'true') {
-      console.log('? Initializing BlockchainService...');
+    console.error(`\n>>> [BLOCKCHAIN DEBUG] BLOCKCHAIN_ENABLED = "${process.env.BLOCKCHAIN_ENABLED}" (type: ${typeof process.env.BLOCKCHAIN_ENABLED})\n`);
+    
+    const isBlockchainEnabled = process.env.BLOCKCHAIN_ENABLED === 'true' || 
+                                 process.env.BLOCKCHAIN_ENABLED === 'TRUE' || 
+                                 process.env.BLOCKCHAIN_ENABLED === '1';
+    
+    if (isBlockchainEnabled) {
+      console.error('>>> [BLOCKCHAIN] STARTING INITIALIZATION...');
       try {
         await blockchainService.initialize();
-        console.log('? BlockchainService initialized successfully');
-        console.log(`?? Network: ${process.env.BLOCKCHAIN_NETWORK || 'sepolia'}`);
-        console.log(`?? DentiaCoin: ${process.env.DENTIA_COIN_ADDRESS || 'NOT_SET'}`);
-        console.log(`?? DentiaRewards: ${process.env.DENTIA_REWARDS_ADDRESS || 'NOT_SET'}`);
+        console.error('>>> [BLOCKCHAIN] ✅ INITIALIZED SUCCESSFULLY');
+        console.error(`>>> [BLOCKCHAIN] Network: ${process.env.BLOCKCHAIN_NETWORK || 'NOT_SET'}`);
+        console.error(`>>> [BLOCKCHAIN] DentiaCoin: ${process.env.DENTIA_COIN_ADDRESS || 'NOT_SET'}`);
+        console.error(`>>> [BLOCKCHAIN] DentiaRewards: ${process.env.DENTIA_REWARDS_ADDRESS || 'NOT_SET'}`);
       } catch (blockchainError) {
-        console.warn('? BlockchainService initialization failed (non-critical):', blockchainError);
-        console.warn('?? Blockchain rewards will be disabled for this session');
+        console.error('>>> [BLOCKCHAIN] ❌ INITIALIZATION FAILED:', blockchainError);
+        console.error('>>> [BLOCKCHAIN] Rewards will be disabled');
       }
     } else {
-      console.log('? BlockchainService disabled (BLOCKCHAIN_ENABLED != true)');
+      console.error('>>> [BLOCKCHAIN] ⚠️ DISABLED (BLOCKCHAIN_ENABLED not set to true)');
     }
 
     console.log("??? Configuring GraphQL with @veritas directive...");
