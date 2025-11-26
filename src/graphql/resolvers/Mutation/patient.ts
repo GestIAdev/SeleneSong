@@ -100,7 +100,83 @@ export const patientMutations = {
     }
   },
 
-  // 🔥 UPDATE PATIENT (LEGACY ALIAS) - Calls updatePatientV3 internally
+  // � BLOCKCHAIN: Update patient wallet address
+  // Este resolver es especial: el paciente puede actualizar SU PROPIA wallet
+  // sin necesidad de pasar por validación de clínica (EMPIRE V2)
+  updatePatientWallet: async (
+    _: any,
+    { walletAddress }: { walletAddress: string },
+    { database, user, auditLogger, ip }: any,
+  ) => {
+    console.log("🔗 [PATIENT] updatePatientWallet - Persisting wallet to DB");
+    
+    try {
+      // ✅ GATE 1: VERIFICACIÓN - User must be authenticated
+      if (!user || !user.id) {
+        throw new Error('Authentication required');
+      }
+      
+      // Validate wallet address format (0x + 40 hex chars)
+      const walletRegex = /^0x[a-fA-F0-9]{40}$/;
+      if (!walletRegex.test(walletAddress)) {
+        throw new Error('Invalid wallet address format');
+      }
+      
+      // 🎯 Get patient ID from user (patient portal user = patient)
+      // El user.patientId viene del token JWT del patient-portal
+      const patientId = user.patientId || user.id;
+      console.log(`🔗 Updating wallet for patient ${patientId}: ${walletAddress}`);
+      
+      // ✅ GATE 3: TRANSACCIÓN DB - Direct update
+      const result = await database.executeQuery(
+        `UPDATE patients 
+         SET wallet_address = $1, updated_at = NOW() 
+         WHERE id = $2 AND deleted_at IS NULL
+         RETURNING *`,
+        [walletAddress, patientId]
+      );
+      
+      if (result.rows.length === 0) {
+        throw new Error('Patient not found');
+      }
+      
+      const patient = result.rows[0];
+      console.log(`✅ Wallet updated: ${patient.wallet_address}`);
+      
+      // ✅ GATE 4: AUDITORÍA
+      if (auditLogger) {
+        await auditLogger.logUpdate(
+          'Patient',
+          patientId,
+          { walletAddress: null },
+          { walletAddress },
+          ['walletAddress'],
+          user?.id,
+          user?.email,
+          ip
+        );
+      }
+      
+      // Return mapped patient
+      return {
+        id: patient.id,
+        name: `${patient.first_name || ''} ${patient.last_name || ''}`.trim() || 'Unknown',
+        firstName: patient.first_name,
+        lastName: patient.last_name,
+        email: patient.email,
+        phone: patient.phone_primary,
+        dateOfBirth: patient.date_of_birth,
+        walletAddress: patient.wallet_address,
+        createdAt: patient.created_at,
+        updatedAt: patient.updated_at,
+      };
+    } catch (error) {
+      console.error("❌ updatePatientWallet error:", error);
+      throw new Error(`Failed to update wallet: ${(error as Error).message}`);
+    }
+  },
+
+  // �🔥 UPDATE PATIENT (LEGACY ALIAS) - Calls updatePatientV3 internally
   updatePatient: async (
     _: any,
     { id, input }: any,

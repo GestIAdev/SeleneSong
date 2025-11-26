@@ -88,6 +88,8 @@ export class PatientsDatabase extends BaseDatabase {
         requiresSpecialCare: !!(
           dbPatient.special_needs || dbPatient.anxiety_level
         ),
+        // 🔗 BLOCKCHAIN: Wallet address
+        walletAddress: dbPatient.wallet_address,
       }));
 
       // Cache results (don't fail if Redis is down)
@@ -276,6 +278,8 @@ export class PatientsDatabase extends BaseDatabase {
         requiresSpecialCare: !!(
           dbPatient.special_needs || dbPatient.anxiety_level
         ),
+        // 🔗 BLOCKCHAIN: Wallet address
+        walletAddress: dbPatient.wallet_address,
       };
 
       return graphqlPatient;
@@ -297,25 +301,55 @@ export class PatientsDatabase extends BaseDatabase {
     try {
       await client.query("BEGIN");
 
+      // 🔥 DYNAMIC UPDATE: Solo actualizamos los campos que vienen en el input
+      const updateFields: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      // Helper para agregar campo
+      const addField = (dbField: string, value: any) => {
+        if (value !== undefined) {
+          updateFields.push(`${dbField} = $${paramIndex}`);
+          values.push(value);
+          paramIndex++;
+        }
+      };
+
+      // Campos actualizables
+      addField('first_name', patientData.firstName ?? patientData.first_name);
+      addField('last_name', patientData.lastName ?? patientData.last_name);
+      addField('email', patientData.email);
+      addField('phone_primary', patientData.phone);
+      addField('date_of_birth', patientData.dateOfBirth ?? patientData.date_of_birth);
+      addField('address_street', patientData.address);
+      addField('medical_history', patientData.medicalHistory ?? patientData.medical_history);
+      addField('emergency_contact_name', patientData.emergencyContactName);
+      addField('emergency_contact_phone', patientData.emergencyContactPhone);
+      addField('emergency_contact_relationship', patientData.emergencyContactRelationship);
+      addField('insurance_provider', patientData.insuranceProvider);
+      addField('policy_number', patientData.policyNumber);
+      // 🔗 BLOCKCHAIN: Wallet address
+      addField('wallet_address', patientData.walletAddress);
+
+      // Siempre actualizamos updated_at
+      updateFields.push(`updated_at = NOW()`);
+
+      if (updateFields.length === 1) {
+        // Solo updated_at, no hay nada que actualizar
+        throw new Error("No fields to update");
+      }
+
+      // Agregar el ID como último parámetro
+      values.push(id);
+
       const result = await client.query(
         `
         UPDATE patients SET
-          first_name = $1, last_name = $2, email = $3, phone_primary = $4, date_of_birth = $5,
-          address_country = $6, medical_history = $7,
-          updated_at = NOW()
-        WHERE id = $8 AND deleted_at IS NULL
+          ${updateFields.join(', ')}
+        WHERE id = $${paramIndex} AND deleted_at IS NULL
         RETURNING *
       `,
-        [
-          patientData.firstName || patientData.first_name,
-          patientData.lastName || patientData.last_name,
-          patientData.email,
-          patientData.phone,
-          patientData.dateOfBirth || patientData.date_of_birth,
-          "México", // Default country
-          patientData.medicalHistory || patientData.medical_history,
-          id,
-        ],
+        values,
       );
 
       if (result.rows.length === 0) {
@@ -368,6 +402,8 @@ export class PatientsDatabase extends BaseDatabase {
         consentToTreatment: patient.consent_to_treatment || false,
         consentToContact: patient.consent_to_contact !== false,
         isActive: patient.is_active !== false,
+        // 🔗 BLOCKCHAIN: Wallet address
+        walletAddress: patient.wallet_address,
         createdAt: patient.created_at,
         updatedAt: patient.updated_at
       };

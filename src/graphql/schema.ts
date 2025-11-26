@@ -32,6 +32,8 @@ export const typeDefs = `#graphql
     policyNumber: String
     medicalHistory: String
     billingStatus: String
+    # 🔗 BLOCKCHAIN - Wallet address for DENTIA rewards
+    walletAddress: String
     createdAt: String!
     updatedAt: String!
   }
@@ -62,6 +64,8 @@ export const typeDefs = `#graphql
     nextAppointment: DateString
     policyNumber: String  # Extrae parent.insurance?.policyNumber
     medicalHistory: String
+    # 🔗 BLOCKCHAIN - Wallet address for DENTIA rewards
+    walletAddress: String
     createdAt: String!
     updatedAt: String!
   }
@@ -96,6 +100,8 @@ export const typeDefs = `#graphql
     emergencyContactRelationship: String
     insuranceProvider: String
     policyNumber: String
+    # 🔗 BLOCKCHAIN - Wallet address for DENTIA rewards
+    walletAddress: String
   }
 
   # 📅 APPOINTMENTS - V169 Schema Bridge Compatible
@@ -1371,6 +1377,9 @@ export const typeDefs = `#graphql
     createPatient(input: PatientInput!): Patient!
     updatePatient(id: ID!, input: UpdatePatientInput!): Patient!
     deletePatient(id: ID!): Boolean!
+    
+    # 🔗 BLOCKCHAIN: Update patient wallet address
+    updatePatientWallet(walletAddress: String!): Patient!
     
     # Patients V3 - Veritas Enhanced (PURE V3 - NO LEGACY)
     createPatientV3(input: PatientInput!): Patient!
