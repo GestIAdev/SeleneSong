@@ -164,5 +164,3 @@ export class TimerManager {
 
 // Export singleton
 export const timerManager = TimerManager.getInstance();
-
-

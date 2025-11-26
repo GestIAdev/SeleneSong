@@ -13,7 +13,6 @@
  * - Performance degradation detection
  */
 
-
 export type CircuitState = "CLOSED" | "OPEN" | "HALF_OPEN";
 
 export interface CircuitBreakerConfig {
@@ -576,5 +575,3 @@ export class CircuitBreakerFactory {
 }
 
 export { CircuitBreaker as default };
-
-

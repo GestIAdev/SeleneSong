@@ -6,10 +6,6 @@
  * para prevenir acumulación infinita de datos en memoria
  */
 
-// 🔇 PUNK FIX: Only log TTL operations if DEBUG_TTL=true
-
-const DEBUG_TTL = process.env.DEBUG_TTL === "true";
-
 export interface TTLCacheOptions {
   defaultTTL: number; // TTL por defecto en milisegundos
   maxSize?: number; // Tamaño máximo del cache (opcional)
@@ -70,11 +66,9 @@ export class TTLCache<K, V> {
 
     this.startCleanupTimer();
 
-    if (DEBUG_TTL) {
-      console.log(
-        `💾 TTLCache[${this.id}]: Creado con TTL ${this.options.defaultTTL}ms, maxSize: ${this.options.maxSize || "unlimited"}`,
-      );
-    }
+    console.log(
+      `💾 TTLCache[${this.id}]: Creado con TTL ${this.options.defaultTTL}ms, maxSize: ${this.options.maxSize || "unlimited"}`,
+    );
   }
 
   /**
@@ -108,11 +102,9 @@ export class TTLCache<K, V> {
 
     this.cache.set(key, entry);
 
-    if (DEBUG_TTL) {
-      console.log(
-        `💾 TTLCache[${this.id}]: Set ${String(key)} (expires in ${actualTTL}ms)`,
-      );
-    }
+    console.log(
+      `💾 TTLCache[${this.id}]: Set ${String(key)} (expires in ${actualTTL}ms)`,
+    );
   }
 
   /**
@@ -134,9 +126,7 @@ export class TTLCache<K, V> {
       this.stats.expires++;
       this.options.onExpire(String(key), entry.value);
       this.stats.misses++;
-      if (DEBUG_TTL) {
-        console.log(`⏰ TTLCache[${this.id}]: ${String(key)} expiró`);
-      }
+      console.log(`⏰ TTLCache[${this.id}]: ${String(key)} expiró`);
       return undefined;
     }
 
@@ -176,11 +166,9 @@ export class TTLCache<K, V> {
     const entry = this.cache.get(key);
     if (entry) {
       this.cache.delete(key);
-      if (DEBUG_TTL) {
-        console.log(
-          `🗑️ TTLCache[${this.id}]: ${String(key)} eliminado manualmente`,
-        );
-      }
+      console.log(
+        `🗑️ TTLCache[${this.id}]: ${String(key)} eliminado manualmente`,
+      );
       return true;
     }
     return false;
@@ -192,11 +180,9 @@ export class TTLCache<K, V> {
   clear(): void {
     const size = this.cache.size;
     this.cache.clear();
-    if (DEBUG_TTL) {
-      console.log(
-        `🧹 TTLCache[${this.id}]: Cache limpiado (${size} entradas removidas)`,
-      );
-    }
+    console.log(
+      `🧹 TTLCache[${this.id}]: Cache limpiado (${size} entradas removidas)`,
+    );
   }
 
   /**
@@ -279,11 +265,9 @@ export class TTLCache<K, V> {
     entry.expires = now + actualTTL;
     entry.accessed = now;
 
-    if (DEBUG_TTL) {
-      console.log(
-        `🔄 TTLCache[${this.id}]: ${String(key)} TTL renovado (+${actualTTL}ms)`,
-      );
-    }
+    console.log(
+      `🔄 TTLCache[${this.id}]: ${String(key)} TTL renovado (+${actualTTL}ms)`,
+    );
     return true;
   }
 
@@ -327,11 +311,9 @@ export class TTLCache<K, V> {
     }
 
     if (expiredCount > 0) {
-      if (DEBUG_TTL) {
-        console.log(
-          `⏰ TTLCache[${this.id}]: ${expiredCount} entradas expiradas limpiadas`,
-        );
-      }
+      console.log(
+        `⏰ TTLCache[${this.id}]: ${expiredCount} entradas expiradas limpiadas`,
+      );
     }
 
     return expiredCount;
@@ -358,11 +340,9 @@ export class TTLCache<K, V> {
       this.cache.delete(oldestKey);
       this.stats.evictions++;
       this.options.onEvict(String(oldestKey), entry.value);
-      if (DEBUG_TTL) {
-        console.log(
-          `🚪 TTLCache[${this.id}]: ${String(oldestKey)} expulsado por límite de tamaño`,
-        );
-      }
+      console.log(
+        `🚪 TTLCache[${this.id}]: ${String(oldestKey)} expulsado por límite de tamaño`,
+      );
     }
   }
 
@@ -431,9 +411,7 @@ export class TTLCache<K, V> {
       expires: 0,
       evictions: 0,
     };
-    if (DEBUG_TTL) {
-      console.log(`📊 TTLCache[${this.id}]: Estadísticas reseteadas`);
-    }
+    console.log(`📊 TTLCache[${this.id}]: Estadísticas reseteadas`);
   }
 
   /**
@@ -465,11 +443,9 @@ export class TTLCache<K, V> {
     }
 
     if (expiring.length > 0) {
-      if (DEBUG_TTL) {
-        console.log(
-          `🔄 TTLCache[${this.id}]: ${expiring.length} entradas extendidas (+${extensionMs}ms)`,
-        );
-      }
+      console.log(
+        `🔄 TTLCache[${this.id}]: ${expiring.length} entradas extendidas (+${extensionMs}ms)`,
+      );
     }
 
     return expiring.length;
@@ -481,9 +457,7 @@ export class TTLCache<K, V> {
   close(): void {
     this.stopCleanupTimer();
     this.clear();
-    if (DEBUG_TTL) {
-      console.log(`🔒 TTLCache[${this.id}]: Cache cerrado`);
-    }
+    console.log(`🔒 TTLCache[${this.id}]: Cache cerrado`);
   }
 
   /**
@@ -555,5 +529,3 @@ export class TTLCacheFactory {
 }
 
 export default TTLCache;
-
-

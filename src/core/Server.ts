@@ -928,7 +928,7 @@ export class SeleneServer {
 
     // Initialize Memory Monitor
     try {
-      const memoryMonitorPath = path.resolve(__dirname, "../../../monitoring/apollo-memory-monitor.js");
+      const memoryMonitorPath = path.resolve(__dirname, "../../monitoring/apollo-memory-monitor.js");
       // Convert Windows path to file:// URL for ESM dynamic import
       const memoryMonitorURL = pathToFileURL(memoryMonitorPath).href;
       const { default: SeleneMemoryMonitor } = await import(memoryMonitorURL);

@@ -149,7 +149,7 @@ export const AuthMutation = {
           organizationName: user.organization_name || null
         },
         jwtSecret,
-        { expiresIn: '15m' } // 15 minutes
+        { expiresIn: '24h' } // 24 hours (DEV MODE - change to 15m for production)
       );
 
       const refreshToken = jwt.sign(
@@ -165,7 +165,7 @@ export const AuthMutation = {
       const authResponse = {
         accessToken,
         refreshToken,
-        expiresIn: 900, // 15 minutes in seconds
+        expiresIn: 86400, // 24 hours in seconds (DEV MODE)
         user: {
           id: user.id,
           username: user.username,
@@ -187,7 +187,7 @@ export const AuthMutation = {
           httpOnly: true,
           secure: isProduction, // HTTPS only in production
           sameSite: 'strict',
-          maxAge: 900000, // 15 minutes in milliseconds
+          maxAge: 86400000, // 24 hours in milliseconds (DEV MODE)
         });
         
         context.res.cookie('refreshToken', refreshToken, {
@@ -290,7 +290,7 @@ export const AuthMutation = {
           permissions: ['read', 'write']
         },
         jwtSecret,
-        { expiresIn: '15m' }
+        { expiresIn: '24h' } // DEV MODE - 24 hours
       );
 
       console.log(`🔄 Token refreshed for user: ${user.email}`);
@@ -298,7 +298,7 @@ export const AuthMutation = {
       return {
         accessToken: newAccessToken,
         refreshToken, // Return same refresh token
-        expiresIn: 900,
+        expiresIn: 86400, // 24 hours in seconds (DEV MODE)
         user: {
           id: user.id,
           username: user.username,

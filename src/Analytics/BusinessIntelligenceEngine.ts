@@ -1,4 +1,4 @@
-import { deterministicRandom } from "../../shared/deterministic-utils.js";
+import { deterministicRandom } from "../shared/deterministic-utils.js";
 /**
  * 💼 PHASE 4: BUSINESS INTELLIGENCE FEATURES
  * Advanced analytics and decision support system

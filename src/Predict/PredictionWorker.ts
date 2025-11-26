@@ -1,4 +1,4 @@
-import { deterministicRandom } from "../../shared/deterministic-utils.js";
+import { deterministicRandom } from "../shared/deterministic-utils.js";
 /**
  * 🎯 APOLLO PREDICTION WORKER THREAD
  * By PunkClaude - Operación 1: Hilos de Apolo

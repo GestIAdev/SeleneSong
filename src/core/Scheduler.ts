@@ -1,4 +1,4 @@
-import { deterministicRandom } from "../../shared/deterministic-utils.js";
+import { deterministicRandom } from "../shared/deterministic-utils.js";
 /**
  * ⏰ SELENE SCHEDULER - AUTOMATED TASKS MODULE
  * By PunkClaude & RaulVisionario - September 18, 2025

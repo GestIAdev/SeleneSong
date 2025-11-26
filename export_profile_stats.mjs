@@ -1,4 +1,4 @@
-import { MusicalConsensusRecorder } from './dist/src/swarm/music/MusicalConsensusRecorder.js';
+import { MusicalConsensusRecorder } from './dist/swarm/music/MusicalConsensusRecorder.js';
 
 const recorder = new MusicalConsensusRecorder();
 const stats = recorder.exportProfileStats();

@@ -174,11 +174,13 @@ export class SelenePubSub {
     const current = this.activeSubscriptions.get(topic) || 0;
     this.activeSubscriptions.set(topic, current);
 
-    // Log metrics to monitoring
-    this.monitoring.logMetric("pubsub_events_published", 1, {
-      topic,
-      timestamp: new Date().toISOString(),
-    });
+    // Log metrics to monitoring (if available)
+    if (this.monitoring?.logMetric) {
+      this.monitoring.logMetric("pubsub_events_published", 1, {
+        topic,
+        timestamp: new Date().toISOString(),
+      });
+    }
   }
 
   /**

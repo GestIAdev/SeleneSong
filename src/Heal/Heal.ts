@@ -1,4 +1,4 @@
-import { deterministicRandom } from "../../shared/deterministic-utils.js";
+import { deterministicRandom } from "../shared/deterministic-utils.js";
 import { EventEmitter } from "events"; // 🚀 PHASE 2.1.3a: EventEmitter-based locking
 /**
  * 🔧 SELENE AUTO-HEALING - INTELLIGENT SELF-REPAIR SYSTEM

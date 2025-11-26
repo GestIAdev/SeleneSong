@@ -1,4 +1,4 @@
-const { SeleneConsciousness } = require('../dist/src/consciousness/SeleneConsciousness');
+const { SeleneConsciousness } = require('../dist/consciousness/SeleneConsciousness');
 
 /**
  * 🧠 TEST: VERIFICACIÓN DE INICIALIZACIÓN DE ENGINES DE DEPREDACIÓN EN ESTADO TRANSCENDENT

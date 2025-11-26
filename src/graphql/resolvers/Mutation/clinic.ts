@@ -104,14 +104,14 @@ export async function selectClinic(
         organizationName: user.organization_name || user.organizationName
       },
       JWT_SECRET,
-      { expiresIn: '15m' }
+      { expiresIn: '24h' } // DEV MODE
     );
 
     console.log(`🎉 Owner ${user.email} entered clinic: ${clinic.name}`);
 
     return {
       accessToken: newAccessToken,
-      expiresIn: 900,
+      expiresIn: 86400, // 24 hours (DEV MODE)
       user: {
         id: user.userId,
         email: user.email,
@@ -196,14 +196,14 @@ export async function exitClinic(
         organizationName: user.organization_name || user.organizationName
       },
       JWT_SECRET,
-      { expiresIn: '15m' }
+      { expiresIn: '24h' } // DEV MODE
     );
 
     console.log(`🎉 Owner ${user.email} returned to lobby`);
 
     return {
       accessToken: newAccessToken,
-      expiresIn: 900,
+      expiresIn: 86400, // 24 hours (DEV MODE)
       user: {
         id: user.userId,
         email: user.email,

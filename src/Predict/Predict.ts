@@ -1,4 +1,4 @@
-import { deterministicRandom } from "../../shared/deterministic-utils.js";
+import { deterministicRandom } from "../shared/deterministic-utils.js";
 /**
  * 🎯 SELENE AUTO-PREDICTION - INTELLIGENT PREDICTIVE SYSTEM
  * Integrated with Selene Veritas for verified historical data

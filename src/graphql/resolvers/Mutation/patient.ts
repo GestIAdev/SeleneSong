@@ -6,6 +6,16 @@ import { GraphQLContext } from "../../types.js";
 import { requireClinicAccess } from "../../utils/clinicHelpers.js";
 
 export const patientMutations = {
+  // 🔥 CREATE PATIENT (LEGACY ALIAS) - Calls createPatientV3 internally
+  createPatient: async (
+    _: any,
+    { input }: any,
+    context: any,
+  ) => {
+    console.log("🔄 [PATIENT] createPatient (legacy) - Forwarding to createPatientV3");
+    return patientMutations.createPatientV3(_, { input }, context);
+  },
+
   // 🔥 CREATE PATIENT V3 - FOUR-GATE PATTERN (GATE 1 + 3 + 4) + EMPIRE V2
   createPatientV3: async (
     _: any,
@@ -65,15 +75,14 @@ export const patientMutations = {
 
       // ✅ GATE 4: AUDITORÍA - Log to audit trail
       if (auditLogger) {
-        await auditLogger.logMutation({
-          entityType: 'PatientV3',
-          entityId: patient.id,
-          operationType: 'CREATE',
-          userId: user?.id,
-          userEmail: user?.email,
-          ipAddress: ip,
-          newValues: { ...patient, clinicId }, // Include clinic context in audit
-        });
+        await auditLogger.logCreate(
+          'PatientV3',           // entityType
+          patient.id,            // entityId
+          { ...patient, clinicId }, // newValues
+          user?.id,              // userId
+          user?.email,           // userEmail
+          ip                     // ipAddress
+        );
         console.log("✅ GATE 4 (Auditoría) - Mutation logged");
       }
 
@@ -89,6 +98,28 @@ export const patientMutations = {
       console.error("❌ createPatientV3 error:", error);
       throw new Error(`Failed to create patient: ${(error as Error).message}`);
     }
+  },
+
+  // 🔥 UPDATE PATIENT (LEGACY ALIAS) - Calls updatePatientV3 internally
+  updatePatient: async (
+    _: any,
+    { id, input }: any,
+    context: any,
+  ) => {
+    console.log("🔄 [PATIENT] updatePatient (legacy) - Forwarding to updatePatientV3");
+    return patientMutations.updatePatientV3(_, { id, input }, context);
+  },
+
+  // 🔥 DELETE PATIENT (LEGACY ALIAS) - Returns Boolean per schema definition
+  deletePatient: async (
+    _: any,
+    { id }: any,
+    context: any,
+  ) => {
+    console.log("🔄 [PATIENT] deletePatient (legacy) - Forwarding to deletePatientV3");
+    const result = await patientMutations.deletePatientV3(_, { id }, context);
+    // Schema expects Boolean!, deletePatientV3 returns { success, message }
+    return result?.success ?? true;
   },
 
   // 🔥 UPDATE PATIENT V3 - FOUR-GATE PATTERN (GATE 1 + 3 + 4) + EMPIRE V2
@@ -153,17 +184,16 @@ export const patientMutations = {
 
       // ✅ GATE 4: AUDITORÍA - Log to audit trail
       if (auditLogger) {
-        await auditLogger.logMutation({
-          entityType: 'PatientV3',
-          entityId: id,
-          operationType: 'UPDATE',
-          userId: user?.id,
-          userEmail: user?.email,
-          ipAddress: ip,
-          oldValues: oldPatient,
-          newValues: { ...patient, clinicId }, // Include clinic context
-          changedFields: Object.keys(input),
-        });
+        await auditLogger.logUpdate(
+          'PatientV3',
+          id,
+          oldPatient,
+          { ...patient, clinicId },
+          Object.keys(input),
+          user?.id,
+          user?.email,
+          ip
+        );
         console.log("✅ GATE 4 (Auditoría) - Mutation logged");
       }
 
@@ -234,21 +264,20 @@ export const patientMutations = {
 
       // ✅ GATE 4: AUDITORÍA - Log to audit trail
       if (auditLogger) {
-        await auditLogger.logMutation({
-          entityType: 'PatientV3',
-          entityId: id,
-          operationType: 'DELETE',
-          userId: user?.id,
-          userEmail: user?.email,
-          ipAddress: ip,
-          oldValues: { 
+        await auditLogger.logSoftDelete(
+          'PatientV3',
+          id,
+          { 
             patientId: id,
             clinicId: clinicId,
             wasActive: accessRecord.is_active,
             firstVisitDate: accessRecord.first_visit_date,
             action: 'UNLINKED_FROM_CLINIC'
           },
-        });
+          user?.id,
+          user?.email,
+          ip
+        );
         console.log("✅ GATE 4 (Auditoría) - Mutation logged");
       }
 

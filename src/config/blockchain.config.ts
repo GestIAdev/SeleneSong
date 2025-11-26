@@ -54,7 +54,7 @@ export const NETWORKS: Record<SupportedNetwork, NetworkConfig> = {
   sepolia: {
     name: 'Sepolia Testnet',
     chainId: 11155111,
-    rpcUrl: process.env.SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
+    rpcUrl: process.env.SEPOLIA_RPC_URL || 'https://1rpc.io/sepolia',
     blockExplorer: 'https://sepolia.etherscan.io',
     nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
   },

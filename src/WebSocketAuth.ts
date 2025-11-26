@@ -1,4 +1,4 @@
-import { deterministicRandom } from "../shared/deterministic-utils.js";
+import { deterministicRandom } from "./shared/deterministic-utils.js";
 /**
  * 🔐 SELENE SONG CORE WEBSOCKET AUTHENTICATION
  * By PunkClaude & RaulVisionario - September 23, 2025
@@ -7,7 +7,7 @@ import { deterministicRandom } from "../shared/deterministic-utils.js";
  * TARGET: JWT-based authentication with role-based access control
  */
 
-import * as jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 
 // import { MonitoringOrchestrator } from "../Monitoring/MonitoringOrchestrator.js";
 
@@ -58,14 +58,18 @@ export class WebSocketAuth {
 
       if (!decoded) {
         console.log(`❌ Invalid JWT token for connection: ${connectionId}`);
-        this.monitoring.logError(
-          "WebSocket authentication failed",
-          new Error("Invalid JWT token"),
-          {
-            connectionId,
-            tokenProvided: !!authToken,
-          },
-        );
+        
+        // Safe monitoring call
+        if (this.monitoring?.logError) {
+          this.monitoring.logError(
+            "WebSocket authentication failed",
+            new Error("Invalid JWT token"),
+            {
+              connectionId,
+              tokenProvided: !!authToken,
+            },
+          );
+        }
         return this.createUnauthenticatedContext(connectionId);
       }
 
@@ -87,11 +91,15 @@ export class WebSocketAuth {
       console.log(
         `✅ WebSocket connection authenticated: ${connectionId}, user: ${authContext.user?.email}`,
       );
-      this.monitoring.logMetric("websocket_auth_success", 1, {
-        connectionId,
-        userId: authContext.user?.id,
-        role: authContext.user?.role,
-      });
+      
+      // Safe monitoring call (monitoring may be null or lack logMetric)
+      if (this.monitoring?.logMetric) {
+        this.monitoring.logMetric("websocket_auth_success", 1, {
+          connectionId,
+          userId: authContext.user?.id,
+          role: authContext.user?.role,
+        });
+      }
 
       return authContext;
     } catch (error) {
@@ -99,13 +107,17 @@ export class WebSocketAuth {
       `💥 WebSocket authentication error for ${connectionId}:`,
       error as Error,
       );
-      this.monitoring.logError(
-        "WebSocket authentication error",
-        error as Error,
-        {
-          connectionId,
-        },
-      );
+      
+      // Safe monitoring call
+      if (this.monitoring?.logError) {
+        this.monitoring.logError(
+          "WebSocket authentication error",
+          error as Error,
+          {
+            connectionId,
+          },
+        );
+      }
       return this.createUnauthenticatedContext(connectionId);
     }
   }

@@ -26,7 +26,7 @@ export async function verifyAuthToken(token: string): Promise<any> {
  * 🔒 SECURITY UPGRADE: Soporta httpOnly cookies + Bearer token (fallback)
  * Agrega user al request.user si JWT válido
  */
-export function authMiddleware(req: Request, _res: Response, next: NextFunction): void {
+export async function authMiddleware(req: Request, _res: Response, next: NextFunction): Promise<void> {
   try {
     let token: string | null = null;
 
@@ -56,41 +56,41 @@ export function authMiddleware(req: Request, _res: Response, next: NextFunction)
       return;
     }
     
-    // Verify token asynchronously in background
-    verifyAuthToken(token).then(decoded => {
-      if (!decoded) {
-        console.log('❌ Invalid token');
-        (req as any).user = null;
-        return;
-      }
-
-      // ✅ Usuario autenticado
-      (req as any).user = {
-        userId: decoded.userId || decoded.id,
-        id: decoded.userId || decoded.id,
-        email: decoded.email,
-        role: decoded.role,
-        username: decoded.username,
-        firstName: decoded.firstName,
-        lastName: decoded.lastName,
-        permissions: decoded.permissions || ['read', 'write'],
-        
-        // 🏛️ EMPIRE ARCHITECTURE V2: Multi-tenant fields
-        is_owner: decoded.is_owner || decoded.isOwner || false,
-        clinic_id: decoded.clinic_id || decoded.clinicId || null,
-        current_clinic_id: decoded.current_clinic_id || decoded.currentClinicId || null,
-        organization_name: decoded.organization_name || decoded.organizationName || null
-      };
-
-      console.log(`✅ Auth middleware: User authenticated`);
-      console.log(`   Email: ${(req as any).user.email}`);
-      console.log(`   UserId: ${(req as any).user.userId}`);
-      console.log(`   Username: ${(req as any).user.username}`);
-    }).catch(err => {
-      console.error('💥 Auth verification error:', err);
+    // 🔥 FIX: Await token verification BEFORE calling next()
+    const decoded = await verifyAuthToken(token);
+    
+    if (!decoded) {
+      console.log('❌ Invalid token');
       (req as any).user = null;
-    });
+      next();
+      return;
+    }
 
+    // ✅ Usuario autenticado
+    (req as any).user = {
+      userId: decoded.userId || decoded.id,
+      id: decoded.userId || decoded.id,
+      email: decoded.email,
+      role: decoded.role,
+      username: decoded.username,
+      firstName: decoded.firstName,
+      lastName: decoded.lastName,
+      permissions: decoded.permissions || ['read', 'write'],
+      
+      // 🏛️ EMPIRE ARCHITECTURE V2: Multi-tenant fields
+      is_owner: decoded.is_owner || decoded.isOwner || false,
+      clinic_id: decoded.clinic_id || decoded.clinicId || null,
+      current_clinic_id: decoded.current_clinic_id || decoded.currentClinicId || null,
+      organization_name: decoded.organization_name || decoded.organizationName || null
+    };
+
+    console.log(`✅ Auth middleware: User authenticated`);
+    console.log(`   Email: ${(req as any).user.email}`);
+    console.log(`   Role: ${(req as any).user.role}`);
+    console.log(`   ClinicId: ${(req as any).user.clinic_id}`);
+    console.log(`   UserId: ${(req as any).user.userId}`);
+    console.log(`   Username: ${(req as any).user.username}`);
+    
     next();
   } catch (error) {
     console.error('💥 Auth middleware error:', error);

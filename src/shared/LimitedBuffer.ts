@@ -6,7 +6,6 @@
  * máximo y rotación automática para todos los componentes Selene
  */
 
-
 export interface BufferOptions {
   maxSize: number;
   onOverflow?: "rotate" | "reject" | "compress";
@@ -33,7 +32,6 @@ export class LimitedBuffer<T> {
 
   constructor(id: string, options: BufferOptions) {
     this.id = id;
-    
     this.options = {
       maxSize: options.maxSize,
       onOverflow: options.onOverflow || "rotate",
@@ -53,8 +51,7 @@ export class LimitedBuffer<T> {
     };
 
     console.log(
-      "BUFFER",
-      `LimitedBuffer[${this.id}] created: limit=${this.options.maxSize}, overflow=${this.options.onOverflow}`,
+      `📦 LimitedBuffer[${this.id}]: Creado con límite ${this.options.maxSize}, modo: ${this.options.onOverflow}`,
     );
   }
 
@@ -70,9 +67,8 @@ export class LimitedBuffer<T> {
       this.buffer.length >=
       this.options.maxSize * this.options.warningThreshold
     ) {
-      console.log(
-        "BUFFER",
-        `LimitedBuffer[${this.id}] near limit: ${this.buffer.length}/${this.options.maxSize}`,
+      console.warn(
+        `⚠️ LimitedBuffer[${this.id}]: Cerca del límite (${this.buffer.length}/${this.options.maxSize})`,
       );
     }
 
@@ -105,9 +101,7 @@ export class LimitedBuffer<T> {
 
       default:
         console.error(
-          "BUFFER",
-          `Unknown overflow strategy: ${this.options.onOverflow}`,
-          new Error(`LimitedBuffer[${this.id}] invalid overflow strategy`)
+          `❌ LimitedBuffer[${this.id}]: Estrategia de overflow desconocida: ${this.options.onOverflow}`,
         );
         return false;
     }
@@ -127,8 +121,7 @@ export class LimitedBuffer<T> {
     this.stats.currentSize = this.buffer.length;
 
     console.log(
-      "BUFFER",
-      `LimitedBuffer[${this.id}] rotated: overflow=${this.stats.overflowCount}`,
+      `🔄 LimitedBuffer[${this.id}]: Rotación ejecutada (overflow ${this.stats.overflowCount})`,
     );
     return true;
   }
@@ -138,8 +131,7 @@ export class LimitedBuffer<T> {
    */
   private handleRejectOverflow(_newItem: T): boolean {
     console.log(
-      "BUFFER",
-      `LimitedBuffer[${this.id}] rejected: overflow=${this.stats.overflowCount}`,
+      `❌ LimitedBuffer[${this.id}]: Elemento rechazado por overflow (${this.stats.overflowCount})`,
     );
     return false;
   }
@@ -166,8 +158,7 @@ export class LimitedBuffer<T> {
 
       this.stats.compressionEvents++;
       console.log(
-        "BUFFER",
-        `LimitedBuffer[${this.id}] compressed: removed=${itemsToRemove}`,
+        `🗜️ LimitedBuffer[${this.id}]: Compresión ejecutada, ${itemsToRemove} elementos removidos`,
       );
     }
 
@@ -245,8 +236,7 @@ export class LimitedBuffer<T> {
     this.stats.lastAccess = Date.now();
 
     console.log(
-      "BUFFER",
-      `LimitedBuffer[${this.id}] cleared: removed=${removedCount}`,
+      `🧹 LimitedBuffer[${this.id}]: Buffer limpiado (${removedCount} elementos removidos)`,
     );
   }
 
@@ -270,8 +260,7 @@ export class LimitedBuffer<T> {
 
     if (removedCount > 0) {
       console.log(
-        "BUFFER",
-        `LimitedBuffer[${this.id}] removed by condition: count=${removedCount}`,
+        `🗑️ LimitedBuffer[${this.id}]: ${removedCount} elementos removidos por condición`,
       );
     }
 
@@ -342,13 +331,11 @@ export class LimitedBuffer<T> {
       });
 
       console.log(
-        "BUFFER",
-        `LimitedBuffer[${this.id}] resized: ${oldMaxSize}→${newMaxSize}, removed=${itemsToRemove}`,
+        `📏 LimitedBuffer[${this.id}]: Redimensionado de ${oldMaxSize} a ${newMaxSize}, ${itemsToRemove} elementos removidos`,
       );
     } else {
       console.log(
-        "BUFFER",
-        `LimitedBuffer[${this.id}] resized: ${oldMaxSize}→${newMaxSize}`,
+        `📏 LimitedBuffer[${this.id}]: Redimensionado de ${oldMaxSize} a ${newMaxSize}`,
       );
     }
 
@@ -385,6 +372,9 @@ export class BufferFactory {
       warningThreshold: 0.9,
       onItemRemoved: (_item) => {
         // Los logs removidos pueden ir a archivo si se necesita
+        console.debug(
+          `📝 Log buffer item removed: ${JSON.stringify(_item).substring(0, 100)}...`,
+        );
       },
     });
   }
@@ -402,7 +392,9 @@ export class BufferFactory {
       compressionRatio: 0.6,
       warningThreshold: 0.85,
       onItemRemoved: (_item) => {
-        // Events removed silently
+        console.debug(
+          `📅 Event buffer item removed: ${JSON.stringify(_item).substring(0, 50)}...`,
+        );
       },
     });
   }
@@ -419,7 +411,9 @@ export class BufferFactory {
       onOverflow: "reject",
       warningThreshold: 0.95,
       onItemRemoved: (_item) => {
-        // Cache items removed silently
+        console.debug(
+          `💾 Cache buffer item removed: ${JSON.stringify(_item).substring(0, 50)}...`,
+        );
       },
     });
   }
@@ -443,5 +437,3 @@ export class BufferFactory {
 }
 
 export default LimitedBuffer;
-
-

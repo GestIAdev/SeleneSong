@@ -1,4 +1,4 @@
-import { deterministicRandom } from "../../shared/deterministic-utils.js";
+import { deterministicRandom } from "../shared/deterministic-utils.js";
 /**
  * 📊 PHASE 4: PREDICTIVE ANALYTICS DASHBOARD
  * Real-time medical insights and predictions dashboard

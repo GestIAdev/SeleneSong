@@ -9,7 +9,6 @@
 import { EventEmitter } from "events";
 import { timerManager } from "./TimerManager.js";
 
-
 export interface ComponentCleanupable {
   cleanup(): Promise<void> | void;
   getId(): string;
@@ -338,7 +337,7 @@ export class ComponentLifecycleManager {
             `🧹 Listener obsoleto removido: ${componentId}:${stale.event}`,
           );
         } catch (error) {
-          console.error("Error removiendo listener obsoleto:", error as Error);
+          console.error("Error removiendo listener obsoleto:", error);
         }
       }
     }
@@ -424,5 +423,3 @@ process.on("SIGTERM", async () => {
 });
 
 export default lifecycleManager;
-
-

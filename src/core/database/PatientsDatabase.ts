@@ -201,8 +201,10 @@ export class PatientsDatabase extends BaseDatabase {
         `
         INSERT INTO patients (
           id, first_name, last_name, email, phone_primary, date_of_birth,
-          address_country, medical_history, is_active, created_at, updated_at
-        ) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+          address_country, medical_history, 
+          emergency_contact_name, emergency_contact_phone, emergency_contact_relationship,
+          is_active, created_at, updated_at
+        ) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
         RETURNING *
       `,
         [
@@ -213,6 +215,9 @@ export class PatientsDatabase extends BaseDatabase {
           patientData.dateOfBirth || patientData.date_of_birth,
           "México", // Default country
           patientData.medicalHistory || patientData.medical_history || "",
+          patientData.emergencyContactName || patientData.emergency_contact_name || null,
+          patientData.emergencyContactPhone || patientData.emergency_contact_phone || null,
+          patientData.emergencyContactRelationship || patientData.emergency_contact_relationship || null,
           true, // is_active default to true
         ],
       );

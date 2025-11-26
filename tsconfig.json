@@ -4,7 +4,7 @@
     "module": "NodeNext",
     "lib": ["ES2020", "ES2021.WeakRef", "dom"],
     "outDir": "./dist",
-    "rootDir": ".",
+    "rootDir": "./src",
     "strict": false,               // TEMPORAL: Permitir compilación con errores de tipo (DIRECTIVA 27.10.25-F-PM2.3)
     "noImplicitAny": false,        // TEMPORAL: Permitir any implícito
     "strictNullChecks": false,      // TEMPORAL: Permitir null/undefined sin check
@@ -24,9 +24,8 @@
     "ignoreDeprecations": "5.0"
   },
   "include": [
-    "src/**/*.ts",
-    "index.ts"
-, "src/core/Database.ts.deprecated"  ],
+    "src/**/*.ts"
+  ],
   "exclude": [
     "node_modules",
     "dist",

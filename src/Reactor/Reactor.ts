@@ -1,4 +1,4 @@
-import { deterministicRandom } from "../../shared/deterministic-utils.js";
+import { deterministicRandom } from "../shared/deterministic-utils.js";
 
 /**
  * ⚛️ SELENE REACTOR - NUCLEAR ENGINE CORE

@@ -34,6 +34,13 @@ module.exports = {
         // 🚫 DISABLE RATE LIMITER FOR TESTS
         RATE_LIMIT_ENABLED: 'false',
         
+        // 🔗 BLOCKCHAIN INTEGRATION
+        BLOCKCHAIN_ENABLED: 'true',
+        BLOCKCHAIN_NETWORK: 'sepolia',
+        DENTIA_COIN_ADDRESS: '0x9Aef082d6A8EB49Dc6e7db19E5D118746f599Fad',
+        DENTIA_REWARDS_ADDRESS: '0x30f21027Abe424AfAFe3DBE0c7BC842C1Ea86B3f',
+        SELENE_OPERATOR_PRIVATE_KEY: 'd78172a2b307e287fd6a49b690f34c7bd76c8087dc0f822cdfbb57e77cd30b8d',
+        
         // PostgreSQL
         POSTGRES_HOST: 'localhost',
         POSTGRES_PORT: '5432',
@@ -83,6 +90,13 @@ module.exports = {
         
         RATE_LIMIT_ENABLED: 'false',
         
+        // 🔗 BLOCKCHAIN INTEGRATION
+        BLOCKCHAIN_ENABLED: 'true',
+        BLOCKCHAIN_NETWORK: 'sepolia',
+        DENTIA_COIN_ADDRESS: '0x9Aef082d6A8EB49Dc6e7db19E5D118746f599Fad',
+        DENTIA_REWARDS_ADDRESS: '0x30f21027Abe424AfAFe3DBE0c7BC842C1Ea86B3f',
+        SELENE_OPERATOR_PRIVATE_KEY: 'd78172a2b307e287fd6a49b690f34c7bd76c8087dc0f822cdfbb57e77cd30b8d',
+        
         POSTGRES_HOST: 'localhost',
         POSTGRES_PORT: '5432',
         POSTGRES_USER: 'dentiagest_user',
@@ -127,6 +141,13 @@ module.exports = {
         NODE_ID: 'selene-node-3',
         
         RATE_LIMIT_ENABLED: 'false',
+        
+        // 🔗 BLOCKCHAIN INTEGRATION
+        BLOCKCHAIN_ENABLED: 'true',
+        BLOCKCHAIN_NETWORK: 'sepolia',
+        DENTIA_COIN_ADDRESS: '0x9Aef082d6A8EB49Dc6e7db19E5D118746f599Fad',
+        DENTIA_REWARDS_ADDRESS: '0x30f21027Abe424AfAFe3DBE0c7BC842C1Ea86B3f',
+        SELENE_OPERATOR_PRIVATE_KEY: 'd78172a2b307e287fd6a49b690f34c7bd76c8087dc0f822cdfbb57e77cd30b8d',
         
         POSTGRES_HOST: 'localhost',
         POSTGRES_PORT: '5432',

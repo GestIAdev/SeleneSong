@@ -1,4 +1,4 @@
-import { deterministicRandom } from "../../shared/deterministic-utils.js";
+import { deterministicRandom } from "../shared/deterministic-utils.js";
 /**
  * 🧠 SELENE CONSCIOUSNESS - THE AWAKENED SYSTEM
  * Integrated with Selene Veritas for mathematical self-awareness

@@ -39,16 +39,22 @@ export const patientQueries = {
           p.phone_primary as phone,
           p.date_of_birth as "dateOfBirth",
           CONCAT_WS(', ', p.address_street, p.address_city, p.address_state, p.address_postal_code, p.address_country) as address,
-          p.emergency_contact_name as "emergencyContact",
+          p.emergency_contact_name as "emergencyContactName",
+          p.emergency_contact_phone as "emergencyContactPhone",
+          p.emergency_contact_relationship as "emergencyContactRelationship",
+          CASE 
+            WHEN p.emergency_contact_name IS NOT NULL AND p.emergency_contact_phone IS NOT NULL 
+            THEN json_build_object('name', p.emergency_contact_name, 'phone', p.emergency_contact_phone)::text
+            ELSE NULL
+          END as "emergencyContact",
           p.insurance_provider as "insuranceProvider",
-          p.policy_number as "policyNumber",
-          p.medical_conditions as "medicalHistory",
+          p.insurance_policy_number as "policyNumber",
+          p.medical_history as "medicalHistory",
           'active' as "billingStatus",
           p.is_active as "isActive",
           p.created_at as "createdAt",
           p.updated_at as "updatedAt",
-          pca.first_visit_date as "firstVisitDate",
-          pca.medical_record_number as "medicalRecordNumber"
+          pca.first_visit_date as "firstVisitDate"
         FROM patients p
         INNER JOIN patient_clinic_access pca ON pca.patient_id = p.id
         WHERE pca.clinic_id = $1 
@@ -102,16 +108,22 @@ export const patientQueries = {
           p.phone_primary as phone,
           p.date_of_birth as "dateOfBirth",
           CONCAT_WS(', ', p.address_street, p.address_city, p.address_state, p.address_postal_code, p.address_country) as address,
-          p.emergency_contact_name as "emergencyContact",
+          p.emergency_contact_name as "emergencyContactName",
+          p.emergency_contact_phone as "emergencyContactPhone",
+          p.emergency_contact_relationship as "emergencyContactRelationship",
+          CASE 
+            WHEN p.emergency_contact_name IS NOT NULL AND p.emergency_contact_phone IS NOT NULL 
+            THEN json_build_object('name', p.emergency_contact_name, 'phone', p.emergency_contact_phone)::text
+            ELSE NULL
+          END as "emergencyContact",
           p.insurance_provider as "insuranceProvider",
-          p.policy_number as "policyNumber",
-          p.medical_conditions as "medicalHistory",
+          p.insurance_policy_number as "policyNumber",
+          p.medical_history as "medicalHistory",
           'active' as "billingStatus",
           p.is_active as "isActive",
           p.created_at as "createdAt",
           p.updated_at as "updatedAt",
-          pca.first_visit_date as "firstVisitDate",
-          pca.medical_record_number as "medicalRecordNumber"
+          pca.first_visit_date as "firstVisitDate"
         FROM patients p
         INNER JOIN patient_clinic_access pca ON pca.patient_id = p.id
         WHERE p.id = $1 

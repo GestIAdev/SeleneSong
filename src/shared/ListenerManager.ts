@@ -8,7 +8,6 @@
 
 import { deterministicRandom } from "./deterministic-utils.js";
 
-
 export interface ListenerRef {
   id: string;
   emitter: any;
@@ -102,7 +101,7 @@ export class ListenerManager {
       this.stats.totalRemoved++;
       return true;
     } catch (error) {
-      console.warn(`Failed to remove listener ${listenerId}:`, error as Error);
+      console.warn(`Failed to remove listener ${listenerId}:`, error);
       return false;
     }
   }
@@ -165,5 +164,3 @@ export class ListenerManager {
 
 // Export singleton
 export const listenerManager = ListenerManager.getInstance();
-
-

@@ -29,99 +29,42 @@ export function resetDeterministicState(): void {
   state = DETERMINISTIC_SEED;
 }
 
-/**
- * 🔧 UTILIDADES DETERMINISTAS - ANTI-SIMULACIÓN
- *
- * Este módulo proporciona funciones deterministas que reemplazan cualquier uso de Math.random()
- * o generadores no deterministas. Todo aquí es reproducible y verificable.
- *
- * AXIOMA ANTI-SIMULACIÓN: Solo algoritmos puros, sin aleatoriedad.
- */
-
-function hashString(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // 32-bit integer
-  }
-  return Math.abs(hash);
+// 🆔 Generador de IDs deterministas (UUID-like)
+export function deterministicId(prefix: string = '', suffix: string | number = ''): string {
+  const hex = (len: number) => {
+    let result = '';
+    for (let i = 0; i < len; i++) {
+      result += Math.floor(deterministicRandom() * 16).toString(16);
+    }
+    return result;
+  };
+  const uuid = `${hex(8)}-${hex(4)}-${hex(4)}-${hex(4)}-${hex(12)}`;
+  return prefix ? `${prefix}_${uuid}${suffix ? '_' + suffix : ''}` : uuid;
 }
 
-/**
- * 🎯 GENERADOR DE IDs DETERMINISTAS
- *
- * Genera IDs únicos y reproducibles basados en datos deterministas.
- * Nunca usa Math.random() - solo hash determinista + timestamp.
- *
- * @param prefix - Prefijo descriptivo para el ID
- * @param data - Datos para generar el hash (string, number, o object)
- * @returns ID determinista único
- */
-export function deterministicId(prefix: string, data: string | number | object): string {
-  const dataString = typeof data === 'object' ? JSON.stringify(data) : String(data);
-  const timestamp = Date.now(); // Incluir timestamp para unicidad temporal
-  const hashInput = `${prefix}-${dataString}-${timestamp}`;
-  const hash = hashString(hashInput);
-  // Convertir hash a base36 y añadir timestamp para asegurar unicidad
-  return `${prefix}_${timestamp.toString(36)}_${hash.toString(36)}`;
-}
-
-/**
- * 🎨 GENERADOR DE RUIDO DETERMINISTA
- *
- * Genera ruido pseudo-aleatorio reproducible basado en coordenadas y tiempo.
- * Útil para animaciones procedurales deterministas.
- *
- * @param x - Coordenada X
- * @param y - Coordenada Y (opcional)
- * @param time - Factor temporal para animación
- * @param seed - Semilla adicional para variación
- * @returns Valor de ruido entre 0 y 1
- */
+// 🌊 Noise determinista simple (para visualizaciones)
+// Soporta firma: (x, y?, time?, seed?)
 export function deterministicNoise(x: number, y: number = 0, time: number = 0, seed: string = ''): number {
-  const input = `${seed}_${x.toFixed(2)}_${y.toFixed(2)}_${time.toFixed(2)}`;
-  const hash = hashString(input);
-  return (hash % 1000000) / 1000000; // Normalizar a 0-1
+  // Hash del seed para variar el resultado
+  const seedHash = seed ? seed.split('').reduce((a, c) => a + c.charCodeAt(0), 0) * 0.001 : 0;
+  // Simple hash-based noise con tiempo y seed
+  const hash = Math.sin((x + seedHash) * 12.9898 + y * 78.233 + time * 0.1) * 43758.5453;
+  return hash - Math.floor(hash);
 }
 
-/**
- * 🌊 GENERADOR DE RUIDO PERLIN-SIMPLE DETERMINISTA
- *
- * Implementación simple de ruido Perlin determinista.
- * Crea gradientes suaves para animaciones orgánicas.
- *
- * @param x - Coordenada X
- * @param y - Coordenada Y
- * @param time - Factor temporal
- * @param seed - Semilla para variación
- * @returns Valor de ruido Perlin entre 0 y 1
- */
-export function deterministicPerlinNoise(x: number, y: number = 0, time: number = 0, seed: string = ''): number {
-  // Gradientes en las esquinas del cuadrado
-  const x0 = Math.floor(x);
-  const x1 = x0 + 1;
-  const y0 = Math.floor(y);
-  const y1 = y0 + 1;
-
-  // Vectores de gradiente deterministas
-  const g00 = deterministicNoise(x0, y0, time, `${seed}_g00`) * 2 - 1;
-  const g10 = deterministicNoise(x1, y0, time, `${seed}_g10`) * 2 - 1;
-  const g01 = deterministicNoise(x0, y1, time, `${seed}_g01`) * 2 - 1;
-  const g11 = deterministicNoise(x1, y1, time, `${seed}_g11`) * 2 - 1;
-
-  // Función de interpolación suave
-  const fade = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
-
-  const u = fade(x - x0);
-  const v = fade(y - y0);
-
-  // Interpolación bilineal
-  const n00 = g00 * (x - x0) + g10 * (x1 - x);
-  const n10 = g01 * (x - x0) + g11 * (x1 - x);
-  const n = n00 * (y - y0) + n10 * (y1 - y);
-
-  return (n + 1) / 2; // Normalizar a 0-1
+// 🎭 Perlin noise simplificado determinista
+export function deterministicPerlinNoise(x: number, y: number = 0, octaves: number = 4, seed: string = ''): number {
+  let value = 0;
+  let amplitude = 1;
+  let frequency = 1;
+  let maxValue = 0;
+  
+  for (let i = 0; i < octaves; i++) {
+    value += deterministicNoise(x * frequency, y * frequency, 0, seed) * amplitude;
+    maxValue += amplitude;
+    amplitude *= 0.5;
+    frequency *= 2;
+  }
+  
+  return value / maxValue;
 }
-
-

@@ -67,15 +67,14 @@ export const createBillingDataV3 = async (
     // ✅ GATE 4: AUDITORÍA - Log to audit trail (NON-BLOCKING)
     if (context.auditLogger) {
       try {
-        await context.auditLogger.logMutation({
-          entityType: 'BillingDataV3',
-          entityId: billingData.id,
-          operationType: 'CREATE',
-          userId: context.user?.id,
-          userEmail: context.user?.email,
-          ipAddress: context.ip,
-          newValues: billingData,
-        });
+        await context.auditLogger.logCreate(
+          'BillingDataV3',
+          billingData.id,
+          billingData,
+          context.user?.id,
+          context.user?.email,
+          context.ip
+        );
         console.log("✅ GATE 4 (Auditoría) - Mutation logged");
       } catch (auditError) {
         console.warn("⚠️ GATE 4 (Auditoría) - Logging failed (non-blocking):", (auditError as Error).message);
@@ -130,17 +129,15 @@ export const updateBillingDataV3 = async (
 
     // ✅ GATE 4: AUDITORÍA - Log to audit trail
     if (context.auditLogger) {
-      await context.auditLogger.logMutation({
-        entityType: 'BillingDataV3',
-        entityId: args.id,
-        operationType: 'UPDATE',
-        userId: context.user?.id,
-        userEmail: context.user?.email,
-        ipAddress: context.ip,
-        oldValues: oldBillingData,
-        newValues: billingData,
-        changedFields: Object.keys(args.input),
-      });
+      await context.auditLogger.logUpdate(
+        'BillingDataV3',
+        args.id,
+        oldBillingData,
+        billingData,
+        context.user?.id,
+        context.user?.email,
+        context.ip
+      );
       console.log("✅ GATE 4 (Auditoría) - Mutation logged");
     }
 
@@ -189,15 +186,14 @@ export const deleteBillingDataV3 = async (
 
     // ✅ GATE 4: AUDITORÍA - Log to audit trail
     if (context.auditLogger) {
-      await context.auditLogger.logMutation({
-        entityType: 'BillingDataV3',
-        entityId: args.id,
-        operationType: 'DELETE',
-        userId: context.user?.id,
-        userEmail: context.user?.email,
-        ipAddress: context.ip,
-        oldValues: oldBillingData,
-      });
+      await context.auditLogger.logDelete(
+        'BillingDataV3',
+        args.id,
+        oldBillingData,
+        context.user?.id,
+        context.user?.email,
+        context.ip
+      );
       console.log("✅ GATE 4 (Auditoría) - Mutation logged");
     }
 
