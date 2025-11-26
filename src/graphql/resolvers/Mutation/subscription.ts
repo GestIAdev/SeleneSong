@@ -6,6 +6,112 @@
 import type { GraphQLContext } from '../../types.js';
 
 // ============================================================================
+// HELPER: Get clinic_id from patient anchor (Directiva #007.5)
+// ============================================================================
+async function getPatientAnchorClinicId(
+  patientId: string,
+  context: GraphQLContext
+): Promise<string | null> {
+  try {
+    const result = await context.database.executeQuery(
+      `SELECT clinic_id FROM patient_clinic_access 
+       WHERE patient_id = $1 AND is_active = true 
+       ORDER BY created_at DESC LIMIT 1`,
+      [patientId]
+    );
+    return result.rows[0]?.clinic_id || null;
+  } catch (error) {
+    console.error('⚠️ Failed to get patient anchor:', error);
+    return null;
+  }
+}
+
+// ============================================================================
+// HELPER: Generate automatic billing for new subscription (ENDER-D1-007)
+// Usa BillingDatabase.createBillingDataV3 (clase tipada, NO wrappers legacy)
+// ============================================================================
+async function generateBillingForSubscription(
+  subscriptionId: string,
+  patientId: string,
+  plan: any,
+  planClinicId: string | null,
+  context: GraphQLContext
+): Promise<any> {
+  // ════════════════════════════════════════════════════════════════════════
+  // 🎯 DIRECTIVA #007.5: PROTOCOLO DE ANCLAJE
+  // El dinero siempre es LOCAL. Si el plan es global, buscar dónde está
+  // anclado el paciente. El billing REQUIERE clinic_id.
+  // ════════════════════════════════════════════════════════════════════════
+  let clinicId = planClinicId;
+  
+  if (!clinicId) {
+    console.log('🔍 [ANCLAJE] Plan GLOBAL - buscando clinic_id del paciente...');
+    clinicId = await getPatientAnchorClinicId(patientId, context);
+    
+    if (!clinicId) {
+      console.error('❌ [ANCLAJE] Paciente sin anclaje a clínica. No se puede facturar.');
+      return null;
+    }
+    console.log(`✅ [ANCLAJE] Paciente anclado a clínica: ${clinicId}`);
+  }
+
+  const today = new Date();
+  const monthName = today.toLocaleString('es-ES', { month: 'long' });
+  
+  // Due date: 14 days from now
+  const dueDate = new Date(today);
+  dueDate.setDate(dueDate.getDate() + 14);
+  
+  // ════════════════════════════════════════════════════════════════════════
+  // 💰 BILLING INPUT (camelCase para BillingDatabase clase tipada)
+  // invoice_number se genera automáticamente por generateInvoiceNumber()
+  // ════════════════════════════════════════════════════════════════════════
+  const billingInput = {
+    patientId,
+    clinicId,  // 🏛️ EMPIRE V2: REQUIRED - viene del anclaje
+    subtotal: plan.price,
+    taxRate: 0,
+    taxAmount: 0,
+    discountAmount: 0,
+    totalAmount: plan.price,
+    currency: plan.currency || 'EUR',
+    issueDate: today.toISOString().split('T')[0],
+    dueDate: dueDate.toISOString().split('T')[0],
+    status: 'PENDING',
+    paymentTerms: `Suscripción ${plan.name} - ${monthName} ${today.getFullYear()}`,
+    notes: `Factura automática: Plan ${plan.name} (ID: ${subscriptionId.substring(0, 8)})`,
+    createdBy: context.user?.id || null,
+    // treatmentId: null - suscripciones no tienen tratamiento asociado
+  };
+  
+  console.log('💰 [BILLING HOOK] Creando factura:', {
+    subscriptionId: subscriptionId.substring(0, 8),
+    planName: plan.name,
+    amount: plan.price,
+    clinicId: clinicId.substring(0, 8) + '...'
+  });
+  
+  try {
+    // 🎯 Usar BillingDatabase.createBillingDataV3 (clase tipada)
+    const billing = await context.database.billing.createBillingDataV3(billingInput);
+    console.log(`✅ [BILLING HOOK] Factura creada: ${billing.invoice_number} (${billing.id})`);
+    
+    // Publish WebSocket event for Wall Street Terminal
+    if (context.pubsub) {
+      context.pubsub.publish('BILLING_DATA_V3_CREATED', {
+        billingDataV3Created: billing,
+      });
+    }
+    
+    return billing;
+  } catch (error) {
+    // Don't fail subscription creation if billing fails
+    console.error('❌ [BILLING HOOK] Failed to create billing:', (error as Error).message);
+    return null;
+  }
+}
+
+// ============================================================================
 // MUTATION RESOLVERS - FOUR-GATE PATTERN
 // ============================================================================
 
@@ -70,28 +176,55 @@ export const createSubscriptionV3 = async (
     }
     console.log("✅ GATE 2 (Plan Lookup) - Plan found:", plan.name, "| clinic_id:", plan.clinic_id || 'GLOBAL');
 
-    // VITALPASS LOGIC: Determine clinic_id from plan, not input
-    // - GLOBAL plans (clinic_id IS NULL): No anclaje needed, subscription is "floating"
-    // - Clinic-specific plans: Use plan's clinic_id
-    const effectiveClinicId = plan.clinic_id || null;
-    
-    // ⚓ ANCLAJE LOGIC (DIRECTIVA #007.5) - Only if plan has clinic_id
+    // ════════════════════════════════════════════════════════════════════════
+    // ⚓ DIRECTIVA #007.5: PROTOCOLO DE ANCLAJE
+    // Determinar clinic_id efectivo:
+    //   1. Si el input tiene clinicId → usarlo
+    //   2. Si el plan tiene clinic_id → usarlo  
+    //   3. Si no → buscar en patient_clinic_access (anclaje del paciente)
+    // El dinero SIEMPRE es local. Sin clinic_id = error.
+    // ════════════════════════════════════════════════════════════════════════
     const { patientId } = args.input;
-    if (effectiveClinicId) {
-      console.log(`⚓ ANCLAJE: Vinculando Paciente ${patientId} -> Clínica ${effectiveClinicId}`);
-      await context.database.anchorPatientToClinic(patientId, effectiveClinicId);
-    } else {
-      console.log(`🌍 GLOBAL PLAN: No anclaje needed for patient ${patientId}`);
+    let effectiveClinicId = args.input.clinicId || plan.clinic_id || null;
+    
+    if (!effectiveClinicId) {
+      console.log('🔍 [ANCLAJE] Buscando clinic_id del paciente...');
+      effectiveClinicId = await getPatientAnchorClinicId(patientId, context);
+      
+      if (!effectiveClinicId) {
+        throw new Error('Paciente sin anclaje a clínica. Debe registrarse primero en una clínica.');
+      }
+      console.log(`✅ [ANCLAJE] Paciente anclado a: ${effectiveClinicId}`);
     }
+    
+    // Anclar paciente a la clínica si aún no lo está
+    console.log(`⚓ ANCLAJE: Verificando vínculo Paciente ${patientId} -> Clínica ${effectiveClinicId}`);
+    await context.database.anchorPatientToClinic(patientId, effectiveClinicId);
 
     // ✅ GATE 3: TRANSACCIÓN DB - Real database operation
-    // Override clinicId with the plan's clinic_id (or null for global)
     const subscriptionInput = {
       ...args.input,
       clinicId: effectiveClinicId
     };
     const subscription = await context.database.createSubscriptionV3(subscriptionInput);
     console.log("✅ GATE 3 (Transacción DB) - Created:", subscription.id);
+
+    // ════════════════════════════════════════════════════════════════════════
+    // 💰 GATE 3.5: AUTOMATIC BILLING (ENDER-D1-007)
+    // Genera factura PENDING automáticamente al crear suscripción
+    // ════════════════════════════════════════════════════════════════════════
+    const billingResult = await generateBillingForSubscription(
+      subscription.id,
+      patientId,
+      plan,
+      effectiveClinicId,
+      context
+    );
+    if (billingResult) {
+      console.log("✅ GATE 3.5 (Billing Automático) - Invoice created:", billingResult.id);
+    } else {
+      console.log("⚠️ GATE 3.5 (Billing Automático) - Skipped or failed (non-blocking)");
+    }
 
     // ✅ GATE 4: AUDITORÍA - Log to audit trail (disabled for now - audit table schema mismatch)
     console.log("✅ GATE 4 (Auditoría) - Skipped (audit table schema mismatch)");
