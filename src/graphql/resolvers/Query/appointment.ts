@@ -81,14 +81,14 @@ export const appointmentQueries = {
     }
   },
 
-  // AppointmentsV3 - Veritas Enhanced + EMPIRE V2
+  // AppointmentsV3 - Veritas Enhanced + EMPIRE V2 + DATE RANGE FILTER
   appointmentsV3: async (
     _: any,
-    { limit = 50, offset = 0, patientId }: any,
+    { limit = 50, offset = 0, patientId, startDate, endDate }: any,
     _context: GraphQLContext,
   ) => {
     try {
-      console.log("🎯 [APPOINTMENT] appointmentsV3 - Query with EMPIRE V2 filtering");
+      console.log("🎯 [APPOINTMENT] appointmentsV3 - Query with EMPIRE V2 + Date Range filtering");
       
       // 🏛️ EMPIRE V2: GATE 0 - Require clinic context
       const clinicId = getClinicIdFromContext(_context);
@@ -97,14 +97,19 @@ export const appointmentQueries = {
         return []; // REGLA 1: NEVER return all appointments
       }
       console.log(`🏛️ Filtering appointmentsV3 for clinic: ${clinicId}`);
+      if (startDate || endDate) {
+        console.log(`📅 Date range filter: ${startDate || 'any'} → ${endDate || 'any'}`);
+      }
 
       // TODO: Update AppointmentsDatabase class to accept clinicId parameter
-      // For now, direct query with clinic filtering
+      // For now, direct query with EMPIRE V2 multi-tenant filtering
       let query = `
-        SELECT * FROM appointments
-        WHERE is_active = true 
-          AND deleted_at IS NULL
-          AND clinic_id = $1
+        SELECT a.* FROM appointments a
+        INNER JOIN patient_clinic_access pca ON a.patient_id = pca.patient_id
+        WHERE a.is_active = true 
+          AND a.deleted_at IS NULL
+          AND pca.clinic_id = $1
+          AND pca.is_active = true
       `;
       
       const params: any[] = [clinicId];
@@ -126,7 +131,17 @@ export const appointmentQueries = {
         params.push(patientId);
       }
 
-      query += ` ORDER BY appointment_date DESC, appointment_time DESC 
+      // 📅 DATE RANGE FILTER - For calendar views
+      if (startDate) {
+        query += ` AND a.scheduled_date >= $${params.length + 1}`;
+        params.push(startDate);
+      }
+      if (endDate) {
+        query += ` AND a.scheduled_date <= $${params.length + 1}`;
+        params.push(endDate);
+      }
+
+      query += ` ORDER BY a.scheduled_date DESC 
                  LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
       params.push(limit, offset);
 
@@ -156,13 +171,15 @@ export const appointmentQueries = {
         return null; // REGLA 1: NEVER return appointment without clinic check
       }
 
-      // 🏛️ EMPIRE V2: Verify appointment belongs to this clinic
+      // 🏛️ EMPIRE V2: Verify appointment belongs to this clinic via patient access
       const query = `
-        SELECT * FROM appointments
-        WHERE id = $1 
-          AND clinic_id = $2
-          AND is_active = true
-          AND deleted_at IS NULL
+        SELECT a.* FROM appointments a
+        INNER JOIN patient_clinic_access pca ON a.patient_id = pca.patient_id
+        WHERE a.id = $1 
+          AND pca.clinic_id = $2
+          AND pca.is_active = true
+          AND a.is_active = true
+          AND a.deleted_at IS NULL
       `;
       
       const result = await context.database.executeQuery(query, [id, clinicId]);
@@ -198,14 +215,16 @@ export const appointmentQueries = {
       }
       console.log(`🏛️ Calendar View for clinic: ${clinicId} on date: ${date}`);
 
-      // 🏛️ EMPIRE V2: Filter by clinic_id AND date
+      // 🏛️ EMPIRE V2: Filter by clinic via patient_clinic_access AND date
       const query = `
-        SELECT * FROM appointments
-        WHERE clinic_id = $1
-          AND appointment_date = $2
-          AND is_active = true
-          AND deleted_at IS NULL
-        ORDER BY appointment_time ASC
+        SELECT a.* FROM appointments a
+        INNER JOIN patient_clinic_access pca ON a.patient_id = pca.patient_id
+        WHERE pca.clinic_id = $1
+          AND a.scheduled_date::date = $2::date
+          AND pca.is_active = true
+          AND a.is_active = true
+          AND a.deleted_at IS NULL
+        ORDER BY a.scheduled_date ASC
       `;
       
       const result = await _context.database.executeQuery(query, [clinicId, date]);

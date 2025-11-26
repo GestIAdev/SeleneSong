@@ -23,7 +23,11 @@ export const typeDefs = `#graphql
     phone: String
     dateOfBirth: DateString
     address: String
-    emergencyContact: String
+    # 🔥 EMERGENCY CONTACT - Campos separados (fix arquitectónico)
+    emergencyContact: String  # DEPRECATED: Para compatibilidad, devuelve JSON {name, phone}
+    emergencyContactName: String
+    emergencyContactPhone: String
+    emergencyContactRelationship: String
     insuranceProvider: String
     policyNumber: String
     medicalHistory: String
@@ -44,7 +48,11 @@ export const typeDefs = `#graphql
     dateOfBirth: DateString
     gender: String
     address: String
-    emergencyContact: String
+    # 🔥 EMERGENCY CONTACT - Campos separados (fix arquitectónico)
+    emergencyContact: String  # DEPRECATED: Para compatibilidad, devuelve JSON {name, phone}
+    emergencyContactName: String
+    emergencyContactPhone: String
+    emergencyContactRelationship: String
     insurance: String  # JSON string - resolver devuelve parent.insurance
     allergies: [String]  # Array - resolver devuelve parent.allergies || []
     medications: [String]  # Array - resolver devuelve parent.medications || []
@@ -65,7 +73,11 @@ export const typeDefs = `#graphql
     phone: String
     dateOfBirth: DateString
     address: String
-    emergencyContact: String
+    # 🔥 EMERGENCY CONTACT - Campos separados (fix arquitectónico)
+    emergencyContact: String  # DEPRECATED: Para compatibilidad
+    emergencyContactName: String
+    emergencyContactPhone: String
+    emergencyContactRelationship: String
     insuranceProvider: String
     policyNumber: String
   }
@@ -77,7 +89,11 @@ export const typeDefs = `#graphql
     phone: String
     dateOfBirth: DateString
     address: String
-    emergencyContact: String
+    # 🔥 EMERGENCY CONTACT - Campos separados (fix arquitectónico)
+    emergencyContact: String  # DEPRECATED: Para compatibilidad
+    emergencyContactName: String
+    emergencyContactPhone: String
+    emergencyContactRelationship: String
     insuranceProvider: String
     policyNumber: String
   }
@@ -114,6 +130,7 @@ export const typeDefs = `#graphql
     practitioner: User
     appointmentDate: String!
     appointmentTime: String!
+    scheduled_date: String
     duration: Int!
     type: String!
     status: String!
@@ -1266,7 +1283,7 @@ export const typeDefs = `#graphql
     appointmentsByDate(date: String!): [Appointment!]!
     
     # AppointmentsV3 - Veritas Enhanced
-    appointmentsV3(limit: Int, offset: Int, patientId: ID): [AppointmentV3!]!
+    appointmentsV3(limit: Int, offset: Int, patientId: ID, startDate: String, endDate: String): [AppointmentV3!]!
     appointmentV3(id: ID!): AppointmentV3
     appointmentsV3ByDate(date: String!): [AppointmentV3!]!
     
@@ -2559,7 +2576,7 @@ export const typeDefs = `#graphql
   # CustomCalendar V3 Queries
   type Query {
     # AppointmentsV3 - Veritas Enhanced
-    appointmentsV3(limit: Int, offset: Int, patientId: ID): [AppointmentV3!]!
+    appointmentsV3(limit: Int, offset: Int, patientId: ID, startDate: String, endDate: String): [AppointmentV3!]!
     appointmentV3(id: ID!): AppointmentV3
     appointmentsV3ByDate(date: String!): [AppointmentV3!]!
 
