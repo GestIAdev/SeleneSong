@@ -169,6 +169,7 @@ export class PatientsDatabase extends BaseDatabase {
         isActive: dbPatient.is_active,
         createdAt: dbPatient.created_at,
         updatedAt: dbPatient.updated_at,
+        walletAddress: dbPatient.wallet_address,
         hasInsurance: !!dbPatient.insurance_provider,
         requiresSpecialCare: !!(
           dbPatient.special_needs || dbPatient.anxiety_level

@@ -141,6 +141,57 @@ export const updateBillingDataV3 = async (
       console.log("✅ GATE 4 (Auditoría) - Mutation logged");
     }
 
+    // ⚡ BLOCKCHAIN HOOK ⚡
+    // Si el estado cambia a PAID, disparar recompensa Web3
+    if (args.input.status === 'PAID' && process.env.BLOCKCHAIN_ENABLED === 'true') {
+      console.log(`🔗 [BILLING] Invoice ${billingData.invoice_number} PAID - Initiating Blockchain Reward...`);
+      
+      // Fire & Forget (No bloquear respuesta al cliente)
+      (async () => {
+        try {
+          // 1. Get patient wallet from database
+          const patient = await context.database.patients.getPatientById(billingData.patient_id);
+          
+          if (!patient?.walletAddress) {
+            console.log(`⏭️ [BILLING] Patient ${billingData.patient_id} has no wallet - skipping reward`);
+            return;
+          }
+          
+          console.log(`🔗 [BILLING] Patient wallet found: ${patient.walletAddress}`);
+          
+          // 2. Import and call blockchain service
+          const { blockchainService } = await import('../../../services/BlockchainService.js');
+          
+          if (!blockchainService?.rewardPatientForPayment) {
+            console.warn(`⚠️ [BILLING] BlockchainService.rewardPatientForPayment not available`);
+            return;
+          }
+          
+          // 3. Calculate amount in cents (totalAmount is in currency units)
+          const amountCents = Math.round((billingData.total_amount || 0) * 100);
+          
+          // 4. Execute reward
+          const result = await blockchainService.rewardPatientForPayment(
+            patient.walletAddress,
+            amountCents,
+            billingData.id,
+            billingData.patient_id
+          );
+          
+          if (result.success) {
+            console.log(`✅ [BILLING] Reward complete for ${billingData.invoice_number}: ${result.rewardAmount} DENTIA`);
+            if (result.transactionHash) {
+              console.log(`   TX Hash: ${result.transactionHash}`);
+            }
+          } else {
+            console.error(`❌ [BILLING] Reward failed for ${billingData.invoice_number}: ${result.error}`);
+          }
+        } catch (err) {
+          console.error(`❌ [BILLING] Blockchain hook error:`, (err as Error).message);
+        }
+      })();
+    }
+
     if (context.pubsub) {
       context.pubsub.publish('BILLING_DATA_V3_UPDATED', {
         billingDataV3Updated: billingData,

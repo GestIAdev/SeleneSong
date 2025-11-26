@@ -174,6 +174,7 @@ export const typeDefs = `#graphql
     isActive: Boolean!
     lastLoginAt: String
     createdAt: String!
+    patientId: ID # 🏥 VITALPASS: Clinical patient ID (null for non-PATIENT roles)
   }
 
   # 🔐 AUTHENTICATION TYPES (V3 - VERITAS)

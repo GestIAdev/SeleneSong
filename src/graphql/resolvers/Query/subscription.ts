@@ -17,28 +17,26 @@ export const subscriptionPlansV3 = async (
   try {
     const { activeOnly = true } = args;
 
-    // DIRECTIVA ENDER-D1-006.9-B: Extract clinic_id from user context
-    // SECURITY: User must be authenticated and have clinic_id
-    if (!context.user) {
-      console.warn('⚠️  No authenticated user. Returning empty plans.');
-      return [];
-    }
+    // DIRECTIVA VITALPASS-RESURRECTION: Plans are PUBLIC for all users
+    // This allows patients to see pricing before subscribing
+    // Multi-tenant isolation: GLOBAL plans visible to everyone
+    // Clinic-specific plans only visible to authenticated clinic users
 
-    // Get clinic_id from user context (staff users should have this)
-    const clinicId = (context.user as any).clinic_id || (context.user as any).clinicId;
+    // Get clinic_id from user context if authenticated
+    const clinicId = context.user 
+      ? ((context.user as any).clinic_id || (context.user as any).clinicId || null)
+      : null;
 
-    if (!clinicId) {
-      console.warn(`⚠️  User ${context.user.id} (${context.user.role}) has no clinic_id. Returning empty plans.`);
-      return [];
-    }
-
-    // Query plans filtered by clinic_id (multi-tenant isolation)
+    // Query plans: GLOBAL plans for everyone, + clinic-specific if authenticated
     const plans = await context.database.subscriptions.getSubscriptionPlansV3({
       clinicId,
       isActive: activeOnly
     });
 
-    console.log(`✅ subscriptionPlansV3: ${plans.length} plans for clinic ${clinicId} (user: ${context.user.email})`);
+    const userInfo = context.user 
+      ? `user ${context.user.email} (clinic: ${clinicId || 'LIMBO'})` 
+      : 'anonymous user';
+    console.log(`✅ subscriptionPlansV3: ${plans.length} plans for ${userInfo}`);
     return plans || [];
   } catch (error) {
     console.error("❌ subscriptionPlansV3 query error:", error as Error);
@@ -84,7 +82,7 @@ export const subscriptionsV3 = async (
 
     // Use specialized SubscriptionsDatabase class
     const subscriptions = await context.database.subscriptions.getSubscriptionsV3({
-      userId: patientId, // Map patientId to userId for database method
+      patientId, // VITALPASS FIX: Use patientId directly
       status,
       limit,
       offset

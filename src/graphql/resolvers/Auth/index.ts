@@ -83,14 +83,30 @@ export const AuthMutation = {
         [email]
       );
 
-      await client.end();
-
       if (result.rows.length === 0) {
+        await client.end();
         console.log(`❌ User not found or inactive: ${email}`);
         throw new Error('Invalid credentials');
       }
 
       const user = result.rows[0];
+
+      // 🏥 VITALPASS FIX: If user is PATIENT, fetch their patientId from patients table
+      let patientId: string | null = null;
+      if (user.role === 'PATIENT' || user.role === 'patient') {
+        const patientResult = await client.query(
+          'SELECT id FROM patients WHERE LOWER(email) = LOWER($1) AND is_active = true AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1',
+          [email]
+        );
+        if (patientResult.rows.length > 0) {
+          patientId = patientResult.rows[0].id;
+          console.log(`🏥 Found patientId for PATIENT user: ${patientId}`);
+        } else {
+          console.warn(`⚠️ PATIENT user ${email} has no associated patient record`);
+        }
+      }
+
+      await client.end();
 
       // Validate password with bcrypt
       const isValidPassword = await bcrypt.compare(password, user.password_hash);
@@ -174,8 +190,9 @@ export const AuthMutation = {
           firstName: user.first_name,
           lastName: user.last_name,
           isActive: user.is_active,
-          lastLoginAt: user.last_login_at, // ✅ Added field
+          lastLoginAt: user.last_login_at,
           createdAt: user.created_at,
+          patientId: patientId, // 🏥 VITALPASS: Include patientId for PATIENT users
         }
       };
 

@@ -61,24 +61,39 @@ export const createSubscriptionV3 = async (
     if (!args.input.patientId) {
       throw new Error('Validation failed: patientId is required');
     }
-    if (!args.input.clinicId) {
-      throw new Error('Validation failed: clinicId is required (DIRECTIVA #007.5 - ANCLAJE)');
-    }
     console.log("✅ GATE 1 (Verificación) - Input validated");
 
-    // ⚓ ANCLAJE LOGIC (DIRECTIVA #007.5)
-    const { patientId, clinicId } = args.input;
-    console.log(`⚓ ANCLAJE: Vinculando Paciente ${patientId} -> Clínica ${clinicId}`);
-    await context.database.anchorPatientToClinic(patientId, clinicId);
+    // ✅ GATE 2: PLAN LOOKUP - Get plan to determine clinic_id
+    const plan = await context.database.subscriptions.getSubscriptionPlanV3ById(args.input.planId);
+    if (!plan) {
+      throw new Error(`Plan ${args.input.planId} not found`);
+    }
+    console.log("✅ GATE 2 (Plan Lookup) - Plan found:", plan.name, "| clinic_id:", plan.clinic_id || 'GLOBAL');
+
+    // VITALPASS LOGIC: Determine clinic_id from plan, not input
+    // - GLOBAL plans (clinic_id IS NULL): No anclaje needed, subscription is "floating"
+    // - Clinic-specific plans: Use plan's clinic_id
+    const effectiveClinicId = plan.clinic_id || null;
+    
+    // ⚓ ANCLAJE LOGIC (DIRECTIVA #007.5) - Only if plan has clinic_id
+    const { patientId } = args.input;
+    if (effectiveClinicId) {
+      console.log(`⚓ ANCLAJE: Vinculando Paciente ${patientId} -> Clínica ${effectiveClinicId}`);
+      await context.database.anchorPatientToClinic(patientId, effectiveClinicId);
+    } else {
+      console.log(`🌍 GLOBAL PLAN: No anclaje needed for patient ${patientId}`);
+    }
 
     // ✅ GATE 3: TRANSACCIÓN DB - Real database operation
-    const subscription = await context.database.createSubscriptionV3(args.input);
+    // Override clinicId with the plan's clinic_id (or null for global)
+    const subscriptionInput = {
+      ...args.input,
+      clinicId: effectiveClinicId
+    };
+    const subscription = await context.database.createSubscriptionV3(subscriptionInput);
     console.log("✅ GATE 3 (Transacción DB) - Created:", subscription.id);
 
     // ✅ GATE 4: AUDITORÍA - Log to audit trail (disabled for now - audit table schema mismatch)
-    // if (context.auditLogger) {
-    //   await context.auditLogger.logMutation({...});
-    // }
     console.log("✅ GATE 4 (Auditoría) - Skipped (audit table schema mismatch)");
 
     if (context.pubsub) {

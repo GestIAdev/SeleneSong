@@ -13,14 +13,31 @@ export class SubscriptionsDatabase extends BaseDatabase {
   }): Promise<any[]> {
     const { clinicId, isActive = true, limit = 50, offset = 0 } = args;
 
-    // DIRECTIVA ENDER-D1-006.9-B: Multi-tenant query
-    // Filter by clinic_id for tenant isolation
+    // DIRECTIVA VITALPASS-RESURRECTION: Multi-tenant query with GLOBAL support
+    // - If clinicId is provided: Return GLOBAL plans + clinic-specific plans
+    // - If clinicId is null: Return only GLOBAL plans (for patients in "limbo")
     let query = `
       SELECT
-        id, name, description, price, currency,
-        code, max_services_per_month, max_services_per_year,
-        features, billing_cycle, is_active,
-        clinic_id, created_at, updated_at
+        id, 
+        name, 
+        description, 
+        price, 
+        currency,
+        CASE 
+          WHEN code = 'ELITE' THEN 'ENTERPRISE'
+          WHEN code IS NULL THEN 'BASIC'
+          ELSE code 
+        END AS tier, 
+        COALESCE(max_services_per_month, 0) AS "maxServicesPerMonth", 
+        COALESCE(max_services_per_year, 0) AS "maxServicesPerYear",
+        COALESCE(features, '[]'::jsonb) AS features, 
+        COALESCE(billing_cycle, 'MONTHLY') AS "billingCycle", 
+        is_active AS active,
+        false AS popular,
+        false AS recommended,
+        clinic_id AS "clinicId", 
+        created_at AS "createdAt", 
+        updated_at AS "updatedAt"
       FROM subscription_plans_v3
       WHERE deleted_at IS NULL
     `;
@@ -28,10 +45,14 @@ export class SubscriptionsDatabase extends BaseDatabase {
     const params: any[] = [];
     let paramIndex = 1;
 
-    // Filter by clinic_id (REQUIRED for multi-tenant)
+    // VITALPASS: Include GLOBAL plans (clinic_id IS NULL) for all users
+    // Plus clinic-specific plans if user has a clinic
     if (clinicId) {
-      query += ` AND clinic_id = $${paramIndex++}`;
+      query += ` AND (clinic_id IS NULL OR clinic_id = $${paramIndex++})`;
       params.push(clinicId);
+    } else {
+      // User in "limbo" (no clinic) - only show GLOBAL plans
+      query += ` AND clinic_id IS NULL`;
     }
 
     // Filter by is_active
@@ -43,7 +64,30 @@ export class SubscriptionsDatabase extends BaseDatabase {
     query += ` ORDER BY price ASC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
     params.push(limit, offset);
 
-    return await this.getAll(query, params);
+    const plans = await this.getAll(query, params);
+    
+    // VITALPASS: Transform features from simple strings to SubscriptionFeature objects
+    // BD has: ["Feature 1", "Feature 2"] 
+    // GraphQL expects: [{id, name, description, included, limit, unit}]
+    return plans.map((plan: any) => ({
+      ...plan,
+      features: (plan.features || []).map((feature: any, index: number) => {
+        // If already an object with id, return as-is
+        if (typeof feature === 'object' && feature.id) {
+          return feature;
+        }
+        // Transform string to SubscriptionFeature object
+        const featureName = typeof feature === 'string' ? feature : String(feature);
+        return {
+          id: `${plan.id}-feature-${index}`,
+          name: featureName,
+          description: featureName,
+          included: true,
+          limit: null,
+          unit: null
+        };
+      })
+    }));
   }
 
   async getSubscriptionPlanV3ById(id: string): Promise<any> {
@@ -167,56 +211,78 @@ export class SubscriptionsDatabase extends BaseDatabase {
   // ============================================================================
 
   async getSubscriptionsV3(args: {
-    userId?: string;
+    patientId?: string;
     status?: string;
     limit?: number;
     offset?: number;
   }): Promise<any[]> {
-    const { userId, status, limit = 50, offset = 0 } = args;
+    const { patientId, status, limit = 50, offset = 0 } = args;
 
+    // VITALPASS FIX: Use subscriptions_v3 table with REAL columns
+    // Convert dates to ISO strings for proper JSON serialization
     let query = `
       SELECT
-        s.id, s.user_id, s.plan_id, s.status, s.current_period_start,
-        s.current_period_end, s.cancel_at_period_end, s.cancelled_at,
-        s.trial_start, s.trial_end, s.created_at, s.updated_at,
-        sp.name as plan_name, sp.price_monthly, sp.price_yearly,
-        sp.features, sp.max_users, sp.max_patients, sp.max_storage_gb
-      FROM subscriptions s
-      LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
+        s.id,
+        s.patient_id AS "patientId",
+        s.plan_id AS "planId",
+        s.status,
+        to_char(s.start_date AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "startDate",
+        to_char(s.end_date AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "endDate",
+        to_char(s.next_billing_date AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "nextBillingDate",
+        s.total_amount AS "totalAmount",
+        s.currency,
+        s.auto_renew AS "autoRenew",
+        0 AS "usageThisMonth",
+        0 AS "usageThisYear",
+        COALESCE(sp.max_services_per_month, 0) AS "remainingServices",
+        to_char(s.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "createdAt",
+        to_char(s.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "updatedAt",
+        s.metadata,
+        s.plan_id as plan_id,
+        s.patient_id as patient_id
+      FROM subscriptions_v3 s
+      LEFT JOIN subscription_plans_v3 sp ON s.plan_id = sp.id
+      WHERE s.deleted_at IS NULL
     `;
 
     const params: any[] = [];
-    const conditions: string[] = [];
+    let paramIndex = 1;
 
-    if (userId) {
-      conditions.push(`s.user_id = $${params.length + 1}`);
-      params.push(userId);
+    if (patientId) {
+      query += ` AND s.patient_id = $${paramIndex++}`;
+      params.push(patientId);
     }
     if (status) {
-      conditions.push(`s.status = $${params.length + 1}`);
+      query += ` AND s.status = $${paramIndex++}`;
       params.push(status);
     }
 
-    if (conditions.length > 0) {
-      query += ` WHERE ${conditions.join(' AND ')}`;
-    }
-
     query += ` ORDER BY s.created_at DESC`;
-    query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    query += ` LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
     params.push(limit, offset);
 
     return await this.getAll(query, params);
   }
 
   async getSubscriptionV3ById(id: string): Promise<any> {
+    // VITALPASS FIX: Use subscriptions_v3 table with ISO date strings
     const query = `
       SELECT
-        s.*,
-        sp.name as plan_name, sp.price_monthly, sp.price_yearly,
-        sp.features, sp.max_users, sp.max_patients, sp.max_storage_gb
-      FROM subscriptions s
-      LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
-      WHERE s.id = $1
+        s.id,
+        s.patient_id AS "patientId",
+        s.plan_id AS "planId",
+        s.status,
+        to_char(s.start_date AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "startDate",
+        to_char(s.end_date AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "endDate",
+        to_char(s.next_billing_date AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "nextBillingDate",
+        s.total_amount AS "totalAmount",
+        s.currency,
+        s.auto_renew AS "autoRenew",
+        s.metadata,
+        s.plan_id as plan_id,
+        s.patient_id as patient_id
+      FROM subscriptions_v3 s
+      WHERE s.id = $1 AND s.deleted_at IS NULL
     `;
     return await this.getOne(query, [id]);
   }
@@ -241,21 +307,28 @@ export class SubscriptionsDatabase extends BaseDatabase {
 
     // Calculate billing dates based on plan cycle
     const start = startDate ? new Date(startDate) : new Date();
+    let endDate = new Date(start);
     let nextBilling = new Date(start);
     
     if (plan.billing_cycle === 'MONTHLY') {
+      endDate.setMonth(endDate.getMonth() + 1);
       nextBilling.setMonth(nextBilling.getMonth() + 1);
-    } else if (plan.billing_cycle === 'YEARLY') {
+    } else if (plan.billing_cycle === 'YEARLY' || plan.billing_cycle === 'ANNUAL') {
+      endDate.setFullYear(endDate.getFullYear() + 1);
       nextBilling.setFullYear(nextBilling.getFullYear() + 1);
+    } else {
+      // Default to monthly
+      endDate.setMonth(endDate.getMonth() + 1);
+      nextBilling.setMonth(nextBilling.getMonth() + 1);
     }
 
-    // ✅ FIXED: Insert into subscriptions_v3 (not 'subscriptions')
+    // ✅ FIXED: Insert into subscriptions_v3 with end_date
     const query = `
       INSERT INTO subscriptions_v3 (
-        patient_id, plan_id, status, start_date,
+        patient_id, plan_id, status, start_date, end_date,
         next_billing_date, total_amount, currency,
         auto_renew, metadata, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
       RETURNING *
     `;
     const params = [
@@ -263,6 +336,7 @@ export class SubscriptionsDatabase extends BaseDatabase {
       planId,
       'ACTIVE',
       start,
+      endDate,         // ✅ ADDED: end_date
       nextBilling,
       plan.price,      // ✅ total_amount from plan
       plan.currency || 'EUR',

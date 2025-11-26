@@ -42,6 +42,23 @@ export const SubscriptionV3 = {
       };
       
       // 🎯 NORMALIZE: snake_case DB → camelCase GraphQL
+      // 🏥 VITALPASS: Transform features from string[] to SubscriptionFeatureV3[]
+      const transformedFeatures = Array.isArray(rawPlan.features) 
+        ? rawPlan.features.map((f: any, index: number) => {
+            if (typeof f === 'string') {
+              return {
+                id: `${rawPlan.id}-feature-${index}`,
+                name: f,
+                description: f,
+                included: true,
+                limit: null,
+                unit: null
+              };
+            }
+            return f;
+          })
+        : [];
+
       const plan = {
         id: rawPlan.id,
         name: rawPlan.name,
@@ -59,7 +76,7 @@ export const SubscriptionV3 = {
         updatedAt: rawPlan.updated_at?.toISOString?.() || rawPlan.updated_at,
         // Preserve snake_case for nested resolvers
         plan_id: rawPlan.id,
-        features: rawPlan.features
+        features: transformedFeatures  // 🏥 Already transformed
       };
       
       console.log("🔍 Normalized plan:", plan);
@@ -126,10 +143,33 @@ export const BillingCycleV3 = {
 // ============================================================================
 
 export const SubscriptionPlanV3 = {
-  features: async (parent: any, _: unknown, context: GraphQLContext): Promise<any[]> => {
+  features: async (parent: any, _: unknown, _context: GraphQLContext): Promise<any[]> => {
+    // 🏥 VITALPASS: Features are already transformed in parent resolver
+    // Just return them if already objects, or transform if strings
     try {
-      const features = await context.database.getSubscriptionPlanFeaturesV3(parent.id);
-      return features;
+      const rawFeatures = parent.features || [];
+      
+      if (rawFeatures.length === 0) return [];
+      
+      // Check if already transformed (has id property)
+      if (typeof rawFeatures[0] === 'object' && rawFeatures[0].id) {
+        return rawFeatures;
+      }
+      
+      // Transform strings to SubscriptionFeatureV3 objects
+      return rawFeatures.map((f: any, index: number) => {
+        if (typeof f === 'string') {
+          return {
+            id: `${parent.id}-feature-${index}`,
+            name: f,
+            description: f,
+            included: true,
+            limit: null,
+            unit: null
+          };
+        }
+        return f;
+      });
     } catch (error) {
       console.error("❌ SubscriptionPlanV3.features resolver error:", error as Error);
       return [];
