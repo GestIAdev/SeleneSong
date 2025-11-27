@@ -4,7 +4,87 @@ import { syncToothWithTreatment } from "./odontogram.js";
 
 // ============================================================================
 // 🩺 TREATMENT V3 MUTATIONS - FOUR-GATE PATTERN
+// 💰 DIRECTIVA #011: PUENTE CLÍNICO-FINANCIERO
 // ============================================================================
+
+/**
+ * 💰 BRIDGE: Genera factura automática desde tratamiento
+ * DIRECTIVA #011 - El Hilo Dorado: Tratamiento → Factura PENDING
+ */
+async function generateInvoiceFromTreatment(
+  context: any,
+  treatment: any,
+  clinicId: string
+): Promise<void> {
+  // Solo generar factura si hay cost > 0
+  if (!treatment.cost || treatment.cost <= 0) {
+    console.log("⚠️ [BRIDGE] Tratamiento sin coste - no se genera factura");
+    return;
+  }
+
+  try {
+    // 💰 IVA España = 21%
+    const TAX_RATE = 21;
+    // 🔧 FIX: Asegurar que cost es número, no string
+    const subtotal = parseFloat(String(treatment.cost));
+    const taxAmount = parseFloat((subtotal * (TAX_RATE / 100)).toFixed(2));
+    const totalAmount = parseFloat((subtotal + taxAmount).toFixed(2));
+
+    // Concepto descriptivo
+    const concept = `${treatment.treatmentType || 'Tratamiento'} - ${treatment.description || 'Tratamiento Clínico'}`;
+
+    const billingInput = {
+      patientId: treatment.patientId,
+      clinicId: clinicId,
+      subtotal: subtotal,
+      taxRate: TAX_RATE,
+      taxAmount: taxAmount,
+      discountAmount: 0,
+      totalAmount: totalAmount,
+      currency: 'EUR',
+      issueDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 días
+      status: 'PENDING', // Siempre pendiente de cobro
+      paymentTerms: null,
+      notes: concept,
+      createdBy: context.user?.id || null,
+      treatmentId: treatment.id, // FK al tratamiento (Economic Singularity)
+    };
+
+    console.log("💰 [BRIDGE] Generando factura automática desde tratamiento...", {
+      treatmentId: treatment.id,
+      patientId: treatment.patientId,
+      subtotal: subtotal,
+      taxAmount: taxAmount,
+      total: totalAmount,
+    });
+
+    // Insertar en billing_data_v3
+    const billingData = await context.database.billing.createBillingDataV3(billingInput);
+    
+    console.log(`✅ [BRIDGE] Factura generada: ${billingData.invoice_number} por €${totalAmount.toFixed(2)}`);
+
+    // Audit log (non-blocking)
+    if (context.auditLogger) {
+      try {
+        await context.auditLogger.log({
+          entityType: 'BillingDataV3',
+          entityId: billingData.id,
+          operationType: 'AUTO_CREATE',
+          userId: context.user?.id,
+          userEmail: context.user?.email,
+          ipAddress: context.ip,
+          newValues: { ...billingData, source: 'TREATMENT_BRIDGE' },
+        });
+      } catch (e) {
+        console.warn("⚠️ [BRIDGE] Audit log failed (non-blocking)");
+      }
+    }
+  } catch (error) {
+    // Non-blocking: El tratamiento se crea aunque falle la factura
+    console.error("❌ [BRIDGE] Error generando factura automática (non-blocking):", (error as Error).message);
+  }
+}
 
 export const createTreatmentV3 = async (
   _: any,
@@ -55,6 +135,12 @@ export const createTreatmentV3 = async (
     }
     
     console.log("✅ GATE 3 (Transacción DB) - Created:", treatment.id);
+
+    // 💰 DIRECTIVA #011: PUENTE CLÍNICO-FINANCIERO
+    // Genera factura automática PENDING para el tratamiento
+    if (clinicId && treatment.cost && treatment.cost > 0) {
+      await generateInvoiceFromTreatment(context, treatment, clinicId);
+    }
 
     // ✅ GATE 4: AUDITORÍA - Log to audit trail (non-blocking)
     if (context.auditLogger) {

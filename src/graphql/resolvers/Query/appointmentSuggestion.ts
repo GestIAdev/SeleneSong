@@ -48,16 +48,29 @@ export const AppointmentSuggestionQuery = {
       
       const result = await context.database.executeQuery(query, params);
       
-      // Parse JSON fields
+      // 🔧 FIX SERIALIZACIÓN: Respetar tipos del Schema GraphQL
+      // - reasoning: String → mantener como string
+      // - ia_diagnosis: IADiagnosisResponse → parsear a objeto
+      // - patient_request: String → mantener como string
+      const parseJsonField = (field: any): any => {
+        if (field === null || field === undefined) return null;
+        if (typeof field === 'string') {
+          try { return JSON.parse(field); } catch { return field; }
+        }
+        return field;
+      };
+      
+      const ensureString = (field: any): string | null => {
+        if (field === null || field === undefined) return null;
+        if (typeof field === 'string') return field;
+        return JSON.stringify(field);
+      };
+      
       const suggestions = result.rows.map((row: any) => ({
         ...row,
-        reasoning: typeof row.reasoning === 'string' ? JSON.parse(row.reasoning) : row.reasoning,
-        ia_diagnosis: row.ia_diagnosis && typeof row.ia_diagnosis === 'string' 
-          ? JSON.parse(row.ia_diagnosis) 
-          : row.ia_diagnosis,
-        patient_request: typeof row.patient_request === 'string' 
-          ? JSON.parse(row.patient_request) 
-          : row.patient_request
+        reasoning: ensureString(row.reasoning),  // String en schema
+        ia_diagnosis: parseJsonField(row.ia_diagnosis),  // IADiagnosisResponse (objeto)
+        patient_request: ensureString(row.patient_request)  // String en schema
       }));
       
       console.log(`[Query] Found ${suggestions.length} suggestions`);
@@ -70,7 +83,22 @@ export const AppointmentSuggestionQuery = {
         );
         
         if (patientResult.rows.length > 0) {
-          suggestion.patient = patientResult.rows[0];
+          const p = patientResult.rows[0];
+          // 🔧 FIX: Mapear snake_case → camelCase para GraphQL
+          suggestion.patient = {
+            id: p.id,
+            firstName: p.first_name || 'Paciente',
+            lastName: p.last_name || 'Desconocido',
+            email: p.email
+          };
+        } else {
+          // Fallback si no existe el paciente
+          suggestion.patient = {
+            id: suggestion.patient_id,
+            firstName: 'Paciente',
+            lastName: 'No Encontrado',
+            email: null
+          };
         }
       }
       

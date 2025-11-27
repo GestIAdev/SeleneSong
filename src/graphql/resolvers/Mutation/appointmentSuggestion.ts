@@ -79,6 +79,24 @@ export const AppointmentSuggestionMutation = {
       const dbRow = result.rows[0];
       console.log(`[Mutation] Suggestion created with ID: ${dbRow.id}`);
       
+      // 🔧 FIX SERIALIZACIÓN: Parsear JSONB correctamente
+      // - reasoning: String en schema, viene como objeto de DB → JSON.stringify
+      // - ia_diagnosis: IADiagnosisResponse en schema, viene como objeto → dejar objeto
+      // - patient_request: String en schema, viene como objeto de DB → JSON.stringify
+      const parseJsonField = (field: any): any => {
+        if (field === null || field === undefined) return null;
+        if (typeof field === 'string') {
+          try { return JSON.parse(field); } catch { return field; }
+        }
+        return field;
+      };
+      
+      const serializeToString = (field: any): string | null => {
+        if (field === null || field === undefined) return null;
+        if (typeof field === 'string') return field;
+        return JSON.stringify(field);
+      };
+      
       // Return directly - schema expects AppointmentSuggestion!, not wrapped in result
       return {
         id: dbRow.id,
@@ -90,9 +108,9 @@ export const AppointmentSuggestionMutation = {
         suggested_duration: dbRow.suggested_duration,
         suggested_practitioner_id: dbRow.suggested_practitioner_id,
         confidence_score: dbRow.confidence_score,
-        reasoning: dbRow.reasoning,
-        ia_diagnosis: dbRow.ia_diagnosis,
-        patient_request: dbRow.patient_request,
+        reasoning: serializeToString(dbRow.reasoning),  // String en schema
+        ia_diagnosis: parseJsonField(dbRow.ia_diagnosis),  // IADiagnosisResponse (objeto)
+        patient_request: serializeToString(dbRow.patient_request),  // String en schema
         status: dbRow.status,
         reviewed_by: dbRow.reviewed_by,
         reviewed_at: dbRow.reviewed_at,
