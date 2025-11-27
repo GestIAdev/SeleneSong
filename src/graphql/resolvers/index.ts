@@ -78,6 +78,10 @@ import {
 } from "./Subscription/treatment.js";
 import { TreatmentV3 } from "./FieldResolvers/treatment.js";
 
+// Import Odontogram resolvers
+import { odontogramDataV3 } from "./Query/odontogram.js";
+import { updateToothStatusV3 } from "./Mutation/odontogram.js";
+
 // Import all Billing domain resolvers
 import { billingQueries } from './Query/billing.js';
 import { billingMutations } from './Mutation/billing.js';
@@ -534,6 +538,16 @@ export const TreatmentResolvers = {
   TreatmentV3,
 };
 
+// 🦷 Consolidated Odontogram domain exports
+export const OdontogramResolvers = {
+  Query: {
+    odontogramDataV3,
+  },
+  Mutation: {
+    updateToothStatusV3,
+  },
+};
+
 // Consolidated Medical Records domain exports
 export const MedicalRecordResolvers = {
   Query: {
@@ -725,6 +739,8 @@ export const AllResolvers = {
     medicalRecord,
     medicalRecordsV3,
     medicalRecordV3,
+    // 🦷 Odontogram V3
+    odontogramDataV3,
     ...billingQueries,
     compliancesV3,
     complianceV3,
@@ -781,6 +797,8 @@ export const AllResolvers = {
     createMedicalRecordV3,
     updateMedicalRecordV3,
     deleteMedicalRecordV3,
+    // 🦷 Odontogram V3
+    updateToothStatusV3,
     ...billingMutations,
     createComplianceV3,
     updateComplianceV3,

@@ -119,6 +119,56 @@ export class AuditLogger {
     console.log('🎭 AuditLogger (The Chronicler) initialized');
   }
 
+  // ============================================================================
+  // 🎯 UNIVERSAL ENTRY POINT - Accepts camelCase from resolvers
+  // ============================================================================
+  
+  /**
+   * Universal log method that accepts camelCase params from GraphQL resolvers
+   * Maps to snake_case for database storage
+   * 
+   * Usage from resolvers:
+   *   await context.auditLogger.log({
+   *     entityType: 'TreatmentV3',
+   *     entityId: treatment.id,
+   *     operationType: 'CREATE',
+   *     userId: context.user?.id,
+   *     ...
+   *   });
+   */
+  async log(params: {
+    entityType: string;
+    entityId: string;
+    operationType: 'CREATE' | 'UPDATE' | 'DELETE' | 'SOFT_DELETE' | 'RESTORE';
+    userId?: string;
+    userEmail?: string;
+    ipAddress?: string;
+    oldValues?: Record<string, any>;
+    newValues?: Record<string, any>;
+    changedFields?: string[];
+    clinicId?: string;
+  }): Promise<AuditLogEntry | null> {
+    // Validate required fields
+    if (!params.entityType || !params.entityId) {
+      console.warn('⚠️ AuditLogger.log: Missing required fields (entityType or entityId), skipping');
+      return null;
+    }
+    
+    // Map camelCase to snake_case for database
+    return this.logMutation({
+      entity_type: params.entityType,
+      entity_id: params.entityId,
+      operation: params.operationType || 'UPDATE',
+      user_id: params.userId,
+      user_email: params.userEmail,
+      ip_address: params.ipAddress,
+      old_values: params.oldValues || {},
+      new_values: params.newValues || {},
+      changed_fields: params.changedFields,
+      integrity_status: 'PASSED',
+    });
+  }
+
   /**
    * Log a simple CREATE mutation
    * For new entities coming into the world

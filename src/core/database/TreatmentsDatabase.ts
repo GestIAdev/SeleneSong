@@ -117,9 +117,9 @@ export class TreatmentsDatabase extends BaseDatabase {
         id: dbRow.id,
         patientId: dbRow.patient_id,
         practitionerId: dbRow.created_by || "unknown", // Schema: practitionerId: ID!
-        treatmentType: dbRow.procedure_category || "general", // Schema: treatmentType: String!
+        treatmentType: dbRow.procedure_category || "CONSULTATION", // Must match ENUM
         description: dbRow.diagnosis || "No description", // Schema: description: String!
-        status: dbRow.treatment_status || "pending", // Schema: status: String!
+        status: dbRow.treatment_status || "PLANNED", // Must match ENUM
         startDate: dbRow.visit_date || new Date().toISOString(), // Schema: startDate: String!
         endDate: dbRow.follow_up_date,
         cost: dbRow.estimated_cost || 0,
@@ -148,23 +148,24 @@ export class TreatmentsDatabase extends BaseDatabase {
       const result = await client.query(
         `
         INSERT INTO medical_records (
-          patient_id, created_by, procedure_category,
+          id, patient_id, created_by, procedure_category,
           diagnosis, treatment_status, visit_date,
           follow_up_date, estimated_cost, clinical_notes,
-          created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+          is_active, created_at, updated_at, clinic_id
+        ) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, true, NOW(), NOW(), $10)
         RETURNING *
       `,
         [
           data.patientId,
           data.practitionerId,
-          data.treatmentType || "general",
+          data.treatmentType || "CONSULTATION",
           data.description || "",
-          data.status || "pending",
+          data.status || "PLANNED",
           data.startDate || new Date(),
           data.endDate,
           data.cost || 0,
           data.notes || "",
+          data.clinic_id || null,
         ],
       );
 
