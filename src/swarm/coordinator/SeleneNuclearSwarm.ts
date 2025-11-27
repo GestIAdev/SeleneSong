@@ -192,7 +192,7 @@ export class SeleneNuclearSwarm extends EventEmitter {
   private _consensusThreshold: number = 0.51;
   private _maxNodeTimeout: number = 30000;
   private _discoveryFrequency: number = 30000; // 🚀 OPTIMIZACIÓN: Aumentado de 5s a 30s para reducir carga
-  private _consensusCheckInterval: number = 120000; // 🚀 OPTIMIZACIÓN: Cambiado de 5min a 2min para acelerar testing artístico - TEMPORAL ADJUSTMENT
+  private _consensusCheckInterval: number = 1800000; // 🌙 OPERACIÓN SILENCIO: 30min (was 2min) - Selene reflexiva, no neurótica
   private _immortalityCycleInterval: number = 60000; // 🚀 OPTIMIZACIÓN: Aumentado de 20s a 60s para reducir carga
 
   // 🧬 GESTIÓN DE REFERENCIAS DÉBILES - Inicialización lazy

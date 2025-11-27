@@ -1,5 +1,6 @@
 /**
  * 🔥 PHASE 2.3.2: LAZY TTL CACHE
+ * Updated: OPERACIÓN SILENCIO #012 - Console spam eliminated
  * 
  * **Optimización Punk**: Eliminar timers activos completamente.
  * 
@@ -26,6 +27,8 @@
  * @author PunkClaude + RaulVisionario
  * @date October 10, 2025
  */
+
+import { logger } from '../core/Logger.js';
 
 // 🔇 PUNK FIX: Only log TTL operations if DEBUG_TTL=true
 
@@ -88,8 +91,8 @@ export class LazyTTLCache<K, V> {
     };
 
     if (DEBUG_TTL) {
-      console.log(
-        `⚡ LazyTTLCache[${this.id}]: Created - TTL ${this.options.defaultTTL}ms, ` +
+      logger.debug(
+        `LazyTTLCache[${this.id}]: Created - TTL ${this.options.defaultTTL}ms, ` +
         `maxSize: ${this.options.maxSize || "unlimited"}, ` +
         `cleanupThreshold: ${this.options.cleanupThreshold} ops (NO TIMERS)`
       );
@@ -192,7 +195,7 @@ export class LazyTTLCache<K, V> {
     };
     this.operationCount = 0;
     if (DEBUG_TTL) {
-      console.log(`⚡ LazyTTLCache[${this.id}]: Cleared`);
+      logger.debug(`LazyTTLCache[${this.id}]: Cleared`);
     }
   }
 
@@ -258,8 +261,8 @@ export class LazyTTLCache<K, V> {
 
     if (cleanedCount > 0) {
       if (DEBUG_TTL) {
-        console.log(
-          `🧹 LazyTTLCache[${this.id}]: Manual cleanup - ${cleanedCount} expired entries removed`
+        logger.debug(
+          `LazyTTLCache[${this.id}]: Manual cleanup - ${cleanedCount} expired entries removed`
         );
       }
     }
@@ -302,8 +305,8 @@ export class LazyTTLCache<K, V> {
 
     if (cleanedCount > 0) {
       if (DEBUG_TTL) {
-        console.log(
-          `🧹 LazyTTLCache[${this.id}]: Passive cleanup #${this.stats.lazyCleanups} - ` +
+        logger.debug(
+          `LazyTTLCache[${this.id}]: Passive cleanup #${this.stats.lazyCleanups} - ` +
           `${cleanedCount} expired entries removed (${this.cache.size} remaining)`
         );
       }
@@ -336,8 +339,8 @@ export class LazyTTLCache<K, V> {
       }
 
       if (DEBUG_TTL) {
-        console.log(
-          `🗑️ LazyTTLCache[${this.id}]: LRU eviction - ${String(oldestKey)} removed ` +
+        logger.debug(
+          `LazyTTLCache[${this.id}]: LRU eviction - ${String(oldestKey)} removed ` +
           `(age: ${Math.round((Date.now() - oldestTime) / 1000)}s)`
         );
       }
@@ -354,8 +357,8 @@ export class LazyTTLCache<K, V> {
     this.clear();
     
     if (DEBUG_TTL) {
-      console.log(
-        `✅ LazyTTLCache[${this.id}]: Destroyed - ` +
+      logger.debug(
+        `LazyTTLCache[${this.id}]: Destroyed - ` +
         `${stats.hits} hits, ${stats.misses} misses, ${stats.expires} expires, ` +
         `${stats.lazyCleanups} lazy cleanups (${Math.round(stats.hitRate * 100)}% hit rate)`
       );
@@ -388,7 +391,7 @@ export class LazyTTLCacheFactory {
    */
   static destroyAll(): void {
     if (DEBUG_TTL) {
-      console.log(`🧹 LazyTTLCacheFactory: Destroying ${this.caches.size} caches...`);
+      logger.debug(`LazyTTLCacheFactory: Destroying ${this.caches.size} caches...`);
     }
     
     for (const cache of this.caches.values()) {
@@ -397,7 +400,7 @@ export class LazyTTLCacheFactory {
     
     this.caches.clear();
     if (DEBUG_TTL) {
-      console.log(`✅ LazyTTLCacheFactory: All caches destroyed`);
+      logger.debug(`LazyTTLCacheFactory: All caches destroyed`);
     }
   }
 

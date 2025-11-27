@@ -147,16 +147,16 @@ export class SeleneConsciousness {
   
   // **META-CONSCIENCE SCHEDULER**
   private metaConsciousnessScheduler?: NodeJS.Timeout;
-  // 🔧 DEV MODE: 5 minutos para testing rápido | TODO PROD: 15 min
-  private readonly META_CYCLE_INTERVAL = 5 * 60 * 1000;
+  // 🌙 OPERACIÓN SILENCIO: 60 minutos - Selene reflexiva, no neurótica
+  private readonly META_CYCLE_INTERVAL = 60 * 60 * 1000;
   
   // **EVOLUTION CYCLE SCHEDULER** 🔥 NEW - Reemplaza legacy auto-optimizer
   private evolutionCycleScheduler?: NodeJS.Timeout;
-  // 🔧 DEV MODE: Intervalos cortos para testing rápido
-  // TODO PRODUCCIÓN: Cambiar a 15min base / 45min max
-  private readonly EVOLUTION_CYCLE_BASE_INTERVAL = 2 * 60 * 1000;  // 2 min (DEV) | 15 min (PROD)
-  private readonly EVOLUTION_CYCLE_MAX_INTERVAL = 5 * 60 * 1000;   // 5 min (DEV) | 45 min (PROD)
-  private evolutionCycleInterval: number = 2 * 60 * 1000; // Intervalo actual (adaptativo)
+  // 🌙 OPERACIÓN SILENCIO: Intervalos largos para producción silenciosa
+  // Base: 30 min | Max: 90 min (adaptativos según actividad)
+  private readonly EVOLUTION_CYCLE_BASE_INTERVAL = 30 * 60 * 1000;  // 30 min
+  private readonly EVOLUTION_CYCLE_MAX_INTERVAL = 90 * 60 * 1000;   // 90 min
+  private evolutionCycleInterval: number = 30 * 60 * 1000; // Intervalo actual (adaptativo)
   
   // **SECURITY DEEP DIVE MONITOR** 🛡️🔒 NEW - Alimenta dashboard security panel
   private securityMonitorScheduler?: NodeJS.Timeout;

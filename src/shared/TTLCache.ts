@@ -1,6 +1,8 @@
 /**
  * 🔧 TTL CACHE V194
  * Directiva V194: Cirugía del Panteón - Fix #3
+ * Updated: OPERACIÓN SILENCIO #012 - Console spam eliminated
+ * Final: ALL LOGGING REMOVED - True silence achieved
  *
  * PROPÓSITO: Implementar cache con Time-To-Live automático
  * para prevenir acumulación infinita de datos en memoria
@@ -65,10 +67,7 @@ export class TTLCache<K, V> {
     };
 
     this.startCleanupTimer();
-
-    console.log(
-      `💾 TTLCache[${this.id}]: Creado con TTL ${this.options.defaultTTL}ms, maxSize: ${this.options.maxSize || "unlimited"}`,
-    );
+    // 🔇 OPERACIÓN SILENCIO: Constructor logs eliminated - too noisy during cluster startup
   }
 
   /**
@@ -101,10 +100,7 @@ export class TTLCache<K, V> {
     };
 
     this.cache.set(key, entry);
-
-    console.log(
-      `💾 TTLCache[${this.id}]: Set ${String(key)} (expires in ${actualTTL}ms)`,
-    );
+    // 🔇 OPERACIÓN SILENCIO: Set logs eliminated - too frequent, no value
   }
 
   /**
@@ -126,7 +122,7 @@ export class TTLCache<K, V> {
       this.stats.expires++;
       this.options.onExpire(String(key), entry.value);
       this.stats.misses++;
-      console.log(`⏰ TTLCache[${this.id}]: ${String(key)} expiró`);
+      // 🔇 OPERACIÓN SILENCIO: Expiration logs eliminated - too frequent
       return undefined;
     }
 
@@ -166,9 +162,6 @@ export class TTLCache<K, V> {
     const entry = this.cache.get(key);
     if (entry) {
       this.cache.delete(key);
-      console.log(
-        `🗑️ TTLCache[${this.id}]: ${String(key)} eliminado manualmente`,
-      );
       return true;
     }
     return false;
@@ -178,11 +171,7 @@ export class TTLCache<K, V> {
    * Limpiar todo el cache
    */
   clear(): void {
-    const size = this.cache.size;
     this.cache.clear();
-    console.log(
-      `🧹 TTLCache[${this.id}]: Cache limpiado (${size} entradas removidas)`,
-    );
   }
 
   /**
@@ -264,10 +253,6 @@ export class TTLCache<K, V> {
     const actualTTL = ttl !== undefined ? ttl : this.options.defaultTTL;
     entry.expires = now + actualTTL;
     entry.accessed = now;
-
-    console.log(
-      `🔄 TTLCache[${this.id}]: ${String(key)} TTL renovado (+${actualTTL}ms)`,
-    );
     return true;
   }
 
@@ -310,12 +295,6 @@ export class TTLCache<K, V> {
       }
     }
 
-    if (expiredCount > 0) {
-      console.log(
-        `⏰ TTLCache[${this.id}]: ${expiredCount} entradas expiradas limpiadas`,
-      );
-    }
-
     return expiredCount;
   }
 
@@ -340,9 +319,6 @@ export class TTLCache<K, V> {
       this.cache.delete(oldestKey);
       this.stats.evictions++;
       this.options.onEvict(String(oldestKey), entry.value);
-      console.log(
-        `🚪 TTLCache[${this.id}]: ${String(oldestKey)} expulsado por límite de tamaño`,
-      );
     }
   }
 
@@ -411,7 +387,6 @@ export class TTLCache<K, V> {
       expires: 0,
       evictions: 0,
     };
-    console.log(`📊 TTLCache[${this.id}]: Estadísticas reseteadas`);
   }
 
   /**
@@ -442,12 +417,6 @@ export class TTLCache<K, V> {
       this.refresh(key, extensionMs);
     }
 
-    if (expiring.length > 0) {
-      console.log(
-        `🔄 TTLCache[${this.id}]: ${expiring.length} entradas extendidas (+${extensionMs}ms)`,
-      );
-    }
-
     return expiring.length;
   }
 
@@ -457,7 +426,6 @@ export class TTLCache<K, V> {
   close(): void {
     this.stopCleanupTimer();
     this.clear();
-    console.log(`🔒 TTLCache[${this.id}]: Cache cerrado`);
   }
 
   /**
