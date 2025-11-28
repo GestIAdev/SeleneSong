@@ -265,7 +265,7 @@ export const deleteDocumentV3 = async (
   args: { id: string },
   context: GraphQLContext
 ): Promise<boolean> => {
-  console.log("🎯 [DOCUMENTS] deleteDocumentV3 - Deleting with FOUR-GATE protection");
+  console.log("🎯 [DOCUMENTS] deleteDocumentV3 - Deleting with FOUR-GATE protection + RBAC");
   
   try {
     // ✅ GATE 1: VERIFICACIÓN - Input validation
@@ -274,10 +274,41 @@ export const deleteDocumentV3 = async (
     }
     console.log("✅ GATE 1 (Verificación) - Input validated");
 
+    // ============================================================
+    // 🔐 GATE 2: RBAC - Role-Based Access Control (NEW!)
+    // ============================================================
+    const userRole = context.user?.role?.toUpperCase();
+    const userId = context.user?.id;
+    
+    if (!userId) {
+      console.error("❌ DELETE REJECTED: No authenticated user");
+      throw new Error('Authentication required: User must be logged in to delete documents');
+    }
+
+    const allowedRoles = ['ADMIN', 'DENTIST'];
+    if (!allowedRoles.includes(userRole || '')) {
+      console.error(`❌ DELETE REJECTED: Role ${userRole} not authorized for document deletion`);
+      throw new Error(`Forbidden: Role ${userRole} cannot delete documents. Only ADMIN or DENTIST allowed.`);
+    }
+    console.log(`✅ GATE 2 (RBAC) - Role ${userRole} authorized for delete`);
+
     // Capture old values for audit trail
     const oldDocument = await context.database.getDocumentV3ById(args.id);
     if (!oldDocument) {
       throw new Error(`Document ${args.id} not found`);
+    }
+
+    // ============================================================
+    // 🔐 GATE 2.5: Owner Verification (optional enhancement)
+    // ============================================================
+    // Allow delete if: ADMIN (any doc) OR DENTIST (own uploaded docs only)
+    if (userRole === 'DENTIST') {
+      const documentCreator = oldDocument.created_by || oldDocument.uploaded_by;
+      if (documentCreator && documentCreator !== userId) {
+        console.warn(`⚠️ DENTIST ${userId} attempting to delete document created by ${documentCreator}`);
+        // For now, allow DENTIST to delete any document in their clinic
+        // Future: Add clinic_id verification for multi-tenant
+      }
     }
 
     // ✅ GATE 3: TRANSACCIÓN DB - Real database operation
@@ -292,13 +323,14 @@ export const deleteDocumentV3 = async (
         operationType: 'DELETE',
         userId: context.user?.id,
         userEmail: context.user?.email,
+        userRole: userRole, // 🆕 Log role for audit
         ipAddress: context.ip,
         oldValues: oldDocument,
       });
-      console.log("✅ GATE 4 (Auditoría) - Mutation logged");
+      console.log("✅ GATE 4 (Auditoría) - Mutation logged with role:", userRole);
     }
 
-    console.log(`✅ deleteDocumentV3 mutation deleted ID: ${args.id}`);
+    console.log(`✅ deleteDocumentV3 mutation deleted ID: ${args.id} by ${context.user?.email} (${userRole})`);
     return true;
   } catch (error) {
     console.error("❌ deleteDocumentV3 mutation error:", error as Error);

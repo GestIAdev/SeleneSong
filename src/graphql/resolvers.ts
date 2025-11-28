@@ -169,6 +169,10 @@ import {
 } from './resolvers/Mutation/compliance.js';
 import { ComplianceV3 } from "./resolvers/FieldResolvers/compliance.js";
 
+// ⚖️ PENTÁGONO LEGAL - AI Act 2026 Ready
+import { pentagonLegalQueries } from './resolvers/Query/pentagonLegal.js';
+import { pentagonLegalMutations } from './resolvers/Mutation/pentagonLegal.js';
+
 // ✅ NETFLIX-DENTAL SUBSCRIPTION SYSTEM (V3)
 import {
   subscriptionPlansV3,
@@ -356,6 +360,9 @@ export const Query = {
   ...SubscriptionQuery,
   ...marketplaceQueries,
   ...auditQueryResolvers,
+  
+  // ⚖️ PENTÁGONO LEGAL V4 - ARMA ESTRATÉGICA DE COMPLIANCE
+  ...pentagonLegalQueries,
 };
 
 export const Mutation = {
@@ -377,6 +384,9 @@ export const Mutation = {
   ...BillingMutation,
   ...ComplianceMutation,
   ...marketplaceMutations,
+  
+  // ⚖️ PENTÁGONO LEGAL V4 - IGNITION MUTATIONS
+  ...pentagonLegalMutations,
   
   // 🏛️ EMPIRE ARCHITECTURE V2 - CLINIC SWITCHING
   selectClinic,

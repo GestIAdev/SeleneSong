@@ -2942,6 +2942,175 @@ export const typeDefs = `#graphql
       input: NotificationPreferencesInput!
     ): NotificationPreferencesV3!
   }
+
+  # ⚖️ PENTÁGONO LEGAL - AI Act 2026 Ready
+  # Compliance as Strategic Weapon
+
+  type ComplianceScoreBreakdown {
+    dataPrivacy: Float!
+    security: Float!
+    patientRights: Float!
+    retention: Float!
+  }
+
+  type ComplianceCheckResult {
+    ruleId: ID!
+    ruleCode: String!
+    ruleName: String!
+    passed: Boolean!
+    details: String
+    severity: String!
+    weight: Int!
+    penalty: Int!
+  }
+
+  type ComplianceScoreV4 {
+    overallScore: Float!
+    totalRules: Int!
+    rulesPassed: Int!
+    rulesFailed: Int!
+    criticalIssues: Int!
+    highIssues: Int!
+    mediumIssues: Int!
+    lowIssues: Int!
+    breakdown: ComplianceScoreBreakdown!
+    checks: [ComplianceCheckResult!]!
+    calculatedAt: String!
+  }
+
+  type ComplianceRuleV4 {
+    id: ID!
+    code: String!
+    name: String!
+    description: String
+    jurisdiction: String!
+    regulationReference: String
+    category: String!
+    checkType: String!
+    severity: String!
+    weight: Int!
+    failurePenalty: Int!
+    isActive: Boolean!
+  }
+
+  type LegalDocumentV4 {
+    id: ID!
+    code: String!
+    title: String!
+    description: String
+    jurisdiction: String!
+    category: String!
+    documentType: String!
+    contentMarkdown: String
+    filePath: String
+    externalUrl: String
+    version: String!
+    effectiveDate: String
+    isMandatory: Boolean!
+    isTemplate: Boolean!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type AuditLogV4 {
+    id: ID!
+    entityType: String!
+    entityId: String!
+    operation: String!
+    userId: String
+    ipAddress: String
+    oldValues: String
+    newValues: String
+    changedFields: [String!]
+    integrityStatus: String!
+    createdAt: String!
+  }
+
+  type AuditSummaryV4 {
+    totalOperations: Int!
+    operationsByType: String!
+    operationsByEntity: String!
+    integrityIssues: Int!
+  }
+
+  type ConsentComplianceCheckV4 {
+    compliant: Boolean!
+    totalPatients: Int!
+    missingConsent: Int!
+  }
+
+  # Dashboard unificado - Una sola query para todo
+  type PentagonLegalDashboardV4 {
+    score: PentagonScoreSummary!
+    recentDocuments: [PentagonDocumentSummary!]!
+    auditSummary: PentagonAuditSummary!
+    consentStatus: PentagonConsentStatus!
+  }
+
+  type PentagonScoreSummary {
+    overallScore: Float!
+    totalRules: Int!
+    rulesPassed: Int!
+    rulesFailed: Int!
+    criticalIssues: Int!
+    highIssues: Int!
+    mediumIssues: Int!
+    lowIssues: Int!
+    breakdown: ComplianceScoreBreakdown!
+    calculatedAt: String!
+  }
+
+  type PentagonDocumentSummary {
+    id: ID!
+    code: String!
+    title: String!
+    category: String!
+    jurisdiction: String!
+    isMandatory: Boolean!
+  }
+
+  type PentagonAuditSummary {
+    totalOperations: Int!
+    integrityIssues: Int!
+  }
+
+  type PentagonConsentStatus {
+    compliant: Boolean!
+    totalPatients: Int!
+    missingConsent: Int!
+  }
+
+  extend type Query {
+    # Pentágono Legal Queries
+    complianceScoreV4(clinicId: String, jurisdiction: String): ComplianceScoreV4
+    complianceRulesV4(jurisdiction: String, activeOnly: Boolean): [ComplianceRuleV4!]!
+    legalDocumentsV4(jurisdiction: String, category: String): [LegalDocumentV4!]!
+    legalDocumentV4(id: ID!): LegalDocumentV4
+    auditLogsV4(entityType: String, operation: String, limit: Int, offset: Int): [AuditLogV4!]!
+    auditSummaryV4(days: Int): AuditSummaryV4
+    consentComplianceCheckV4: ConsentComplianceCheckV4
+    pentagonLegalDashboardV4(clinicId: String, jurisdiction: String): PentagonLegalDashboardV4
+  }
+
+  # Pentágono Legal Mutation Results
+  type SeedComplianceResult {
+    success: Boolean!
+    rulesSeeded: Int!
+    documentsSeeded: Int!
+    message: String!
+  }
+
+  type ComplianceCheckResult {
+    success: Boolean!
+    score: Float!
+    message: String!
+  }
+
+  extend type Mutation {
+    # Pentágono Legal Mutations
+    seedComplianceDefaults: SeedComplianceResult!
+    runComplianceCheck(clinicId: String, jurisdiction: String): ComplianceCheckResult!
+  }
 `;
 
 export default typeDefs;
